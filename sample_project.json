@@ -1,0 +1,38 @@
+﻿{
+  "project": {
+    "title": "Sample Project",
+    "designer": "Hydraulics Team",
+    "units": "EN"
+  },
+  "crossings": [
+    {
+      "name": "Sample Crossing",
+      "flow": {
+        "minimum": 5.0,
+        "design": 10.0,
+        "maximum": 15.0
+      },
+      "tailwater": {
+        "constant_elevation": 100.5,
+        "invert_elevation": 99.0
+      },
+      "roadway": {
+        "width": 36.0,
+        "surface": "paved",
+        "stations": [-15.0, 0.0, 15.0],
+        "elevations": [102.0, 101.5, 102.0]
+      },
+      "culverts": [
+        {
+          "name": "Barrel 1",
+          "shape": "circle",
+          "material": "concrete",
+          "span": 4.0,
+          "rise": 4.0,
+          "inlet_invert_elevation": 98.5,
+          "outlet_invert_elevation": 98.0
+        }
+      ]
+    }
+  ]
+}
