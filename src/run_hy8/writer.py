@@ -33,9 +33,7 @@ class Hy8FileWriter:
             raise ValueError(message)
 
         if output_path.exists() and not overwrite:
-            raise FileExistsError(
-                f"{output_path} already exists. Set overwrite=True to replace it."
-            )
+            raise FileExistsError(f"{output_path} already exists. Set overwrite=True to replace it.")
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as handle:
@@ -138,11 +136,7 @@ class Hy8FileWriter:
             f"{culvert.outlet_invert_station} {culvert.outlet_invert_elevation}\n"
         )
         handle.write(f"ROADCULVSTATION {culvert.roadway_station}\n")
-        spacing = (
-            culvert.barrel_spacing
-            if culvert.barrel_spacing is not None
-            else max(culvert.span * 1.5, 0.0)
-        )
+        spacing = culvert.barrel_spacing if culvert.barrel_spacing is not None else max(culvert.span * 1.5, 0.0)
         handle.write(f"BARRELSPACING {spacing}\n")
         handle.write(f'STARTCULVNOTES "{culvert.notes}"\nENDCULVNOTES\n')
         handle.write("ENDCULVERT\n")

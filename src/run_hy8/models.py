@@ -115,9 +115,7 @@ class FlowDefinition:
             if len(self.user_values) < 2:
                 errors.append(f"{prefix}Provide at least two user-defined flow values.")
             elif any(a >= b for a, b in zip(self.user_values, self.user_values[1:])):
-                errors.append(
-                    f"{prefix}User-defined flows must be strictly increasing."
-                )
+                errors.append(f"{prefix}User-defined flows must be strictly increasing.")
         else:
             errors.append(f"{prefix}Unknown flow method '{self.method}'.")
         return errors
@@ -146,9 +144,7 @@ class TailwaterDefinition:
             return errors
 
         if self.constant_elevation <= 0.0:
-            errors.append(
-                f"{prefix}Constant tailwater elevation must be greater than zero."
-            )
+            errors.append(f"{prefix}Constant tailwater elevation must be greater than zero.")
         if self.constant_elevation < self.invert_elevation:
             errors.append(
                 f"{prefix}Constant tailwater elevation must be greater than or equal to the invert elevation."
@@ -186,9 +182,7 @@ class RoadwayProfile:
 
     def crest_elevation(self) -> float:
         if not self.elevations:
-            raise ValueError(
-                "Roadway elevations are required before computing crest elevation."
-            )
+            raise ValueError("Roadway elevations are required before computing crest elevation.")
         return min(self.elevations)
 
 

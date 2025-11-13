@@ -146,11 +146,7 @@ class Hy8Results:
         return best_row
 
     def roadway_max(self) -> float:
-        values = [
-            row.roadway_discharge
-            for row in self.rows
-            if not math.isnan(row.roadway_discharge)
-        ]
+        values = [row.roadway_discharge for row in self.rows if not math.isnan(row.roadway_discharge)]
         return max(values) if values else 0.0
 
 

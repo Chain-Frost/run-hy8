@@ -16,9 +16,7 @@ def test_build_from_json_config(tmp_path: Path) -> None:
     config_path.write_text(data=CONFIG_JSON, encoding="utf-8")
 
     project: Hy8Project = load_project_from_json(path=config_path)
-    hy8_path: Path = Hy8FileWriter(project=project).write(
-        output_path=tmp_path / "sample.hy8"
-    )
+    hy8_path: Path = Hy8FileWriter(project=project).write(output_path=tmp_path / "sample.hy8")
     contents: str = hy8_path.read_text(encoding="utf-8")
 
     assert "PROJTITLE  Sample Project" in contents

@@ -20,21 +20,15 @@ from .writer import Hy8FileWriter
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Utilities for generating HY-8 project files."
-    )
+    parser = argparse.ArgumentParser(description="Utilities for generating HY-8 project files.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     demo_parser = subparsers.add_parser(
         "demo",
         help="Write a demo .hy8 file that demonstrates the domain model and serialization.",
     )
-    demo_parser.add_argument(
-        "--output", type=Path, default=Path("demo.hy8"), help="Destination .hy8 file."
-    )
-    demo_parser.add_argument(
-        "--overwrite", action="store_true", help="Replace output if it already exists."
-    )
+    demo_parser.add_argument("--output", type=Path, default=Path("demo.hy8"), help="Destination .hy8 file.")
+    demo_parser.add_argument("--overwrite", action="store_true", help="Replace output if it already exists.")
 
     build_parser = subparsers.add_parser(
         "build",
@@ -46,12 +40,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         required=True,
         help="Path to the JSON configuration file.",
     )
-    build_parser.add_argument(
-        "--output", type=Path, required=True, help="Destination HY-8 file."
-    )
-    build_parser.add_argument(
-        "--overwrite", action="store_true", help="Replace the output file if it exists."
-    )
+    build_parser.add_argument("--output", type=Path, required=True, help="Destination HY-8 file.")
+    build_parser.add_argument("--overwrite", action="store_true", help="Replace the output file if it exists.")
     build_parser.add_argument(
         "--run-exe",
         type=Path,
@@ -85,9 +75,7 @@ def _run_demo(output: Path, overwrite: bool) -> None:
     crossing = CulvertCrossing(name="Demo Crossing")
     crossing.notes = "Automatically generated demo crossing."
     crossing.flow = FlowDefinition(minimum=5.0, design=10.0, maximum=15.0)
-    crossing.tailwater = TailwaterDefinition(
-        invert_elevation=99.0, constant_elevation=100.5
-    )
+    crossing.tailwater = TailwaterDefinition(invert_elevation=99.0, constant_elevation=100.5)
     crossing.roadway = RoadwayProfile(
         width=40.0,
         stations=[-20.0, 0.0, 20.0],
@@ -141,9 +129,7 @@ def _load_project(config_path: Path) -> Hy8Project:
     suffix = config_path.suffix.lower()
     if suffix == ".json":
         return load_project_from_json(config_path)
-    raise ValueError(
-        f"Unsupported configuration extension '{config_path.suffix}'. Use .json."
-    )
+    raise ValueError(f"Unsupported configuration extension '{config_path.suffix}'. Use .json.")
 
 
 def _validate_project(project: Hy8Project) -> None:

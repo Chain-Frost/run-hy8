@@ -9,10 +9,10 @@ import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 import concurrent.futures
 import pandas as pd
+from pandas import DataFrame
 
 from run_hy8 import (
     CulvertBarrel,
@@ -54,9 +54,7 @@ class Scenario:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate HY-8 velocities/headwaters for spreadsheet scenarios."
-    )
+    parser = argparse.ArgumentParser(description="Generate HY-8 velocities/headwaters for spreadsheet scenarios.")
     parser.add_argument(
         "--input",
         type=Path,
@@ -81,9 +79,7 @@ def parse_args() -> argparse.Namespace:
         default=Path("hy8_batches"),
         help="Temporary working directory.",
     )
-    parser.add_argument(
-        "--batch-size", type=int, default=75, help="Number of crossings per HY-8 batch."
-    )
+    parser.add_argument("--batch-size", type=int, default=75, help="Number of crossings per HY-8 batch.")
     parser.add_argument(
         "--max-batches",
         type=int,
@@ -123,11 +119,9 @@ def prepare_workdir(path: Path) -> Path:
     return path
 
 
-def load_scenarios(
-    path: Path, *, skip_zero_flow: bool = True
-) -> tuple[list[Scenario], int]:
-    df = pd.read_excel(path)
-    required = [
+def load_scenarios(path: Path, *, skip_zero_flow: bool = True) -> tuple[list[Scenario], int]:
+    df = pd.read_excel(path)  # type: ignore
+    required: list[str] = [
         "internalName",
         "Chan ID",
         "Q",
@@ -141,11 +135,11 @@ def load_scenarios(
         "Height",
         "number_interp",
     ]
-    missing = [col for col in required if col not in df.columns]
+    missing: list[str] = [col for col in required if col not in df.columns]
     if missing:
         raise ValueError(f"Missing columns: {missing}")
 
-    df = df.dropna(subset=["Q", "DS_h", "Height"])
+    df: DataFrame = df.dropna(subset=["Q", "DS_h", "Height"])  # type: ignore
     zero_flow_skipped = 0
     if skip_zero_flow:
         mask = df["Q"].astype(float).abs() <= 1e-9
@@ -158,7 +152,7 @@ def load_scenarios(
         roadway_crest = float(row.get("US Invert", row["DS_h"])) + 10 * diameter_m
         scenarios.append(
             Scenario(
-                index=int(idx),
+                index=int(idx),  # type: ignore
                 internal_name=str(row["internalName"]).strip(),
                 chan_id=str(row["Chan ID"]).strip(),
                 q=float(row["Q"]),
@@ -190,9 +184,7 @@ def build_crossing(scenario: Scenario) -> CulvertCrossing:
     if tailwater_constant <= scenario.ds_invert:
         tailwater_constant = scenario.ds_invert + 0.01
     crossing.tailwater.constant_elevation = tailwater_constant
-    invert_elevation = min(
-        scenario.ds_invert, scenario.us_invert, tailwater_constant - 0.01
-    )
+    invert_elevation = min(scenario.ds_invert, scenario.us_invert, tailwater_constant - 0.01)
     crossing.tailwater.invert_elevation = invert_elevation
 
     diameter_m = max(0.1, scenario.height_m)
@@ -212,9 +204,7 @@ def build_crossing(scenario: Scenario) -> CulvertCrossing:
     barrel.inlet_invert_elevation = scenario.us_invert
     barrel.outlet_invert_elevation = scenario.ds_invert
     barrel.inlet_invert_station = 0.0
-    barrel.outlet_invert_station = (
-        scenario.length if scenario.length > 0 else diameter_m
-    )
+    barrel.outlet_invert_station = scenario.length if scenario.length > 0 else diameter_m
     if scenario.mannings_n > 0:
         barrel.manning_n_top = scenario.mannings_n
         barrel.manning_n_bottom = scenario.mannings_n
@@ -251,9 +241,7 @@ def process_batch(
 ) -> list[dict[str, float | str]]:
     batch_dir = workdir / f"batch_{batch_index:04d}"
     batch_dir.mkdir(parents=True, exist_ok=True)
-    project = Hy8Project(
-        title=f"batch_{batch_index}", designer="batch-tool", units=UnitSystem.SI
-    )
+    project = Hy8Project(title=f"batch_{batch_index}", designer="batch-tool", units=UnitSystem.SI)
     for scenario in scenarios:
         project.crossings.append(build_crossing(scenario))
     hy8_path = batch_dir / "batch.hy8"
@@ -261,9 +249,7 @@ def process_batch(
     executor = Hy8Executable(exe_path)
     result = executor.open_run_save(hy8_path, check=False)
     if result.returncode != 0:
-        print(
-            f"HY-8 returned {result.returncode} for {hy8_path}. Attempting to continue."
-        )
+        print(f"HY-8 returned {result.returncode} for {hy8_path}. Attempting to continue.")
         stdout_summary = summarize_process_stream(result.stdout)
         stderr_summary = summarize_process_stream(result.stderr)
         if stdout_summary:
@@ -280,10 +266,7 @@ def process_batch(
         if result.returncode != 0:
             message = f"HY-8 returned {result.returncode}; RST not found"
         return [
-            build_record(
-                scenario, status="error", message=message, workdir=str(batch_dir)
-            )
-            for scenario in scenarios
+            build_record(scenario, status="error", message=message, workdir=str(batch_dir)) for scenario in scenarios
         ]
     parsed = parse_rst(rst_path)
     rsql_path = hy8_path.with_suffix(".rsql")
@@ -324,18 +307,10 @@ def process_batch(
         status = "ok"
         message = ""
         crest = scenario.roadway_crest
-        overtopping = (
-            overtopping_detected
-            and not math.isnan(headwater_calc)
-            and headwater_calc >= crest - 1e-3
-        )
+        overtopping = overtopping_detected and not math.isnan(headwater_calc) and headwater_calc >= crest - 1e-3
         if headwater_calc >= crest - 1e-3 or overtopping:
             status = "error"
-            reason = (
-                "Headwater exceeds crest"
-                if headwater_calc >= crest - 1e-3
-                else "Overtopping reported"
-            )
+            reason = "Headwater exceeds crest" if headwater_calc >= crest - 1e-3 else "Overtopping reported"
             message = f"{reason}: HW {headwater_calc:.3f} crest {crest:.3f} (roadway max {roadway_max:.3f} cms)"
         records.append(
             build_record(
@@ -384,8 +359,7 @@ def build_record(
         "US_h_calc": headwater_calc,
         "US_h_diff": (
             headwater_calc - scenario.us_headwater_reported
-            if not math.isnan(scenario.us_headwater_reported)
-            and not math.isnan(headwater_calc)
+            if not math.isnan(scenario.us_headwater_reported) and not math.isnan(headwater_calc)
             else math.nan
         ),
         "DS_h": scenario.ds_headwater,
@@ -410,13 +384,9 @@ def main() -> None:
     scenarios, skipped_zero_flow = load_scenarios(args.input, skip_zero_flow=True)
     if args.max_scenarios:
         if len(scenarios) > args.max_scenarios:
-            print(
-                f"Limiting to first {args.max_scenarios} scenarios (from {len(scenarios)})."
-            )
+            print(f"Limiting to first {args.max_scenarios} scenarios (from {len(scenarios)}).")
             scenarios = scenarios[: args.max_scenarios]
-    print(
-        f"Loaded {len(scenarios)} scenarios (skipped {skipped_zero_flow} zero-flow rows)."
-    )
+    print(f"Loaded {len(scenarios)} scenarios (skipped {skipped_zero_flow} zero-flow rows).")
     batches = partition_batches(scenarios, args.batch_size)
     if args.max_batches:
         batches = batches[: args.max_batches]

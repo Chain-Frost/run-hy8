@@ -33,19 +33,11 @@ PROJECT_BUILDERS: list[tuple[str, Callable[[], Hy8Project]]] = [
 ]
 
 
-@pytest.mark.parametrize(
-    ("name", "builder"), PROJECT_BUILDERS, ids=[name for name, _ in PROJECT_BUILDERS]
-)
-def test_generated_file_matches_legacy(
-    tmp_path: Path, name: str, builder: Callable[[], Hy8Project]
-) -> None:
+@pytest.mark.parametrize(("name", "builder"), PROJECT_BUILDERS, ids=[name for name, _ in PROJECT_BUILDERS])
+def test_generated_file_matches_legacy(tmp_path: Path, name: str, builder: Callable[[], Hy8Project]) -> None:
     project: Hy8Project = builder()
-    new_file: Path = Hy8FileWriter(project=project).write(
-        output_path=tmp_path / f"{name}_new.hy8"
-    )
-    legacy_file: Path = _write_with_legacy(
-        project=project, working_dir=tmp_path / f"{name}_legacy"
-    )
+    new_file: Path = Hy8FileWriter(project=project).write(output_path=tmp_path / f"{name}_new.hy8")
+    legacy_file: Path = _write_with_legacy(project=project, working_dir=tmp_path / f"{name}_legacy")
 
     assert _normalize(contents=new_file.read_text(encoding="utf-8")) == _normalize(
         contents=legacy_file.read_text(encoding="utf-8")
@@ -98,9 +90,7 @@ def _write_with_legacy(project: Hy8Project, working_dir: Path) -> Path:
         )
 
         runner.set_roadway_width(roadway_width=crossing.roadway.width, index=index)
-        runner.set_roadway_surface(
-            roadway_surface=_surface_name(surface=crossing.roadway.surface), index=index
-        )
+        runner.set_roadway_surface(roadway_surface=_surface_name(surface=crossing.roadway.surface), index=index)
         runner.set_roadway_stations_and_elevations(
             stations=crossing.roadway.stations,
             elevations=crossing.roadway.elevations,
@@ -108,25 +98,19 @@ def _write_with_legacy(project: Hy8Project, working_dir: Path) -> Path:
         )
         runner.crossings[index].roadway_shape = crossing.roadway.shape
 
-        _synchronize_culverts(
-            runner=runner, culverts=crossing.culverts, crossing_index=index
-        )
+        _synchronize_culverts(runner=runner, culverts=crossing.culverts, crossing_index=index)
 
     success, messages = runner.create_hy8_file()
     assert success, messages
     return hy8_path
 
 
-def _synchronize_culverts(
-    runner: Hy8Runner, culverts: list[CulvertBarrel], crossing_index: int
-) -> None:
+def _synchronize_culverts(runner: Hy8Runner, culverts: list[CulvertBarrel], crossing_index: int) -> None:
     crossing = runner.crossings[crossing_index]
     while len(crossing.culverts) < len(culverts):
         runner.add_culvert_barrel(index_crossing=crossing_index)
     while len(crossing.culverts) > len(culverts):
-        runner.delete_culvert_barrel(
-            index_crossing=crossing_index, index_culvert=len(crossing.culverts) - 1
-        )
+        runner.delete_culvert_barrel(index_crossing=crossing_index, index_culvert=len(crossing.culverts) - 1)
 
     for culvert_index, culvert in enumerate(culverts):
         runner.set_culvert_barrel_name(

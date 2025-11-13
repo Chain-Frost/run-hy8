@@ -30,3 +30,6 @@ line-length = 120
 [tool.pyright]
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
+
+[tool.black]
+line-length = 120

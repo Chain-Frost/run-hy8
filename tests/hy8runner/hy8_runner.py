@@ -110,9 +110,7 @@ class Hy8Runner:
         )
         return len(self.crossings[index_crossing].culverts) - 1
 
-    def delete_culvert_barrel(
-        self, index_crossing: int | None = None, index_culvert: int | None = None
-    ) -> None:
+    def delete_culvert_barrel(self, index_crossing: int | None = None, index_culvert: int | None = None) -> None:
         """Set the path to the HY-8 executable.
         Args:
             index_crossing (int): The index of the crossing.
@@ -164,9 +162,7 @@ class Hy8Runner:
         self.crossings[index].flow.flow_design = flow_design
         self.crossings[index].flow.flow_max = flow_max
 
-    def set_discharge_user_list_flow(
-        self, flow_list: Sequence[float], index: int | None = None
-    ) -> None:
+    def set_discharge_user_list_flow(self, flow_list: Sequence[float], index: int | None = None) -> None:
         """Set the flow values for the culvert crossing.
 
         Args:
@@ -322,9 +318,7 @@ class Hy8Runner:
             index = len(self.crossings) - 1
         self.crossings[index].roadway_width = roadway_width
 
-    def set_roadway_surface(
-        self, roadway_surface: str, index: int | None = None
-    ) -> None:
+    def set_roadway_surface(self, roadway_surface: str, index: int | None = None) -> None:
         """Set the roadway surface for the culvert crossing.
 
         Args:
@@ -354,9 +348,7 @@ class Hy8Runner:
         self.crossings[index].roadway_stations = list(stations)
         self.crossings[index].roadway_elevations = list(elevations)
 
-    def set_constant_roadway(
-        self, roadway_length: float, elevation: float, index: int | None = None
-    ) -> None:
+    def set_constant_roadway(self, roadway_length: float, elevation: float, index: int | None = None) -> None:
         """Set the roadway stations to a constant elevation for the culvert crossing.
         Args:
             roadway_length (float): The length of the roadway.
@@ -386,9 +378,7 @@ class Hy8Runner:
         """
         if index_crossing is None or index_crossing >= len(self.crossings):
             index_crossing = len(self.crossings) - 1
-        if index_culvert is None or index_culvert >= len(
-            self.crossings[index_crossing].culverts
-        ):
+        if index_culvert is None or index_culvert >= len(self.crossings[index_crossing].culverts):
             index_culvert = len(self.crossings[index_crossing].culverts) - 1
         self.crossings[index_crossing].culverts[index_culvert].name = name
 
@@ -407,9 +397,7 @@ class Hy8Runner:
         """
         if index_crossing is None or index_crossing >= len(self.crossings):
             index_crossing = len(self.crossings) - 1
-        if index_culvert is None or index_culvert >= len(
-            self.crossings[index_crossing].culverts
-        ):
+        if index_culvert is None or index_culvert >= len(self.crossings[index_crossing].culverts):
             index_culvert = len(self.crossings[index_crossing].culverts) - 1
         self.crossings[index_crossing].culverts[index_culvert].shape = shape
 
@@ -430,9 +418,7 @@ class Hy8Runner:
         """
         if index_crossing is None or index_crossing >= len(self.crossings):
             index_crossing = len(self.crossings) - 1
-        if index_culvert is None or index_culvert >= len(
-            self.crossings[index_crossing].culverts
-        ):
+        if index_culvert is None or index_culvert >= len(self.crossings[index_crossing].culverts):
             index_culvert = len(self.crossings[index_crossing].culverts) - 1
         self.crossings[index_crossing].culverts[index_culvert].span = span
         if rise is not None:
@@ -453,9 +439,7 @@ class Hy8Runner:
         """
         if index_crossing is None or index_crossing >= len(self.crossings):
             index_crossing = len(self.crossings) - 1
-        if index_culvert is None or index_culvert >= len(
-            self.crossings[index_crossing].culverts
-        ):
+        if index_culvert is None or index_culvert >= len(self.crossings[index_crossing].culverts):
             index_culvert = len(self.crossings[index_crossing].culverts) - 1
         self.crossings[index_crossing].culverts[index_culvert].material = material
 
@@ -480,22 +464,12 @@ class Hy8Runner:
         """
         if index_crossing is None or index_crossing >= len(self.crossings):
             index_crossing = len(self.crossings) - 1
-        if index_culvert is None or index_culvert >= len(
-            self.crossings[index_crossing].culverts
-        ):
+        if index_culvert is None or index_culvert >= len(self.crossings[index_crossing].culverts):
             index_culvert = len(self.crossings[index_crossing].culverts) - 1
-        self.crossings[index_crossing].culverts[
-            index_culvert
-        ].inlet_invert_station = inlet_invert_station
-        self.crossings[index_crossing].culverts[
-            index_culvert
-        ].inlet_invert_elevation = inlet_invert_elevation
-        self.crossings[index_crossing].culverts[
-            index_culvert
-        ].outlet_invert_station = outlet_invert_station
-        self.crossings[index_crossing].culverts[
-            index_culvert
-        ].outlet_invert_elevation = outlet_invert_elevation
+        self.crossings[index_crossing].culverts[index_culvert].inlet_invert_station = inlet_invert_station
+        self.crossings[index_crossing].culverts[index_culvert].inlet_invert_elevation = inlet_invert_elevation
+        self.crossings[index_crossing].culverts[index_culvert].outlet_invert_station = outlet_invert_station
+        self.crossings[index_crossing].culverts[index_culvert].outlet_invert_elevation = outlet_invert_elevation
 
     def set_culvert_barrel_number_of_barrels(
         self,
@@ -512,13 +486,9 @@ class Hy8Runner:
         """
         if index_crossing is None or index_crossing >= len(self.crossings):
             index_crossing = len(self.crossings) - 1
-        if index_culvert is None or index_culvert >= len(
-            self.crossings[index_crossing].culverts
-        ):
+        if index_culvert is None or index_culvert >= len(self.crossings[index_crossing].culverts):
             index_culvert = len(self.crossings[index_crossing].culverts) - 1
-        self.crossings[index_crossing].culverts[
-            index_culvert
-        ].number_of_barrels = number_of_barrels
+        self.crossings[index_crossing].culverts[index_culvert].number_of_barrels = number_of_barrels
 
     def validate_crossings_data(self, overwrite: bool = True) -> tuple[bool, str]:
         """Validate the data.
@@ -532,9 +502,7 @@ class Hy8Runner:
 
         for crossing_index, crossing in enumerate(self.crossings):
             crossing_str = f"Crossing: {crossing.name} with index: {crossing_index} "
-            flow_result, flow_messages = crossing.flow.validate_crossings_data(
-                crossing_str
-            )
+            flow_result, flow_messages = crossing.flow.validate_crossings_data(crossing_str)
             if not flow_result:
                 result = False
             messages += flow_messages
@@ -546,9 +514,7 @@ class Hy8Runner:
                     messages += f"{crossing_str}Enter a tailwater channel slope.\n"
                     result = False
                 if crossing.tw_manning_n <= 0.0:
-                    messages += (
-                        f"{crossing_str}Enter a tailwater channel Manning's n value.\n"
-                    )
+                    messages += f"{crossing_str}Enter a tailwater channel Manning's n value.\n"
                     result = False
                 if crossing.tw_invert_elevation <= 0.0:
                     messages += f"{crossing_str}Enter a tailwater invert elevation.\n"
@@ -559,7 +525,9 @@ class Hy8Runner:
                     result = False
             elif crossing.tw_type == 6:
                 if crossing.tw_constant_elevation < crossing.tw_invert_elevation:
-                    messages += f"{crossing_str}Tailwater constant elevation must be greater than tailwater invert elevation.\n"
+                    messages += (
+                        f"{crossing_str}Tailwater constant elevation must be greater than tailwater invert elevation.\n"
+                    )
                     result = False
             if crossing.roadway_width <= 0:
                 messages += f"{crossing_str}Roadway width must be greater than zero.\n"
@@ -571,16 +539,12 @@ class Hy8Runner:
                 messages += f"{crossing_str}Roadway stations and elevations must have the same number of values.\n"
                 result = False
             if len(crossing.culverts) == 0:
-                messages += (
-                    f"{crossing_str}Crossing must have at least one culvert barrel.\n"
-                )
+                messages += f"{crossing_str}Crossing must have at least one culvert barrel.\n"
                 result = False
             for barrel in crossing.culverts:
                 culvert_barrel_str = f"{crossing_str}Culvert barrel: {barrel.name}\t"
                 if barrel.span <= 0.0:
-                    messages += (
-                        f"{culvert_barrel_str}span of the culvert must be specified.\n"
-                    )
+                    messages += f"{culvert_barrel_str}span of the culvert must be specified.\n"
                     result = False
                 if barrel.shape == "box" and barrel.rise <= 0.0:
                     messages += f"{culvert_barrel_str}rise of the box culvert must be specified.\n"
@@ -608,9 +572,7 @@ class Hy8Runner:
             else:
                 messages += f"HY-8 file already exists: {self.hy8_file}\n"
                 result = False
-        elif os.path.dirname(self.hy8_file) != "" and not os.path.exists(
-            os.path.dirname(self.hy8_file)
-        ):
+        elif os.path.dirname(self.hy8_file) != "" and not os.path.exists(os.path.dirname(self.hy8_file)):
             os.makedirs(os.path.dirname(self.hy8_file))
 
         return result, messages
@@ -665,9 +627,7 @@ class Hy8Runner:
         command.append(self.hy8_file)
         completed_process = subprocess.run(command)
         if completed_process.returncode != 0:
-            print(
-                f"Command '{command}' failed with return code {completed_process.returncode}"
-            )
+            print(f"Command '{command}' failed with return code {completed_process.returncode}")
 
     def run_build_full_report(self) -> None:
         """Runs HY-8 and generates a full report in docx."""
@@ -707,9 +667,7 @@ class Hy8Runner:
         ]
         self._run_hy8_executable(commandline_arguments)
 
-    def run_build_hw_tw_table(
-        self, units: str = "EN", hw_inc: float = 0.25, tw_inc: float = 0.25
-    ) -> None:
+    def run_build_hw_tw_table(self, units: str = "EN", hw_inc: float = 0.25, tw_inc: float = 0.25) -> None:
         """Generates a table for the culvert where it tells you the flow for a given headwater and tailwater."""
         commandline_arguments: list[str] = [
             "-BuildHwTwTable",

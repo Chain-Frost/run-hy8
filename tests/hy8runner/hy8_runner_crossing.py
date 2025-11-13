@@ -75,9 +75,7 @@ class Hy8RunnerCulvertCrossing:
         if self.flow.method != "min-design-max":
             discharge_method = 1
         # Recurrence Flow not currently supported
-        hy8_file.write(
-            f"DISCHARGERANGE {self.flow.flow_min} {self.flow.flow_design} {self.flow.flow_max}\n"
-        )
+        hy8_file.write(f"DISCHARGERANGE {self.flow.flow_min} {self.flow.flow_design} {self.flow.flow_max}\n")
         hy8_file.write(f"DISCHARGEMETHOD {discharge_method}\n")
         hy8_file.write(f"DISCHARGEXYUSER {len(self.flow.flow_list)}\n")
         for flow in self.flow.flow_list:

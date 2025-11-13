@@ -25,9 +25,7 @@ def test_tailwater_must_be_constant(tmp_path: Path) -> None:
 
 def test_tailwater_cannot_reach_roadway() -> None:
     project: Hy8Project = build_sample_project()
-    project.crossings[0].tailwater.constant_elevation = (
-        102.5  # higher than crest (101.5)
-    )
+    project.crossings[0].tailwater.constant_elevation = 102.5  # higher than crest (101.5)
     errors: list[str] = project.crossings[0].validate("Sample Crossing: ")
     assert any("roadway crest" in message for message in errors)
 

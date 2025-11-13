@@ -13,9 +13,7 @@ class Hy8RunnerFlow:
 
     def __init__(self) -> None:
         """Initializes the HY-8 Runner class."""
-        self.method: str = (
-            "min-design-max"  # 'min-design-max', 'user-defined', or 'min-max-increment'
-        )
+        self.method: str = "min-design-max"  # 'min-design-max', 'user-defined', or 'min-max-increment'
         self.flow_min: float = 0.0
         self.flow_design: float = 0.0
         self.flow_max: float = 0.0
@@ -55,9 +53,7 @@ class Hy8RunnerFlow:
                 result = False
         elif self.method == "min-max-increment":
             if self.flow_min >= self.flow_max:
-                messages += (
-                    f"{crossing_str}Minimum flow must be less than maximum flow.\n"
-                )
+                messages += f"{crossing_str}Minimum flow must be less than maximum flow.\n"
                 result = False
             if self.flow_min < 0.0:
                 messages += f"{crossing_str}Minimum flow must be zero or greater.\n"
@@ -72,9 +68,7 @@ class Hy8RunnerFlow:
             elif len(self.flow_list) >= 2:
                 for i in range(len(self.flow_list) - 1):
                     if self.flow_list[i] >= self.flow_list[i + 1]:
-                        messages += (
-                            f"{crossing_str}Flow list values must increase in value.\n"
-                        )
+                        messages += f"{crossing_str}Flow list values must increase in value.\n"
                         result = False
                         break
         else:
