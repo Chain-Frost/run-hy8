@@ -31,6 +31,8 @@ class Hy8RunnerCulvertBarrel:
         self.number_of_barrels: int = 1
         self.roadway_station: float = 0.0
         self.barrel_spacing: float = 0.0
+        self.manning_n_top: float | None = None
+        self.manning_n_bottom: float | None = None
 
     def write_culvert_to_file(self, hy8_file: IO[str]) -> tuple[bool, str]:
         """Write the culvert data to the file.
@@ -56,11 +58,14 @@ class Hy8RunnerCulvertBarrel:
             culvert_shape = 2
             culvert_material = 1  # boxes must be concrete (0)
 
-        n_top = 0.012
-        n_bot = 0.012
-        if culvert_material == 2:
-            n_top = 0.024
-            n_bot = 0.024
+        n_top = self.manning_n_top
+        n_bot = self.manning_n_bottom
+        if n_top is None or n_bot is None:
+            n_top = 0.012
+            n_bot = 0.012
+            if culvert_material == 2:
+                n_top = 0.024
+                n_bot = 0.024
         hy8_file.write(f"CULVERTSHAPE    {culvert_shape}\n")
         hy8_file.write(f"CULVERTMATERIAL {culvert_material}\n")
         hy8_file.write(f"BARRELDATA  {self.span} {self.rise} {n_top} {n_bot}\n")

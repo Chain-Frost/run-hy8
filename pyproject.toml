@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pyright", "ruff", "pytest"]
+dev = ["build", "pyright", "ruff", "pytest"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

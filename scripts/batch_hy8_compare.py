@@ -414,7 +414,7 @@ def main() -> None:
     df.sort_values(by="index", inplace=True)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.output, index=False)
-    errors = df[df["status"] != "ok"]
+    errors: DataFrame = df[df["status"] != "ok"]
     print(f"Wrote {len(df)} rows to {args.output} ({len(errors)} errors).")
     if not errors.empty:
         print("First errors:")

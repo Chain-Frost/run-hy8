@@ -121,6 +121,20 @@ Targeted unit tests live under `tests`. Run them with:
 python -m pytest tests
 ```
 
+## Packaging & automation
+
+The repository includes Windows batch helpers so packaging can happen without remembering long commands.
+
+1. `build_package.bat` installs/updates the [`build`](https://pypi.org/project/build/) backend and then runs `python -m build`, placing the wheel and source distribution under `dist\`.
+2. `install_package.bat` installs the most recently built artifact (wheel if present, otherwise the source distribution) via `pip install --force-reinstall`.
+3. `run_tests.bat` runs `python -m pytest`. Pass any additional pytest arguments after the script name (for example `run_tests.bat -k culvert`).
+
+Before running tests locally, install the development extras once per virtual environment:
+
+```powershell
+pip install -e .[dev]
+```
+
 ## Development Notes
 
 Coding agents and contributors should follow the conventions in [`docs/agents.md`](docs/agents.md), including the
