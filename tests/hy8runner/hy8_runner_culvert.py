@@ -15,7 +15,7 @@ class Hy8RunnerCulvertBarrel:
 
     def __init__(self, count: int) -> None:
         """Initializes the HY-8 Runner class."""
-        self.name: str = f"Culvert {count+1}"
+        self.name: str = f"Culvert {count + 1}"
         self.notes: str = ""
 
         self.shape: str = "circle"  # or 'box'

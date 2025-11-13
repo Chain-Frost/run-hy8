@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from subprocess import CompletedProcess
 from typing import Sequence
 
 from .config import load_project_from_json
@@ -20,7 +21,9 @@ from .writer import Hy8FileWriter
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Utilities for generating HY-8 project files.")
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        description="Utilities for generating HY-8 project files."
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     demo_parser = subparsers.add_parser(
@@ -53,7 +56,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Validate the configuration without writing a .hy8 file or invoking HY-8.",
     )
 
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    args: argparse.Namespace = parser.parse_args(list(argv) if argv is not None else None)
     if args.command == "demo":
         _run_demo(args.output, args.overwrite)
         return 0
@@ -71,8 +74,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _run_demo(output: Path, overwrite: bool) -> None:
-    project = Hy8Project(title="run-hy8 demo project", designer="Codex scaffolding")
-    crossing = CulvertCrossing(name="Demo Crossing")
+    project: Hy8Project = Hy8Project(title="run-hy8 demo project", designer="Codex scaffolding")
+    crossing: CulvertCrossing = CulvertCrossing(name="Demo Crossing")
     crossing.notes = "Automatically generated demo crossing."
     crossing.flow = FlowDefinition(minimum=5.0, design=10.0, maximum=15.0)
     crossing.tailwater = TailwaterDefinition(invert_elevation=99.0, constant_elevation=100.5)
@@ -91,8 +94,8 @@ def _run_demo(output: Path, overwrite: bool) -> None:
         )
     )
     project.crossings.append(crossing)
-    writer = Hy8FileWriter(project)
-    path = writer.write(output, overwrite=overwrite)
+    writer: Hy8FileWriter = Hy8FileWriter(project)
+    path: Path = writer.write(output, overwrite=overwrite)
     print(f"Wrote demo HY-8 file to {path}")
 
 
@@ -104,7 +107,7 @@ def _run_build(
     validate_only: bool,
 ) -> None:
     try:
-        project = _load_project(config_path)
+        project: Hy8Project = _load_project(config_path)
         _validate_project(project)
     except ValueError as exc:
         raise SystemExit(f"Invalid configuration: {exc}") from exc
@@ -113,12 +116,12 @@ def _run_build(
         print(f"{config_path} is valid.")
         return
 
-    writer = Hy8FileWriter(project)
-    hy8_path = writer.write(output, overwrite=overwrite)
+    writer: Hy8FileWriter = Hy8FileWriter(project)
+    hy8_path: Path = writer.write(output, overwrite=overwrite)
     print(f"Wrote HY-8 file to {hy8_path}")
     if exe_path is not None:
-        executor = Hy8Executable(exe_path)
-        result = executor.open_run_save(hy8_path)
+        executor: Hy8Executable = Hy8Executable(exe_path)
+        result: CompletedProcess[str] = executor.open_run_save(hy8_path)
         if result.stdout.strip():
             print(result.stdout.strip())
         if result.stderr.strip():

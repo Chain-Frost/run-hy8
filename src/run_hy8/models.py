@@ -176,8 +176,6 @@ class RoadwayProfile:
             errors.append(f"{prefix}Provide at least two roadway stations/elevations.")
         if len(self.stations) != len(self.elevations):
             errors.append(f"{prefix}Stations and elevations counts must match.")
-        if not isinstance(self.surface, RoadwaySurface):
-            errors.append(f"{prefix}Roadway surface must be specified.")
         return errors
 
     def crest_elevation(self) -> float:

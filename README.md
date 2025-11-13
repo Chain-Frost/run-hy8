@@ -51,6 +51,12 @@ print(f"Wrote {hy8_file}")
 Once an `.hy8` file exists you can run HY-8 with `run_hy8.executor.Hy8Executable`. Each high-level action returns
 a `CompletedProcess` so scripting layers can inspect stdout/stderr or retry with different parameters.
 
+## HY-8 executable location
+
+On the local Codex environment HY-8 installs to `C:\Program Files\HY-8 8.00\HY864.exe`. Pass that full path via
+`--run-exe` when using the CLI, or construct `Hy8Executable(Path(r"C:\Program Files\HY-8 8.00\HY864.exe"))` in scripts
+if the executable path is not explicitly configured.
+
 ## Configuration via JSON
 
 For quick scripting, describe your project in JSON and let the CLI write the `.hy8` file. The same schema is used
@@ -114,6 +120,11 @@ Targeted unit tests live under `tests`. Run them with:
 ```powershell
 python -m pytest tests
 ```
+
+## Development Notes
+
+Coding agents and contributors should follow the conventions in [`docs/agents.md`](docs/agents.md), including the
+project-wide expectation for explicit type hints and `pyright`-clean changes.
 
 ## Current Limitations
 

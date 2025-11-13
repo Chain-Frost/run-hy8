@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence as ABCSequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import json
 
@@ -23,18 +23,25 @@ from .models import (
     UnitSystem,
 )
 
+JSONMapping = Mapping[str, Any]
+
 
 def load_project_from_json(path: Path) -> Hy8Project:
     """Read a JSON file from disk and create a `Hy8Project`."""
 
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, Mapping):
+    raw_data: Any = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw_data, Mapping):
         raise ValueError("Top-level JSON document must be an object.")
+    data: JSONMapping = cast(JSONMapping, raw_data)
     return project_from_mapping(data)
 
 
-def project_from_mapping(config: Mapping[str, Any]) -> Hy8Project:
-    project_section = config.get("project", {})
+def project_from_mapping(config: JSONMapping) -> Hy8Project:
+    project_section_raw: Any = config.get("project", {})
+    if not isinstance(project_section_raw, Mapping):
+        raise ValueError("Project section must be an object.")
+    project_section: JSONMapping = cast(JSONMapping, project_section_raw)
+
     project = Hy8Project()
     project.title = str(project_section.get("title", ""))
     project.designer = str(project_section.get("designer", ""))
@@ -42,17 +49,26 @@ def project_from_mapping(config: Mapping[str, Any]) -> Hy8Project:
     project.units = _parse_unit_system(project_section.get("units", UnitSystem.ENGLISH.cli_flag))
     project.exit_loss_option = int(project_section.get("exit_loss_option", 0))
 
-    crossings_data = config.get("crossings", [])
-    if not isinstance(crossings_data, Sequence) or isinstance(crossings_data, (str, bytes)):
+    crossings_data_raw: Any = config.get("crossings", [])
+    if not isinstance(crossings_data_raw, ABCSequence) or isinstance(crossings_data_raw, (str, bytes)):
         raise ValueError("'crossings' section must be a list of crossing definitions")
 
-    for crossing_entry in crossings_data:
+    crossings_data_sequence: ABCSequence[Any] = cast(ABCSequence[Any], crossings_data_raw)
+    crossings_data_raw_list: list[Any] = list(crossings_data_sequence)
+    crossings_data_list: list[JSONMapping] = []
+    for crossing_entry_raw in crossings_data_raw_list:
+        crossing_entry: Any = crossing_entry_raw
+        if not isinstance(crossing_entry, Mapping):
+            raise ValueError("Each crossing definition must be an object.")
+        crossings_data_list.append(cast(JSONMapping, crossing_entry))
+
+    for crossing_entry in crossings_data_list:
         project.crossings.append(_parse_crossing(crossing_entry))
 
     return project
 
 
-def _parse_crossing(entry: Mapping[str, Any]) -> CulvertCrossing:
+def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
     name = _require_str(entry, "name", "crossing")
     crossing = CulvertCrossing(name=name)
     crossing.notes = str(entry.get("notes", ""))
@@ -63,16 +79,24 @@ def _parse_crossing(entry: Mapping[str, Any]) -> CulvertCrossing:
     crossing.tailwater = _parse_tailwater(entry.get("tailwater", {}))
     crossing.roadway = _parse_roadway(entry.get("roadway", {}))
 
-    culvert_entries = entry.get("culverts", [])
-    if not isinstance(culvert_entries, Sequence) or isinstance(culvert_entries, (str, bytes)):
+    culvert_entries_raw: Any = entry.get("culverts", [])
+    if not isinstance(culvert_entries_raw, ABCSequence) or isinstance(culvert_entries_raw, (str, bytes)):
         raise ValueError(f"Crossing '{name}' culverts must be a list")
-    for culvert_entry in culvert_entries:
+    culvert_entries_sequence: ABCSequence[Any] = cast(ABCSequence[Any], culvert_entries_raw)
+    culvert_entries_raw_list: list[Any] = list(culvert_entries_sequence)
+    culvert_entries_list: list[JSONMapping] = []
+    for culvert_entry_raw in culvert_entries_raw_list:
+        culvert_entry: Any = culvert_entry_raw
+        if not isinstance(culvert_entry, Mapping):
+            raise ValueError(f"Culvert entries in crossing '{name}' must be objects.")
+        culvert_entries_list.append(cast(JSONMapping, culvert_entry))
+    for culvert_entry in culvert_entries_list:
         crossing.culverts.append(_parse_culvert(culvert_entry, crossing_name=name))
 
     return crossing
 
 
-def _parse_flow(entry: Mapping[str, Any]) -> FlowDefinition:
+def _parse_flow(entry: JSONMapping) -> FlowDefinition:
     method_value = str(entry.get("method", FlowMethod.MIN_DESIGN_MAX.value))
     try:
         method = FlowMethod(method_value)
@@ -81,10 +105,12 @@ def _parse_flow(entry: Mapping[str, Any]) -> FlowDefinition:
 
     flow = FlowDefinition(method=method)
     if method is FlowMethod.USER_DEFINED:
-        values = entry.get("user_values", [])
-        if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        values_raw: Any = entry.get("user_values", [])
+        if not isinstance(values_raw, ABCSequence) or isinstance(values_raw, (str, bytes)):
             raise ValueError("Flow 'user_values' must be a list of numbers")
-        flow.user_values = [float(value) for value in values]
+        values_sequence: ABCSequence[Any] = cast(ABCSequence[Any], values_raw)
+        values_list: list[Any] = list(values_sequence)
+        flow.user_values = [float(value) for value in values_list]
     else:
         flow.minimum = float(entry.get("minimum", flow.minimum))
         flow.design = float(entry.get("design", flow.design))
@@ -94,8 +120,8 @@ def _parse_flow(entry: Mapping[str, Any]) -> FlowDefinition:
     return flow
 
 
-def _parse_tailwater(entry: Mapping[str, Any]) -> TailwaterDefinition:
-    requested_type = entry.get("type")
+def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
+    requested_type: Any = entry.get("type")
     if requested_type is not None:
         requested_enum = _parse_tailwater_type(requested_type)
         if requested_enum is not TailwaterType.CONSTANT:
@@ -122,19 +148,20 @@ def _parse_tailwater(entry: Mapping[str, Any]) -> TailwaterDefinition:
     return tailwater
 
 
-def _parse_roadway(entry: Mapping[str, Any]) -> RoadwayProfile:
+def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
     roadway = RoadwayProfile()
     roadway.width = float(entry.get("width", roadway.width))
     roadway.shape = int(entry.get("shape", roadway.shape))
     if "surface" not in entry:
         raise ValueError("Roadway surface must be specified (paved, gravel, user_defined).")
-    roadway.surface = _parse_surface(entry["surface"])
+    roadway_surface_value: Any = entry["surface"]
+    roadway.surface = _parse_surface(roadway_surface_value)
     roadway.stations = [float(value) for value in entry.get("stations", [])]
     roadway.elevations = [float(value) for value in entry.get("elevations", [])]
     return roadway
 
 
-def _parse_culvert(entry: Mapping[str, Any], *, crossing_name: str) -> CulvertBarrel:
+def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
     name = _require_str(entry, "name", f"culvert in crossing '{crossing_name}'")
     culvert = CulvertBarrel(name=name)
     culvert.span = float(entry.get("span", culvert.span))
@@ -147,7 +174,7 @@ def _parse_culvert(entry: Mapping[str, Any], *, crossing_name: str) -> CulvertBa
     culvert.outlet_invert_station = float(entry.get("outlet_invert_station", culvert.outlet_invert_station))
     culvert.outlet_invert_elevation = float(entry.get("outlet_invert_elevation", culvert.outlet_invert_elevation))
     culvert.roadway_station = float(entry.get("roadway_station", culvert.roadway_station))
-    spacing_value = entry.get("barrel_spacing", culvert.barrel_spacing)
+    spacing_value: Any = entry.get("barrel_spacing", culvert.barrel_spacing)
     if spacing_value is None:
         culvert.barrel_spacing = None
     else:
@@ -198,7 +225,7 @@ def _parse_tailwater_type(value: Any) -> TailwaterType:
         raise ValueError(f"Unsupported tailwater type '{value}'") from exc
 
 
-def _require_str(entry: Mapping[str, Any], key: str, context: str) -> str:
+def _require_str(entry: JSONMapping, key: str, context: str) -> str:
     if key not in entry:
         raise ValueError(f"Missing required field '{key}' in {context}")
     value = entry[key]

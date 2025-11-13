@@ -6,35 +6,48 @@ import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal, TypedDict
 
 
-RST_DIALOG_RE = re.compile(r"Dialog:\s+Culvert Summary Table - (?P<name>.+)")
-RST_VALUE_LABELS = {
+ValueKey = Literal["flow", "headwater", "velocity"]
+SummaryKey = Literal["roadway", "iterations"]
+
+RST_DIALOG_RE: re.Pattern[str] = re.compile(pattern=r"Dialog:\s+Culvert Summary Table - (?P<name>.+)")
+RST_VALUE_LABELS: dict[ValueKey, str] = {
     "flow": "Total Discharge (cms)",
     "headwater": "Headwater Elevation (m)",
     "velocity": "Outlet Velocity (m/s)",
 }
-SUMMARY_RE = re.compile(r"Dialog:\s+Summary of Flows at Crossing - (?P<name>.+)")
-SUMMARY_LABELS = {
+SUMMARY_RE: re.Pattern[str] = re.compile(pattern=r"Dialog:\s+Summary of Flows at Crossing - (?P<name>.+)")
+SUMMARY_LABELS: dict[SummaryKey, str] = {
     "roadway": "Roadway Discharge (cms)",
     "iterations": "Iterations",
 }
 
 
-def parse_rst(path: Path) -> dict[str, dict[str, list[float | str]]]:
-    data: dict[str, dict[str, list[float | str]]] = {}
+class Hy8Series(TypedDict, total=False):
+    flow: list[float]
+    headwater: list[float]
+    velocity: list[float]
+    roadway: list[float]
+    iterations: list[str]
+
+
+def parse_rst(path: Path) -> dict[str, Hy8Series]:
+    data: dict[str, Hy8Series] = {}
     summary_crossing: str | None = None
     capturing_culvert: str | None = None
     with path.open("r", encoding="utf-8", errors="ignore") as handle:
         for raw_line in handle:
-            line = raw_line.strip()
+            line: str = raw_line.strip()
             if not line:
                 continue
-            summary_match = SUMMARY_RE.match(line)
+            summary_match: re.Match[str] | None = SUMMARY_RE.match(string=line)
             if summary_match:
-                summary_crossing = summary_match.group("name").strip()
+                crossing_name: str = summary_match.group("name").strip()
+                summary_crossing = crossing_name
                 capturing_culvert = None
-                data.setdefault(summary_crossing, {})
+                data.setdefault(crossing_name, Hy8Series())
                 continue
             if summary_crossing:
                 for key, label in SUMMARY_LABELS.items():
@@ -43,26 +56,27 @@ def parse_rst(path: Path) -> dict[str, dict[str, list[float | str]]]:
                             data[summary_crossing][key] = parse_text_series(line)
                         else:
                             data[summary_crossing][key] = parse_series(line)
-            culvert_match = RST_DIALOG_RE.match(line)
+            culvert_match: re.Match[str] | None = RST_DIALOG_RE.match(line)
             if culvert_match:
-                capturing_culvert = summary_crossing
-                if capturing_culvert:
-                    data.setdefault(capturing_culvert, {})
+                culvert_crossing: str | None = summary_crossing
+                capturing_culvert = culvert_crossing
+                if culvert_crossing:
+                    data.setdefault(culvert_crossing, Hy8Series())
                 continue
             if capturing_culvert is None:
                 continue
             for key, label in RST_VALUE_LABELS.items():
                 if line.startswith(label):
-                    series = parse_series(line)
+                    series: list[float] = parse_series(line)
                     data[capturing_culvert][key] = series
     return data
 
 
 def parse_series(line: str) -> list[float]:
-    parts = line.split(",")[1:]
+    parts: list[str] = line.split(",")[1:]
     values: list[float] = []
     for part in parts:
-        part = part.strip()
+        part: str = part.strip()
         if not part or part.lower() == "nan":
             values.append(math.nan)
         else:
@@ -74,7 +88,7 @@ def parse_series(line: str) -> list[float]:
 
 
 def parse_text_series(line: str) -> list[str]:
-    parts = line.split(",")[1:]
+    parts: list[str] = line.split(",")[1:]
     return [part.strip() for part in parts if part.strip()]
 
 
@@ -103,14 +117,14 @@ class Hy8Results:
 
     def __init__(
         self,
-        entry: dict[str, list[float | str]],
+        entry: Hy8Series,
         profiles: list[FlowProfile] | None = None,
     ) -> None:
-        flows = entry.get("flow", []) or []
-        headwaters = entry.get("headwater", []) or []
-        velocities = entry.get("velocity", []) or []
-        roadway = entry.get("roadway", []) or []
-        iterations = entry.get("iterations", []) or []
+        flows: list[float] = entry.get("flow") or []
+        headwaters: list[float] = entry.get("headwater") or []
+        velocities: list[float] = entry.get("velocity") or []
+        roadway: list[float] = entry.get("roadway") or []
+        iterations: list[str] = entry.get("iterations") or []
         profiles = profiles or []
         self.rows: list[Hy8ResultRow] = []
         for idx, flow in enumerate(flows):
@@ -118,8 +132,8 @@ class Hy8Results:
             vel = velocities[idx] if idx < len(velocities) else math.nan
             roadway_val = roadway[idx] if idx < len(roadway) else math.nan
             iteration = iterations[idx] if idx < len(iterations) else ""
-            profile = nearest_profile(profiles, flow)
-            row = Hy8ResultRow(
+            profile: FlowProfile | None = nearest_profile(profiles, flow)
+            row: Hy8ResultRow = Hy8ResultRow(
                 flow=flow,
                 headwater_elevation=head,
                 velocity=vel,
@@ -139,14 +153,14 @@ class Hy8Results:
         for row in self.rows:
             if math.isnan(row.flow):
                 continue
-            delta = abs(row.flow - target)
+            delta: float = abs(row.flow - target)
             if delta < best_delta:
-                best_delta = delta
+                best_delta: float = delta
                 best_row = row
         return best_row
 
     def roadway_max(self) -> float:
-        values = [row.roadway_discharge for row in self.rows if not math.isnan(row.roadway_discharge)]
+        values: list[float] = [row.roadway_discharge for row in self.rows if not math.isnan(row.roadway_discharge)]
         return max(values) if values else 0.0
 
 
@@ -158,7 +172,7 @@ def parse_rsql(path: Path) -> dict[str, list[FlowProfile]]:
     current_profile: FlowProfile | None = None
     with path.open("r", encoding="utf-8", errors="ignore") as handle:
         for raw_line in handle:
-            line = raw_line.strip()
+            line: str = raw_line.strip()
             if not line:
                 continue
             if line.startswith("Crossing:"):
@@ -175,9 +189,9 @@ def parse_rsql(path: Path) -> dict[str, list[FlowProfile]]:
                 continue
             if ":" not in line:
                 continue
-            key, value = line.split(":", 1)
-            key = key.strip()
-            value = value.strip()
+            raw_key, raw_value = line.split(":", 1)
+            key: str = raw_key.strip()
+            value: str = raw_value.strip()
             if key == "FlowProfileFlow":
                 try:
                     current_profile.flow = float(value)
@@ -201,14 +215,14 @@ def nearest_profile(profiles: list[FlowProfile], target: float) -> FlowProfile |
     for profile in profiles:
         if math.isnan(profile.flow):
             continue
-        delta = abs(profile.flow - target)
+        delta: float = abs(profile.flow - target)
         if delta < best_delta:
-            best_delta = delta
+            best_delta: float = delta
             best = profile
     return best
 
 
-__all__ = [
+__all__: list[str] = [
     "FlowProfile",
     "Hy8ResultRow",
     "Hy8Results",

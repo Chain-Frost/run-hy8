@@ -41,7 +41,7 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        args = [
+        args: list[str] = [
             "-BuildFlowTwTable",
             "FLOWCOEF",
             str(flow_coef),
@@ -65,7 +65,7 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        args = [
+        args: list[str] = [
             "-BuildHwTwTable",
             "UNITS",
             unit_system.cli_flag,
@@ -80,7 +80,7 @@ class Hy8Executable:
         hy8_file = hy8_file.with_suffix(".hy8")
         if not hy8_file.exists():
             raise FileNotFoundError(f"HY-8 project not found: {hy8_file}")
-        command = [str(self.exe_path), *args, str(hy8_file)]
+        command: list[str] = [str(self.exe_path), *args, str(hy8_file)]
         return subprocess.run(command, check=check, capture_output=True, text=True)
 
     @staticmethod

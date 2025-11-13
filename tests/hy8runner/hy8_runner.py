@@ -604,7 +604,7 @@ class Hy8Runner:
             hy8_file.write(f"PROJTITLE  {self.project_title}\n")
             hy8_file.write(f"PROJDESIGNER  {self.designer_name}\n")
             hy8_file.write(f"STARTPROJNOTES  {self.project_notes}\nENDPROJNOTES\n")
-            hy8_file.write(f"PROJDATE  {datetime.datetime.now().timestamp()/3600}\n")
+            hy8_file.write(f"PROJDATE  {datetime.datetime.now().timestamp() / 3600}\n")
             hy8_file.write(f"NUMCROSSINGS  {len(self.crossings)}\n")
 
             for crossing in self.crossings:
