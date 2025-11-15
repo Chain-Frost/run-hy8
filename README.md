@@ -53,9 +53,13 @@ a `CompletedProcess` so scripting layers can inspect stdout/stderr or retry with
 
 ## HY-8 executable location
 
-On the local Codex environment HY-8 installs to `C:\Program Files\HY-8 8.00\HY864.exe`. Pass that full path via
-`--run-exe` when using the CLI, or construct `Hy8Executable(Path(r"C:\Program Files\HY-8 8.00\HY864.exe"))` in scripts
-if the executable path is not explicitly configured.
+The repository stores its default HY-8 path inside [`HY8_PATH.txt`](HY8_PATH.txt). Update that file if HY-8 is installed
+somewhere else—the helpers automatically pick up the new value. `Hy8Executable()` falls back to the path recorded in the
+file (or the `HY8_EXE` / `HY8_EXECUTABLE` environment variables) so scripts can simply do `Hy8Executable()` without
+passing a path every time. Call `Hy8Executable.configure_default_path(Path(...))` to override the default for the
+current process, or `Hy8Executable.persist_default_path(Path(...))` to update both the in-memory default and the
+`HY8_PATH.txt` file. All command-line tooling also respects these settings; pass `--run-exe` to override on a
+per-invocation basis if needed.
 
 ## Configuration via JSON
 

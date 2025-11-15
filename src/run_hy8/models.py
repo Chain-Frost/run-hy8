@@ -50,6 +50,7 @@ class CulvertShape(int, Enum):
 class CulvertMaterial(int, Enum):
     CONCRETE = 1
     CORRUGATED_STEEL = 2
+    HDPE = 5
 
 
 TailwaterRatingPoint = tuple[float, float, float]
@@ -143,8 +144,6 @@ class TailwaterDefinition:
             )
             return errors
 
-        if self.constant_elevation <= 0.0:
-            errors.append(f"{prefix}Constant tailwater elevation must be greater than zero.")
         if self.constant_elevation < self.invert_elevation:
             errors.append(
                 f"{prefix}Constant tailwater elevation must be greater than or equal to the invert elevation."

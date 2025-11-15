@@ -2,6 +2,7 @@
 
 from .config import load_project_from_json, project_from_mapping
 from .executor import Hy8Executable
+from .hy8_path import read_hy8_path_file, resolve_hy8_path, save_hy8_path
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -16,10 +17,11 @@ from .models import (
     TailwaterType,
     UnitSystem,
 )
+from .reader import load_project_from_hy8
 from .results import Hy8Results, parse_rsql, parse_rst
 from .writer import Hy8FileWriter
 
-__all__ = [
+__all__: list[str] = [
     "CulvertBarrel",
     "CulvertCrossing",
     "CulvertMaterial",
@@ -38,5 +40,9 @@ __all__ = [
     "parse_rst",
     "parse_rsql",
     "load_project_from_json",
+    "load_project_from_hy8",
     "project_from_mapping",
+    "read_hy8_path_file",
+    "resolve_hy8_path",
+    "save_hy8_path",
 ]

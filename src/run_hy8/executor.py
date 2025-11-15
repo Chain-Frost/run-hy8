@@ -7,28 +7,51 @@ import subprocess
 from pathlib import Path
 from typing import Sequence
 
+from .hy8_path import resolve_hy8_path, save_hy8_path
 from .models import UnitSystem
 
 
 class Hy8Executable:
     """Thin wrapper around the HY-8 command line switches."""
 
-    def __init__(self, exe_path: Path) -> None:
-        self.exe_path: Path = exe_path
+    _default_path: Path | None = None
+
+    def __init__(self, exe_path: Path | None = None) -> None:
+        resolved: Path = Path(exe_path) if exe_path is not None else self.default_path()
+        self.exe_path: Path = resolved
         self._ensure_windows()
         self._ensure_exists()
 
+    @classmethod
+    def default_path(cls) -> Path:
+        """Return the configured default HY-8 executable path."""
+        if cls._default_path is not None:
+            return cls._default_path
+        return resolve_hy8_path()
+
+    @classmethod
+    def configure_default_path(cls, path: Path) -> None:
+        """Override the default HY-8 path used when none is provided."""
+        cls._default_path = Path(path)
+
+    @classmethod
+    def persist_default_path(cls, path: Path) -> Path:
+        """Override and persist the default HY-8 path into HY8_PATH.txt."""
+        destination: Path = save_hy8_path(path=path)
+        cls.configure_default_path(path=path)
+        return destination
+
     def run(self, hy8_file: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-        return self._execute(hy8_file, list(args), check=check)
+        return self._execute(hy8_file=hy8_file, args=list(args), check=check)
 
     def build_full_report(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
-        return self._execute(hy8_file, ["-BuildFullReport"], check=check)
+        return self._execute(hy8_file=hy8_file, args=["-BuildFullReport"], check=check)
 
     def open_run_save(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
-        return self._execute(hy8_file, ["-OpenRunSave"], check=check)
+        return self._execute(hy8_file=hy8_file, args=["-OpenRunSave"], check=check)
 
     def open_run_save_plots(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
-        return self._execute(hy8_file, ["-OpenRunSavePlots"], check=check)
+        return self._execute(hy8_file=hy8_file, args=["-OpenRunSavePlots"], check=check)
 
     def build_flow_tw_table(
         self,
@@ -54,7 +77,7 @@ class Hy8Executable:
             "TWINC",
             str(tw_increment),
         ]
-        return self._execute(hy8_file, args, check=check)
+        return self._execute(hy8_file=hy8_file, args=args, check=check)
 
     def build_hw_tw_table(
         self,
@@ -74,7 +97,7 @@ class Hy8Executable:
             "TWINC",
             str(tw_increment),
         ]
-        return self._execute(hy8_file, args, check=check)
+        return self._execute(hy8_file=hy8_file, args=args, check=check)
 
     def _execute(self, hy8_file: Path, args: Sequence[str], *, check: bool) -> subprocess.CompletedProcess[str]:
         hy8_file = hy8_file.with_suffix(".hy8")
