@@ -140,6 +140,7 @@ class TailwaterDefinition:
     manning_n: float = 0.0
     constant_elevation: float = 0.0
     invert_elevation: float = 0.0
+    rating_curve_entries: int = 6
     rating_curve: list[TailwaterRatingPoint] = field(default_factory=_rating_curve_list)
 
     def validate(self, prefix: str = "") -> list[str]:

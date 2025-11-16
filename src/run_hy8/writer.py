@@ -43,7 +43,9 @@ class Hy8FileWriter:
         return output_path
 
     def _write_project(self, handle: TextIO) -> None:
-        handle.write(f"HY8PROJECTFILE{self.version}\n")
+        version_value: float = self.version
+        version_text: str = str(int(version_value)) if float(version_value).is_integer() else str(version_value)
+        handle.write(f"HY8PROJECTFILE{version_text}\n")
         self._write_card(handle, "UNITS", self.project.units.project_flag)
         self._write_card(handle, "EXITLOSSOPTION", self.project.exit_loss_option)
         self._write_card(handle, "PROJTITLE", self.project.title)
@@ -54,7 +56,7 @@ class Hy8FileWriter:
         self._write_card(handle, "NUMCROSSINGS", len(self.project.crossings))
         for crossing in self.project.crossings:
             self._write_crossing(handle=handle, crossing=crossing)
-        handle.write("ENDPROJECTFILE\n")
+        handle.write("ENDPROJECTFILE")
 
     def _write_crossing(self, handle: TextIO, crossing: CulvertCrossing) -> None:
         self._write_card(handle, "STARTCROSSING", f'"{crossing.name}"')
@@ -111,11 +113,12 @@ class Hy8FileWriter:
         self._write_card(handle, "NUMRATINGCURVE", len(stages))
         first_stage: float = stages[0] if stages else 0.0
         self._write_card(handle, "TWRATINGCURVE", first_stage, vel, shear, froude)
-        for stage in stages:
-            handle.write(f"              {stage} {vel} {shear} {froude}\n")
+        for stage in stages[1:]:
+            self._write_card(handle, "", stage, vel, shear, froude)
 
     def _tailwater_stages(self, tailwater: TailwaterDefinition) -> list[float]:
-        return [tailwater.constant_elevation] * 6
+        count: int = max(1, tailwater.rating_curve_entries)
+        return [tailwater.constant_elevation] * count
 
     def _write_roadway(self, handle: TextIO, crossing: CulvertCrossing) -> None:
         roadway: RoadwayProfile = crossing.roadway
@@ -144,12 +147,12 @@ class Hy8FileWriter:
             n_bottom: float = culvert.manning_n_bottom
         else:
             n_top, n_bottom = culvert.manning_values()
-        self._write_card(handle, "BARRELDATA", culvert.span, culvert.rise, n_top, n_bottom)
-        self._write_card(handle, "EMBANKMENTTYPE", 2)
         self._write_card(handle, "INLETTYPE", culvert.inlet_type)
         self._write_card(handle, "INLETEDGETYPE", culvert.inlet_edge_type)
         self._write_card(handle, "INLETEDGETYPE71", culvert.inlet_edge_type71)
         self._write_card(handle, "IMPINLETEDGETYPE", culvert.improved_inlet_edge_type)
+        self._write_card(handle, "BARRELDATA", culvert.span, culvert.rise, n_top, n_bottom)
+        self._write_card(handle, "EMBANKMENTTYPE", 2)
         self._write_card(handle, "NUMBEROFBARRELS", culvert.number_of_barrels)
         self._write_card(
             handle,
@@ -159,17 +162,75 @@ class Hy8FileWriter:
             culvert.outlet_invert_station,
             culvert.outlet_invert_elevation,
         )
+        self._write_card(handle, "STARTCULVNOTES", f'"{culvert.notes}"')
+        self._write_card(handle, "ENDCULVNOTES")
         self._write_card(handle, "ROADCULVSTATION", culvert.roadway_station)
         spacing: float = culvert.barrel_spacing if culvert.barrel_spacing is not None else max(culvert.span * 1.5, 0.0)
         self._write_card(handle, "BARRELSPACING", spacing)
-        self._write_card(handle, "STARTCULVNOTES", f'"{culvert.notes}"')
-        self._write_card(handle, "ENDCULVNOTES")
         self._write_card(handle, "ENDCULVERT", f'"{culvert.name}"')
 
     @staticmethod
     def _write_card(handle: TextIO, name: str, *values: object) -> None:
-        line: str = " ".join(str(value) for value in values if value is not None)
-        if line:
-            handle.write(f"{name:<20} {line}\n")
+        """Write a HY-8 card while preserving the GUI-style column alignment.
+
+        All cards indent their first value so that it begins at column 22 (the GUI's
+        `ROADWAYSECDATA` reference). Subsequent columns are right-aligned inside a fixed
+        width so that digits stack vertically even when a value becomes negative or
+        grows to the tens/hundreds/thousands.
+        """
+
+        CARD_COLUMN: int = 21
+        BASE_GAP: int = 3
+        BASE_LENGTH: int = 8
+        FIELD_WIDTH: int = 11
+
+        def fmt_numeric(value: float | int) -> str:
+            if isinstance(value, int):
+                return str(value)
+            return f"{float(value):.6f}"
+
+        if name:
+            line: str = name if len(name) >= CARD_COLUMN else f"{name:<{CARD_COLUMN}}"
         else:
-            handle.write(f"{name:<20}\n")
+            line = ""
+        builder: list[str] = [line]
+
+        if not values:
+            handle.write(f"{''.join(builder)}\n")
+            return
+
+        current: int = len(line)
+        numeric_index: int = 0
+        previous_length: int | None = None
+
+        def append(text: str) -> None:
+            nonlocal current
+            builder.append(text)
+            current += len(text)
+
+        for value in values:
+            if value is None:
+                continue
+            if isinstance(value, (int, float)):
+                value_text: str = fmt_numeric(value)
+                if numeric_index == 0:
+                    if current < CARD_COLUMN:
+                        append(" " * (CARD_COLUMN - current))
+                    elif current > CARD_COLUMN:
+                        append(" ")
+                else:
+                    extra: int = max(0, (previous_length or BASE_LENGTH) - BASE_LENGTH)
+                    gap: int = max(1, BASE_GAP - extra)
+                    append(" " * gap)
+                append(value_text)
+                previous_length = len(value_text)
+                numeric_index += 1
+            else:
+                text = str(value)
+                target: int = CARD_COLUMN if numeric_index == 0 else CARD_COLUMN + numeric_index * FIELD_WIDTH
+                if current < target:
+                    append(" " * (target - current))
+                elif current > target:
+                    append(" ")
+                append(text)
+        handle.write("".join(builder) + "\n")

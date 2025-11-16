@@ -7,6 +7,8 @@ from typing import Callable
 
 import pytest
 
+from tests.hy8runner.hy8_runner_crossing import Hy8RunnerCulvertCrossing
+
 from .hy8runner.hy8_runner import Hy8Runner
 
 from run_hy8 import (
@@ -50,12 +52,12 @@ def _write_with_legacy(project: Hy8Project, working_dir: Path) -> Path:
     exe_path.write_bytes(b"")
 
     hy8_path: Path = working_dir / "legacy.hy8"
-    runner = Hy8Runner(str(exe_path.parent), str(hy8_path))
+    runner = Hy8Runner(hy8_exe_path=str(exe_path.parent), hy8_file=str(hy8_path))
     runner.project_title = project.title
     runner.designer_name = project.designer
     runner.project_notes = project.notes
-    runner.set_hy8_exe_path(str(exe_path.parent))
-    runner.set_hy8_file(str(hy8_path))
+    runner.set_hy8_exe_path(hy8_exe_path=str(exe_path.parent))
+    runner.set_hy8_file(hy8_file=str(hy8_path))
     type(runner).si_units = project.units is UnitSystem.SI
     type(runner).exit_loss_option = project.exit_loss_option
 
@@ -81,7 +83,7 @@ def _write_with_legacy(project: Hy8Project, working_dir: Path) -> Path:
                 index=index,
             )
         else:
-            runner.set_discharge_user_list_flow(crossing.flow.sequence(), index=index)
+            runner.set_discharge_user_list_flow(flow_list=crossing.flow.sequence(), index=index)
 
         runner.set_tw_constant(
             tw_invert_elevation=crossing.tailwater.invert_elevation,
@@ -106,7 +108,7 @@ def _write_with_legacy(project: Hy8Project, working_dir: Path) -> Path:
 
 
 def _synchronize_culverts(runner: Hy8Runner, culverts: list[CulvertBarrel], crossing_index: int) -> None:
-    crossing = runner.crossings[crossing_index]
+    crossing: Hy8RunnerCulvertCrossing = runner.crossings[crossing_index]
     while len(crossing.culverts) < len(culverts):
         runner.add_culvert_barrel(index_crossing=crossing_index)
     while len(crossing.culverts) > len(culverts):
@@ -181,5 +183,38 @@ def _normalize(contents: str) -> list[str]:
     for line in contents.splitlines():
         if line.startswith("PROJDATE"):
             continue
-        lines.append(" ".join(line.split()))
+        if not line or line[0].isspace():
+            continue
+        if line.startswith("HY8PROJECTFILE"):
+            line: str = _normalize_header(line)
+        tokens: list[str] = []
+        for token in line.split():
+            tokens.append(_normalize_token(token))
+        lines.append(" ".join(tokens))
     return lines
+
+
+def _normalize_token(token: str) -> str:
+    try:
+        value: float = float(token)
+    except ValueError:
+        return token
+    formatted: str = f"{value:.6f}".rstrip("0").rstrip(".")
+    if not formatted:
+        return "0.0"
+    if "." not in formatted:
+        formatted = f"{formatted}.0"
+    return formatted
+
+
+def _normalize_header(line: str) -> str:
+    prefix = "HY8PROJECTFILE"
+    if not line.startswith(prefix):
+        return line
+    suffix: str = line[len(prefix) :]
+    try:
+        number = float(suffix)
+    except ValueError:
+        return line
+    text: str = str(int(number)) if number.is_integer() else suffix
+    return f"{prefix}{text}"

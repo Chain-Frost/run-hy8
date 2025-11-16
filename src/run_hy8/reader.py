@@ -174,6 +174,8 @@ class _Hy8Parser:
                 continue
             elif key == "TAILWATERTYPE":
                 crossing.tailwater.type = self._tailwater_type(value)
+            elif key == "NUMRATINGCURVE":
+                crossing.tailwater.rating_curve_entries = max(1, self._as_int(value, default=crossing.tailwater.rating_curve_entries))
             elif key == "CHANNELGEOMETRY":
                 numbers = self._floats(value=value, expected=5)
                 if numbers:

@@ -73,27 +73,25 @@ class Hy8RunnerCulvertBarrel:
                 n_bot = 0.024
         hy8_file.write(f"CULVERTSHAPE    {culvert_shape}\n")
         hy8_file.write(f"CULVERTMATERIAL {culvert_material}\n")
-        hy8_file.write(f"BARRELDATA  {self.span} {self.rise} {n_top} {n_bot}\n")
-
-        # Site Data
-        hy8_file.write("EMBANKMENTTYPE 2\n")
         hy8_file.write(f"INLETTYPE {self.inlet_type}\n")
         hy8_file.write(f"INLETEDGETYPE {self.inlet_edge_type}\n")
         hy8_file.write(f"INLETEDGETYPE71 {self.inlet_edge_type71}\n")
         hy8_file.write(f"IMPINLETEDGETYPE {self.imp_inlet_edge_type}\n")
+        hy8_file.write(f"BARRELDATA  {self.span} {self.rise} {n_top} {n_bot}\n")
+
+        # Site Data
+        hy8_file.write("EMBANKMENTTYPE 2\n")
         hy8_file.write(f"NUMBEROFBARRELS {self.number_of_barrels}\n")
         hy8_file.write(
             f"INVERTDATA {self.inlet_invert_station} {self.inlet_invert_elevation} "
             f"{self.outlet_invert_station} {self.outlet_invert_elevation}\n"
         )
 
-        # Optional for plotting front view
+        hy8_file.write(f'STARTCULVNOTES "{self.notes}"\nENDCULVNOTES\n')
         self.roadway_station = 0.0
         hy8_file.write(f"ROADCULVSTATION {self.roadway_station}\n")
         self.barrel_spacing = 1.5 * self.span
         hy8_file.write(f"BARRELSPACING {self.barrel_spacing}\n")
-
-        hy8_file.write(f'STARTCULVNOTES "{self.notes}"\nENDCULVNOTES\n')
 
         hy8_file.write(f'ENDCULVERT "{self.name}"\n')
 

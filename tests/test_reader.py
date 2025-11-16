@@ -42,12 +42,10 @@ def test_loads_example_crossings(tmp_path: Path) -> None:
 
     generated: Path = Hy8FileWriter(project=project).write(output_path=tmp_path / "round_trip.hy8")
     assert generated.exists()
-    contents: str = generated.read_text(encoding="utf-8")
-    assert 'DISCHARGEXYUSER_NAME "q"' in contents
-    assert any(line.startswith("ENDCULVERT") and '"Culvert 1"' in line for line in contents.splitlines())
-    assert any(
-        line.startswith("ENDCROSSING") and '"Two culverts one crossing"' in line for line in contents.splitlines()
-    )
+    lines = generated.read_text(encoding="utf-8").splitlines()
+    assert any(line.startswith("DISCHARGEXYUSER_NAME") and '"q"' in line for line in lines)
+    assert any(line.startswith("ENDCULVERT") and '"Culvert 1"' in line for line in lines)
+    assert any(line.startswith("ENDCROSSING") and '"Two culverts one crossing"' in line for line in lines)
 
 
 @pytest.mark.skipif(condition=os.name != "nt", reason="HY-8 automation is only available on Windows.")

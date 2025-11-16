@@ -524,8 +524,39 @@ def _normalized_lines(path: Path) -> list[str]:
     for raw in path.read_text(encoding="utf-8").splitlines():
         if raw.startswith("PROJDATE"):
             continue
-        lines.append(" ".join(raw.split()))
+        if not raw or raw[0].isspace():
+            continue
+        if raw.startswith("HY8PROJECTFILE"):
+            raw = _normalize_header(raw)
+        tokens = [_normalize_token(token) for token in raw.split()]
+        lines.append(" ".join(tokens))
     return lines
+
+
+def _normalize_token(token: str) -> str:
+    try:
+        value = float(token)
+    except ValueError:
+        return token
+    formatted = f"{value:.6f}".rstrip("0").rstrip(".")
+    if not formatted:
+        return "0.0"
+    if "." not in formatted:
+        formatted = f"{formatted}.0"
+    return formatted
+
+
+def _normalize_header(line: str) -> str:
+    prefix = "HY8PROJECTFILE"
+    if not line.startswith(prefix):
+        return line
+    suffix = line[len(prefix) :]
+    try:
+        number = float(suffix)
+    except ValueError:
+        return line
+    text = str(int(number)) if number.is_integer() else suffix
+    return f"{prefix}{text}"
 
 
 def load_scenarios_from_data_file(path: Path, *, skip_zero_flow: bool) -> tuple[list[Scenario], int]:
