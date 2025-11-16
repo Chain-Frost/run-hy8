@@ -51,6 +51,50 @@ print(f"Wrote {hy8_file}")
 Once an `.hy8` file exists you can run HY-8 with `run_hy8.executor.Hy8Executable`. Each high-level action returns
 a `CompletedProcess` so scripting layers can inspect stdout/stderr or retry with different parameters.
 
+## Reading existing HY-8 projects
+
+Existing HY-8 files can be parsed back into the same object model via `run_hy8.reader.load_project_from_hy8`. The
+[`scripts/gen-hy8-example.py`](scripts/gen-hy8-example.py) helper demonstrates the flow in a standalone script; inline
+usage looks like:
+
+```python
+from pathlib import Path
+from run_hy8 import Hy8FileWriter, load_project_from_hy8
+
+source_path = Path("tests/example_crossings.hy8")
+project = load_project_from_hy8(source_path)
+project.title = "Round-tripped project"
+
+round_tripped = Hy8FileWriter(project).write(Path("output/round_trip.hy8"))
+print(f"Serialized {round_tripped}")
+```
+
+This is the same pipeline used in `tests/test_reader.py` to guarantee that we can faithfully read and re-write reference
+projects supplied by HY-8.
+
+## Parsing HY-8 outputs
+
+When HY-8 finishes a run it emits `.rst` (culvert summary table) and `.rsql` (flow profile) files next to the project.
+`run_hy8.results` contains parsers for both formats plus a `Hy8Results` helper that merges them into easier-to-query
+rows:
+
+```python
+from pathlib import Path
+from run_hy8 import Hy8Results, parse_rst, parse_rsql
+
+crossing = "Crossing 1"
+rst_data = parse_rst(Path("output/sample.rst"))
+rsql_profiles = parse_rsql(Path("output/sample.rsql"))
+
+series = rst_data.get(crossing, {})
+profiles = rsql_profiles.get(crossing, [])
+results = Hy8Results(series, profiles)
+best_design = results.nearest(target=50.0)
+print(f"Design headwater: {best_design.headwater_elevation}")
+```
+
+These utilities power `scripts/batch_hy8_compare.py` and let you automate regression checks without opening the HY-8 GUI.
+
 ## HY-8 executable location
 
 The repository stores its default HY-8 path inside [`HY8_PATH.txt`](HY8_PATH.txt). Update that file if HY-8 is installed
@@ -157,5 +201,6 @@ validation and serialization behaviors.
 ## Legacy hy8runner
 
 A separate `hy8runner` implementation lives under `tests/hy8runner` so we can use it for regression comparisons.
-It is not published or installed; the only supported way to exercise it is through `tests/test_legacy_regression.py`,
-which imports it via `from .hy8runner.hy8_runner import Hy8Runner`.
+It is not published or installed; the supported entry points are the automated regression test
+(`tests/test_legacy_regression.py`) and the comparison workflow in `scripts/sample_crossing_compare.py`, both of which
+import it via `from .hy8runner.hy8_runner import Hy8Runner`.

@@ -5,23 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.sample_crossing_compare import (
+    build_builtin_scenarios,
     _normalized_lines,
     build_project,
-    load_scenarios_from_data_file,
     write_with_hy8runner,
     write_with_run_hy8,
 )
 
 
-SCENARIO_FILE = Path(__file__).resolve().parents[1] / "data" / "sample_scenarios.json"
-
-
 def test_sample_scenario_files_match(tmp_path: Path) -> None:
     """Write sample scenarios with both implementations and compare the hy8 output."""
 
-    scenarios, skipped = load_scenarios_from_data_file(SCENARIO_FILE, skip_zero_flow=True)
+    scenarios = build_builtin_scenarios()
     assert scenarios, "expected at least one deterministic scenario"
-    assert skipped == 0
 
     project = build_project("Sample Scenario Parity", scenarios[:5])
     run_hy8_path = write_with_run_hy8(project, tmp_path / "run_hy8")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 from subprocess import CompletedProcess
@@ -48,14 +47,10 @@ def test_loads_example_crossings(tmp_path: Path) -> None:
     assert any(line.startswith("ENDCROSSING") and '"Two culverts one crossing"' in line for line in lines)
 
 
-@pytest.mark.skipif(condition=os.name != "nt", reason="HY-8 automation is only available on Windows.")
 def test_example_crossings_results_match(tmp_path: Path) -> None:
-    hy8_exe_env: str | None = os.environ.get("HY8_EXE") or os.environ.get("HY8_EXECUTABLE")
-    if not hy8_exe_env:
-        pytest.skip(reason="Set HY8_EXE to compare HY-8 outputs.")
-    hy8_path = Path(hy8_exe_env)
+    hy8_path: Path = Hy8Executable.default_path()
     if not hy8_path.exists():
-        pytest.skip(reason=f"HY-8 executable not found: {hy8_path}")
+        pytest.fail(f"HY-8 executable not found at {hy8_path}. Update HY8_PATH.txt or HY8_EXE.")
 
     project: Hy8Project = load_project_from_hy8(EXAMPLE_FILE)
     regenerated: Path = Hy8FileWriter(project=project).write(output_path=tmp_path / "regenerated.hy8")

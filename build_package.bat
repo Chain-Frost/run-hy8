@@ -6,6 +6,12 @@ echo Ensuring the build backend is installed...
 py -3.13 -m pip install --upgrade build || goto :error
 
 echo.
+echo Cleaning previous build artifacts...
+if exist "%~dp0dist" (
+    rmdir /s /q "%~dp0dist" || goto :error
+)
+
+echo.
 echo Building run-hy8 distributions...
 py -3.13 -m build || goto :error
 
