@@ -136,6 +136,6 @@ class Hy8RunnerCulvertCrossing:
 
         if self.uuid is not None:
             hy8_file.write(f"CROSSGUID            {self.uuid}\n")
-        hy8_file.write("ENDCROSSING\n")
+        hy8_file.write(f'ENDCROSSING "{self.name}"\n')
 
         return result, messages

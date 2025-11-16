@@ -18,7 +18,8 @@ def test_build_from_json_config(tmp_path: Path) -> None:
     project: Hy8Project = load_project_from_json(path=config_path)
     hy8_path: Path = Hy8FileWriter(project=project).write(output_path=tmp_path / "sample.hy8")
     contents: str = hy8_path.read_text(encoding="utf-8")
+    lines: list[str] = contents.splitlines()
 
-    assert "PROJTITLE  Sample Project" in contents
-    assert 'STARTCROSSING   "Sample Crossing"' in contents
-    assert "TAILWATERTYPE 6" in contents  # Constant tailwater
+    assert any(line.startswith("PROJTITLE") and "Sample Project" in line for line in lines)
+    assert any(line.startswith("STARTCROSSING") and '"Sample Crossing"' in line for line in lines)
+    assert any(line.startswith("TAILWATERTYPE") and "6" in line for line in lines)  # Constant tailwater

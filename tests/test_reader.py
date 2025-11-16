@@ -11,7 +11,7 @@ import pytest
 
 from run_hy8 import CulvertMaterial, UnitSystem
 from run_hy8.executor import Hy8Executable
-from run_hy8.models import CulvertCrossing, Hy8Project
+from run_hy8.models import CulvertBarrel, CulvertCrossing, Hy8Project
 from run_hy8.reader import load_project_from_hy8
 from run_hy8.results import FlowProfile, Hy8Series, parse_rsql, parse_rst
 from run_hy8.writer import Hy8FileWriter
@@ -29,6 +29,12 @@ def test_loads_example_crossings(tmp_path: Path) -> None:
     assert first.flow.sequence() == pytest.approx(  # pyright: ignore[reportUnknownMemberType]
         expected=[282.517334, 317.832, 353.146667]
     )
+    assert first.flow.user_value_labels == ["q", "w", "e"]
+    first_culvert: CulvertBarrel = first.culverts[0]
+    assert first_culvert.inlet_type == 1
+    assert first_culvert.inlet_edge_type == 0
+    assert first_culvert.inlet_edge_type71 == 0
+    assert first_culvert.improved_inlet_edge_type == 1
     last: CulvertCrossing = project.crossings[-1]
     assert last.name == "Two culverts one crossing"
     assert len(last.culverts) == 2
@@ -36,6 +42,12 @@ def test_loads_example_crossings(tmp_path: Path) -> None:
 
     generated: Path = Hy8FileWriter(project=project).write(output_path=tmp_path / "round_trip.hy8")
     assert generated.exists()
+    contents: str = generated.read_text(encoding="utf-8")
+    assert 'DISCHARGEXYUSER_NAME "q"' in contents
+    assert any(line.startswith("ENDCULVERT") and '"Culvert 1"' in line for line in contents.splitlines())
+    assert any(
+        line.startswith("ENDCROSSING") and '"Two culverts one crossing"' in line for line in contents.splitlines()
+    )
 
 
 @pytest.mark.skipif(condition=os.name != "nt", reason="HY-8 automation is only available on Windows.")

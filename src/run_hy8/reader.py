@@ -146,13 +146,13 @@ class _Hy8Parser:
 
     def _parse_crossing(self, name: str) -> CulvertCrossing:
         crossing = CulvertCrossing(name=name or "Crossing")
-        pending_flow_values: list[float] = []
+        pending_flow_values: tuple[list[float], list[str]] = ([], [])
         while True:
             card: _Hy8Card = self._stream.next_card()
             key: str = card.key
             value: str = card.value
             if key == "ENDCROSSING":
-                self._finalize_flow(crossing=crossing, user_values=pending_flow_values)
+                self._finalize_flow(crossing=crossing, data=pending_flow_values)
                 return crossing
             if key == "STARTCROSSNOTES":
                 crossing.notes = self._clean_string(raw=value)
@@ -170,8 +170,7 @@ class _Hy8Parser:
                 )
             elif key == "DISCHARGEXYUSER":
                 pending_flow_values = self._read_flow_values(expected=self._as_int(value=value))
-            elif key == "DISCHARGEXYUSER_Y" or key == "DISCHARGEXYUSER_NAME":
-                # Residual cards when DISCHARGEXYUSER count is zero; ignore.
+            elif key == "DISCHARGEXYUSER_NAME":
                 continue
             elif key == "TAILWATERTYPE":
                 crossing.tailwater.type = self._tailwater_type(value)
@@ -225,6 +224,14 @@ class _Hy8Parser:
                 culvert.shape = self._culvert_shape(value=value)
             elif key == "CULVERTMATERIAL":
                 culvert.material = self._culvert_material(value=value)
+            elif key == "INLETTYPE":
+                culvert.inlet_type = self._as_int(value=value, default=culvert.inlet_type)
+            elif key == "INLETEDGETYPE":
+                culvert.inlet_edge_type = self._as_int(value=value, default=culvert.inlet_edge_type)
+            elif key == "INLETEDGETYPE71":
+                culvert.inlet_edge_type71 = self._as_int(value=value, default=culvert.inlet_edge_type71)
+            elif key == "IMPINLETEDGETYPE":
+                culvert.improved_inlet_edge_type = self._as_int(value=value, default=culvert.improved_inlet_edge_type)
             elif key == "BARRELDATA":
                 numbers = self._floats(value=value, expected=4)
                 if len(numbers) >= 4:
@@ -257,13 +264,20 @@ class _Hy8Parser:
         text: str = "\n".join(line.strip() for line in lines if line.strip())
         return text
 
-    def _finalize_flow(self, crossing: CulvertCrossing, user_values: list[float]) -> None:
+    def _finalize_flow(self, crossing: CulvertCrossing, data: tuple[list[float], list[str]]) -> None:
+        user_values, labels = data
         flow: FlowDefinition = crossing.flow
         if flow.method is FlowMethod.MIN_DESIGN_MAX:
             return
         if not user_values:
             flow.method = FlowMethod.USER_DEFINED
             flow.user_values = []
+            flow.user_value_labels = []
+            return
+        if labels:
+            flow.method = FlowMethod.USER_DEFINED
+            flow.user_values = list(user_values)
+            flow.user_value_labels = list(labels)
             return
         increment: float | None = self._detect_increment(values=user_values)
         if increment is not None:
@@ -272,27 +286,42 @@ class _Hy8Parser:
             flow.maximum = user_values[-1]
             flow.increment = increment
             flow.user_values = []
+            flow.user_value_labels = []
         else:
             flow.method = FlowMethod.USER_DEFINED
             flow.user_values = list(user_values)
+            flow.user_value_labels = list(labels)
 
-    def _read_flow_values(self, expected: int) -> list[float]:
+    def _read_flow_values(self, expected: int) -> tuple[list[float], list[str]]:
         if expected <= 0:
-            return []
+            return ([], [])
         values: list[float] = []
-        while len(values) < expected:
+        labels: list[str] = []
+        saw_label: bool = False
+        expect_name: bool = False
+        while len(values) < expected or (expect_name and len(values) <= expected):
             card: _Hy8Card = self._stream.next_card()
             if card.key == "DISCHARGEXYUSER_Y":
                 try:
                     values.append(float(card.value.split()[0]))
                 except (IndexError, ValueError):
                     values.append(0.0)
+                labels.append("")
+                expect_name = True
             elif card.key == "DISCHARGEXYUSER_NAME":
-                continue
+                label: str = self._clean_string(raw=card.value)
+                if labels:
+                    labels[-1] = label
+                saw_label = True
+                expect_name = False
             else:
                 self._stream.push_back(card)
-                break
-        return values
+                expect_name = False
+                if len(values) >= expected:
+                    break
+        if not saw_label:
+            labels = []
+        return values, labels
 
     @staticmethod
     def _clean_string(raw: str) -> str:

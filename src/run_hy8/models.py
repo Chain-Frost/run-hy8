@@ -60,6 +60,10 @@ def _float_list() -> list[float]:
     return []
 
 
+def _string_list() -> list[str]:
+    return []
+
+
 def _rating_curve_list() -> list[TailwaterRatingPoint]:
     return []
 
@@ -82,6 +86,7 @@ class FlowDefinition:
     maximum: float = 0.0
     increment: float = 0.0
     user_values: list[float] = field(default_factory=_float_list)
+    user_value_labels: list[str] = field(default_factory=_string_list)
 
     def sequence(self) -> list[float]:
         """Return the flows HY-8 expects to see in the DISCHARGEXYUSER cards."""
@@ -117,6 +122,8 @@ class FlowDefinition:
                 errors.append(f"{prefix}Provide at least two user-defined flow values.")
             elif any(a >= b for a, b in zip(self.user_values, self.user_values[1:])):
                 errors.append(f"{prefix}User-defined flows must be strictly increasing.")
+            if self.user_value_labels and len(self.user_value_labels) != len(self.user_values):
+                errors.append(f"{prefix}Provide the same number of flow labels as flow values.")
         else:
             errors.append(f"{prefix}Unknown flow method '{self.method}'.")
         return errors
@@ -198,6 +205,10 @@ class CulvertBarrel:
     outlet_invert_station: float = 0.0
     outlet_invert_elevation: float = 0.0
     roadway_station: float = 0.0
+    inlet_type: int = 1
+    inlet_edge_type: int = 0
+    inlet_edge_type71: int = 0
+    improved_inlet_edge_type: int = 0
     barrel_spacing: float | None = None
     notes: str = ""
     manning_n_top: float | None = None

@@ -28,6 +28,11 @@ class Hy8RunnerCulvertBarrel:
         self.outlet_invert_elevation: float = 0.0
         self.outlet_invert_station: float = 0.0
 
+        self.inlet_type: int = 1
+        self.inlet_edge_type: int = 0
+        self.inlet_edge_type71: int = 0
+        self.imp_inlet_edge_type: int = 0
+
         self.number_of_barrels: int = 1
         self.roadway_station: float = 0.0
         self.barrel_spacing: float = 0.0
@@ -44,7 +49,7 @@ class Hy8RunnerCulvertBarrel:
             bool: True if the file was created successfully.
             string: The error message if the file was not created successfully.
         """
-        messages = ""
+        messages: str = ""
         result = True
 
         hy8_file.write(f'STARTCULVERT    "{self.name}"\n')
@@ -58,8 +63,8 @@ class Hy8RunnerCulvertBarrel:
             culvert_shape = 2
             culvert_material = 1  # boxes must be concrete (0)
 
-        n_top = self.manning_n_top
-        n_bot = self.manning_n_bottom
+        n_top: float | None = self.manning_n_top
+        n_bot: float | None = self.manning_n_bottom
         if n_top is None or n_bot is None:
             n_top = 0.012
             n_bot = 0.012
@@ -72,6 +77,10 @@ class Hy8RunnerCulvertBarrel:
 
         # Site Data
         hy8_file.write("EMBANKMENTTYPE 2\n")
+        hy8_file.write(f"INLETTYPE {self.inlet_type}\n")
+        hy8_file.write(f"INLETEDGETYPE {self.inlet_edge_type}\n")
+        hy8_file.write(f"INLETEDGETYPE71 {self.inlet_edge_type71}\n")
+        hy8_file.write(f"IMPINLETEDGETYPE {self.imp_inlet_edge_type}\n")
         hy8_file.write(f"NUMBEROFBARRELS {self.number_of_barrels}\n")
         hy8_file.write(
             f"INVERTDATA {self.inlet_invert_station} {self.inlet_invert_elevation} "
@@ -86,6 +95,6 @@ class Hy8RunnerCulvertBarrel:
 
         hy8_file.write(f'STARTCULVNOTES "{self.notes}"\nENDCULVNOTES\n')
 
-        hy8_file.write("ENDCULVERT\n")
+        hy8_file.write(f'ENDCULVERT "{self.name}"\n')
 
         return result, messages
