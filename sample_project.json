@@ -8,9 +8,11 @@
     {
       "name": "Sample Crossing",
       "flow": {
+        "method": "min-design-max",
         "minimum": 5.0,
         "design": 10.0,
-        "maximum": 15.0
+        "maximum": 15.0,
+        "user_values": [5.0, 10.0, 15.0]
       },
       "tailwater": {
         "constant_elevation": 100.5,

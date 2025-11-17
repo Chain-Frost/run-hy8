@@ -10,14 +10,18 @@ from .models import (
     CulvertShape,
     FlowDefinition,
     FlowMethod,
+    ImprovedInletEdgeType,
     Hy8Project,
+    InletEdgeType,
+    InletEdgeType71,
+    InletType,
     RoadwayProfile,
     RoadwaySurface,
     TailwaterDefinition,
     TailwaterType,
     UnitSystem,
 )
-from .reader import load_project_from_hy8
+from .reader import culvert_dataframe, load_project_from_hy8
 from .results import Hy8Results, parse_rsql, parse_rst
 from .writer import Hy8FileWriter
 
@@ -28,9 +32,13 @@ __all__: list[str] = [
     "CulvertShape",
     "FlowDefinition",
     "FlowMethod",
+    "ImprovedInletEdgeType",
     "Hy8Executable",
     "Hy8FileWriter",
     "Hy8Project",
+    "InletEdgeType",
+    "InletEdgeType71",
+    "InletType",
     "RoadwayProfile",
     "RoadwaySurface",
     "TailwaterDefinition",
@@ -39,6 +47,7 @@ __all__: list[str] = [
     "Hy8Results",
     "parse_rst",
     "parse_rsql",
+    "culvert_dataframe",
     "load_project_from_json",
     "load_project_from_hy8",
     "project_from_mapping",

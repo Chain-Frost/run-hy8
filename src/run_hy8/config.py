@@ -97,26 +97,27 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
 
 
 def _parse_flow(entry: JSONMapping) -> FlowDefinition:
-    method_value = str(entry.get("method", FlowMethod.MIN_DESIGN_MAX.value))
+    method_value = str(entry.get("method", FlowMethod.USER_DEFINED.value))
     try:
         method = FlowMethod(method_value)
     except ValueError as exc:
         raise ValueError(f"Unsupported flow method '{method_value}'") from exc
 
+    if method is FlowMethod.MIN_MAX_INCREMENT:
+        raise ValueError("Flow method 'min-max-increment' is not supported by run-hy8.")
+
     flow = FlowDefinition(method=method)
-    if method is FlowMethod.USER_DEFINED:
+    if "user_values" in entry:
         values_raw: Any = entry.get("user_values", [])
         if not isinstance(values_raw, ABCSequence) or isinstance(values_raw, (str, bytes)):
             raise ValueError("Flow 'user_values' must be a list of numbers")
         values_sequence: ABCSequence[Any] = cast(ABCSequence[Any], values_raw)
         values_list: list[Any] = list(values_sequence)
         flow.user_values = [float(value) for value in values_list]
-    else:
+    if method is FlowMethod.MIN_DESIGN_MAX:
         flow.minimum = float(entry.get("minimum", flow.minimum))
         flow.design = float(entry.get("design", flow.design))
         flow.maximum = float(entry.get("maximum", flow.maximum))
-        if method is FlowMethod.MIN_MAX_INCREMENT:
-            flow.increment = float(entry.get("increment", flow.increment))
     return flow
 
 

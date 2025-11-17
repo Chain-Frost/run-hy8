@@ -9,12 +9,17 @@ import json
 import math
 import re
 import shutil
+from subprocess import CompletedProcess
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-ROOT = Path(__file__).resolve().parent.parent
-SRC_ROOT = ROOT / "src"
+from run_hy8.models import FlowDefinition
+from tests.hy8runner.hy8_runner_crossing import Hy8RunnerCulvertCrossing
+from tests.hy8runner.hy8_runner_culvert import Hy8RunnerCulvertBarrel
+
+ROOT: Path = Path(__file__).resolve().parent.parent
+SRC_ROOT: Path = ROOT / "src"
 for path in (ROOT, SRC_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
@@ -31,7 +36,7 @@ from run_hy8 import (  # noqa: E402
     RoadwaySurface,
     UnitSystem,
 )
-from run_hy8.results import Hy8Series, parse_rsql, parse_rst  # noqa: E402
+from run_hy8.results import FlowProfile, Hy8Series, parse_rsql, parse_rst  # noqa: E402
 from scripts.batch_hy8_compare import Scenario, build_crossing, load_scenarios  # noqa: E402
 from tests.hy8runner.hy8_runner import Hy8Runner  # noqa: E402
 
@@ -135,17 +140,17 @@ def main() -> None:
     if args.hy8_exe and not args.hy8_exe.exists():
         raise FileNotFoundError(f"HY-8 executable not found: {args.hy8_exe}")
 
-    output_dir = prepare_output_dir(args.output_dir, overwrite=args.force)
+    output_dir: Path = prepare_output_dir(args.output_dir, overwrite=args.force)
     scenarios, source_message = select_scenarios(args.scenario_file, args.excel, args.limit)
     if not scenarios:
         raise RuntimeError("No scenarios were generated. Provide a workbook or adjust the built-in sample count.")
     print(source_message)
 
-    project = build_project("Sample Comparison", scenarios)
-    run_dir = output_dir / "run_hy8"
-    legacy_dir = output_dir / "hy8runner"
-    run_file = write_with_run_hy8(project, run_dir)
-    legacy_file = write_with_hy8runner(project, legacy_dir, args.hy8_exe)
+    project: Hy8Project = build_project(title="Sample Comparison", scenarios=scenarios)
+    run_dir: Path = output_dir / "run_hy8"
+    legacy_dir: Path = output_dir / "hy8runner"
+    run_file: Path = write_with_run_hy8(project=project, directory=run_dir)
+    legacy_file: Path = write_with_hy8runner(project=project, directory=legacy_dir, hy8_exe=args.hy8_exe)
     print(f"Wrote run-hy8 project to {run_file}")
     print(f"Wrote hy8runner project to {legacy_file}")
 
@@ -197,25 +202,19 @@ def select_scenarios(
         if not scenarios:
             raise RuntimeError(f"No scenarios were found in {scenario_file}.")
         count = len(scenarios) if limit == 0 else min(limit, len(scenarios))
-        message = (
-            f"Loaded {count} scenarios from {scenario_file} "
-            f"(skipped {skipped} rows with zero discharge)."
-        )
+        message = f"Loaded {count} scenarios from {scenario_file} " f"(skipped {skipped} rows with zero discharge)."
         return scenarios[:count], message
     if excel_path and excel_path.exists():
         scenarios, skipped = load_scenarios(excel_path, skip_zero_flow=True)
         if scenarios:
             count = len(scenarios) if limit == 0 else min(limit, len(scenarios))
-            message = (
-                f"Loaded {count} scenarios from {excel_path} "
-                f"(skipped {skipped} rows with zero discharge)."
-            )
+            message = f"Loaded {count} scenarios from {excel_path} " f"(skipped {skipped} rows with zero discharge)."
             return scenarios[:count], message
         print(f"Workbook {excel_path} did not yield any valid scenarios; falling back to built-in samples.")
-    fallback = build_builtin_scenarios()
+    fallback: list[Scenario] = build_builtin_scenarios()
     if not fallback:
         return [], "No built-in scenarios are available."
-    count = len(fallback) if limit == 0 else min(limit, len(fallback))
+    count: int = len(fallback) if limit == 0 else min(limit, len(fallback))
     return fallback[:count], f"Using {count} built-in sample scenarios."
 
 
@@ -248,57 +247,57 @@ def build_builtin_scenarios() -> list[Scenario]:
 def build_project(title: str, scenarios: Sequence[Scenario]) -> Hy8Project:
     project = Hy8Project(title=title, designer="sample-tool", units=UnitSystem.SI)
     for scenario in scenarios:
-        crossing = build_crossing(scenario)
+        crossing: CulvertCrossing = build_crossing(scenario=scenario)
         project.crossings.append(crossing)
     return project
 
 
 def write_with_run_hy8(project: Hy8Project, directory: Path) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
-    hy8_path = directory / f"{slugify(project.title)}.hy8"
+    hy8_path: Path = directory / f"{slugify(name=project.title)}.hy8"
     Hy8FileWriter(project).write(hy8_path, overwrite=True)
     return hy8_path
 
 
 def write_with_hy8runner(project: Hy8Project, directory: Path, hy8_exe: Path | None) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
-    hy8_path = directory / f"{slugify(project.title)}.hy8"
-    exe_dir = hy8_exe.parent if hy8_exe else directory
-    exe_path = exe_dir / "HY864.exe" if not hy8_exe else hy8_exe
+    hy8_path: Path = directory / f"{slugify(name=project.title)}.hy8"
+    exe_dir: Path = hy8_exe.parent if hy8_exe else directory
+    exe_path: Path = exe_dir / "HY864.exe" if not hy8_exe else hy8_exe
     if not exe_path.exists():
         exe_path.write_bytes(b"")
 
-    runner = Hy8Runner(str(exe_dir), str(hy8_path))
+    runner = Hy8Runner(hy8_exe_path=str(exe_dir), hy8_file=str(hy8_path))
     runner.project_title = project.title
     runner.designer_name = project.designer
     runner.project_notes = project.notes
-    runner.set_hy8_exe_path(str(exe_dir))
-    runner.set_hy8_file(str(hy8_path))
+    runner.set_hy8_exe_path(hy8_exe_path=str(exe_dir))
+    runner.set_hy8_file(hy8_file=str(hy8_path))
     type(runner).si_units = project.units is UnitSystem.SI
     type(runner).exit_loss_option = project.exit_loss_option
 
     while len(runner.crossings) < len(project.crossings):
         runner.add_crossing()
     while len(runner.crossings) > len(project.crossings):
-        runner.delete_crossing(len(runner.crossings) - 1)
+        runner.delete_crossing(index=len(runner.crossings) - 1)
 
     for index, crossing in enumerate(project.crossings):
-        runner.set_culvert_crossing_name(crossing.name, index=index)
-        _configure_flow(runner, crossing, index)
+        runner.set_culvert_crossing_name(name=crossing.name, index=index)
+        _configure_flow(runner=runner, crossing=crossing, index=index)
         runner.set_tw_constant(
             tw_invert_elevation=crossing.tailwater.invert_elevation,
             tw_constant_elevation=crossing.tailwater.constant_elevation,
             index=index,
         )
         runner.set_roadway_width(roadway_width=crossing.roadway.width, index=index)
-        runner.set_roadway_surface(_surface_name(crossing.roadway.surface), index=index)
+        runner.set_roadway_surface(roadway_surface=_surface_name(surface=crossing.roadway.surface), index=index)
         runner.set_roadway_stations_and_elevations(
             stations=crossing.roadway.stations,
             elevations=crossing.roadway.elevations,
             index=index,
         )
         runner.crossings[index].roadway_shape = crossing.roadway.shape
-        _synchronize_culverts(runner, crossing.culverts, index)
+        _synchronize_culverts(runner=runner, culverts=crossing.culverts, crossing_index=index)
 
     success, messages = runner.create_hy8_file()
     if not success:
@@ -307,27 +306,27 @@ def write_with_hy8runner(project: Hy8Project, directory: Path, hy8_exe: Path | N
 
 
 def _configure_flow(runner: Hy8Runner, crossing: CulvertCrossing, index: int) -> None:
-    flow = crossing.flow
+    flow: FlowDefinition = crossing.flow
+    values: list[float] = flow.sequence()
     if flow.method is FlowMethod.MIN_DESIGN_MAX:
+        if len(values) != 3:
+            raise ValueError(f"{crossing.name}: Min/Design/Max problems require exactly three flows.")
         runner.set_discharge_min_design_max_flow(
-            flow_min=flow.minimum,
-            flow_design=flow.design,
-            flow_max=flow.maximum,
+            flow_min=values[0],
+            flow_design=values[1],
+            flow_max=values[2],
             index=index,
         )
-    elif flow.method is FlowMethod.MIN_MAX_INCREMENT:
-        runner.set_discharge_min_max_inc_flow(
-            flow_min=flow.minimum,
-            flow_max=flow.maximum,
-            flow_increment=flow.increment,
-            index=index,
-        )
+    elif flow.method is FlowMethod.USER_DEFINED:
+        if len(values) < 2:
+            raise ValueError(f"{crossing.name}: Provide at least two user-defined flow values.")
+        runner.set_discharge_user_list_flow(values, index=index)
     else:
-        runner.set_discharge_user_list_flow(flow.sequence(), index=index)
+        raise ValueError(f"{crossing.name}: Flow method '{flow.method.value}' is not supported by run-hy8.")
 
 
 def _synchronize_culverts(runner: Hy8Runner, culverts: list[CulvertBarrel], crossing_index: int) -> None:
-    crossing = runner.crossings[crossing_index]
+    crossing: Hy8RunnerCulvertCrossing = runner.crossings[crossing_index]
     while len(crossing.culverts) < len(culverts):
         runner.add_culvert_barrel(index_crossing=crossing_index)
     while len(crossing.culverts) > len(culverts):
@@ -344,7 +343,7 @@ def _synchronize_culverts(runner: Hy8Runner, culverts: list[CulvertBarrel], cros
             index_crossing=crossing_index,
             index_culvert=culvert_index,
         )
-        rise = culvert.rise if culvert.rise > 0 else culvert.span
+        rise: float = culvert.rise if culvert.rise > 0 else culvert.span
         runner.set_culvert_barrel_span_and_rise(
             span=culvert.span,
             rise=rise,
@@ -352,7 +351,7 @@ def _synchronize_culverts(runner: Hy8Runner, culverts: list[CulvertBarrel], cros
             index_culvert=culvert_index,
         )
         runner.set_culvert_barrel_material(
-            material=_material_name(culvert.material),
+            material=_material_name(material=culvert.material),
             index_crossing=crossing_index,
             index_culvert=culvert_index,
         )
@@ -369,15 +368,15 @@ def _synchronize_culverts(runner: Hy8Runner, culverts: list[CulvertBarrel], cros
             index_crossing=crossing_index,
             index_culvert=culvert_index,
         )
-        hy8_culvert = runner.crossings[crossing_index].culverts[culvert_index]
+        hy8_culvert: Hy8RunnerCulvertBarrel = runner.crossings[crossing_index].culverts[culvert_index]
         hy8_culvert.notes = culvert.notes
         hy8_culvert.manning_n_top = culvert.manning_n_top
         hy8_culvert.manning_n_bottom = culvert.manning_n_bottom
 
 
 def diff_files(new_file: Path, legacy_file: Path) -> list[str]:
-    new_lines = _normalized_lines(new_file)
-    legacy_lines = _normalized_lines(legacy_file)
+    new_lines: list[str] = _normalized_lines(path=new_file)
+    legacy_lines: list[str] = _normalized_lines(path=legacy_file)
     return list(
         difflib.unified_diff(
             legacy_lines,
@@ -391,7 +390,7 @@ def diff_files(new_file: Path, legacy_file: Path) -> list[str]:
 
 def run_hy8_outputs(exe_path: Path, hy8_path: Path) -> tuple[dict[str, Hy8Series], dict[str, list]]:
     executor = Hy8Executable(exe_path)
-    result = executor.open_run_save(hy8_path, check=False)
+    result: CompletedProcess[str] = executor.open_run_save(hy8_file=hy8_path, check=False)
     if result.returncode != 0:
         print(f"HY-8 exited with {result.returncode} for {hy8_path}.")
         if result.stdout:
@@ -400,10 +399,10 @@ def run_hy8_outputs(exe_path: Path, hy8_path: Path) -> tuple[dict[str, Hy8Series
         if result.stderr:
             print("stderr:")
             print(result.stderr.strip())
-    rst_path = hy8_path.with_suffix(".rst")
-    rsql_path = hy8_path.with_suffix(".rsql")
-    rst_data = parse_rst(rst_path) if rst_path.exists() else {}
-    rsql_data = parse_rsql(rsql_path) if rsql_path.exists() else {}
+    rst_path: Path = hy8_path.with_suffix(".rst")
+    rsql_path: Path = hy8_path.with_suffix(".rsql")
+    rst_data: dict[str, Hy8Series] = parse_rst(rst_path) if rst_path.exists() else {}
+    rsql_data: dict[str, list[FlowProfile]] = parse_rsql(rsql_path) if rsql_path.exists() else {}
     return rst_data, rsql_data
 
 
@@ -414,10 +413,10 @@ def compare_result_sets(
     tolerance: float = 1e-6,
 ) -> list[str]:
     mismatches: list[str] = []
-    all_names = sorted({*run_data.keys(), *legacy_data.keys()})
+    all_names: list[str] = sorted({*run_data.keys(), *legacy_data.keys()})
     for name in all_names:
-        run_entry = run_data.get(name)
-        legacy_entry = legacy_data.get(name)
+        run_entry: Hy8Series | None = run_data.get(name)
+        legacy_entry: Hy8Series | None = legacy_data.get(name)
         if run_entry is None or legacy_entry is None:
             mismatches.append(f"{name}: missing from {'run-hy8' if legacy_entry else 'hy8runner'} results")
             continue
@@ -432,8 +431,8 @@ def compare_result_sets(
 
 
 def sequences_close(a: Iterable[float], b: Iterable[float], tolerance: float) -> bool:
-    list_a = list(a)
-    list_b = list(b)
+    list_a: list[float] = list(a)
+    list_b: list[float] = list(b)
     if len(list_a) != len(list_b):
         return False
     for left, right in zip(list_a, list_b, strict=False):
@@ -452,14 +451,14 @@ def log_result_preview(label: str, data: dict[str, Hy8Series], *, limit: int = 3
         return
     print(f"{label}: previewing up to {limit} flow rows per crossing")
     for name, entry in data.items():
-        flows = list(entry.get("flow") or [])
-        headwaters = list(entry.get("headwater") or [])
-        velocities = list(entry.get("velocity") or [])
-        sample_count = min(limit, len(flows))
+        flows: list[float] = list(entry.get("flow") or [])
+        headwaters: list[float] = list(entry.get("headwater") or [])
+        velocities: list[float] = list(entry.get("velocity") or [])
+        sample_count: int = min(limit, len(flows))
         for idx in range(sample_count):
-            flow = flows[idx]
-            headwater = headwaters[idx] if idx < len(headwaters) else math.nan
-            velocity = velocities[idx] if idx < len(velocities) else math.nan
+            flow: float = flows[idx]
+            headwater: float = headwaters[idx] if idx < len(headwaters) else math.nan
+            velocity: float = velocities[idx] if idx < len(velocities) else math.nan
             print(
                 f"  {name} #{idx + 1}: "
                 f"Q={_format_value(flow)} cms, HW={_format_value(headwater)} m, V={_format_value(velocity)} m/s"
@@ -473,7 +472,7 @@ def summarize_profile_differences(
     if not run_profiles and not legacy_profiles:
         print("No .rsql flow profiles detected.")
         return
-    all_names = sorted({*run_profiles.keys(), *legacy_profiles.keys()})
+    all_names: list[str] = sorted({*run_profiles.keys(), *legacy_profiles.keys()})
     for name in all_names:
         run_list = run_profiles.get(name) or []
         legacy_list = legacy_profiles.get(name) or []
@@ -484,12 +483,12 @@ def summarize_profile_differences(
 
 
 def slugify(name: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9]+", "_", name.strip())
+    safe: str = re.sub(r"[^A-Za-z0-9]+", "_", name.strip())
     return safe.strip("_") or "project"
 
 
 def _surface_name(surface: RoadwaySurface) -> str:
-    mapping = {
+    mapping: dict[RoadwaySurface, str] = {
         RoadwaySurface.PAVED: "paved",
         RoadwaySurface.GRAVEL: "gravel",
         RoadwaySurface.USER_DEFINED: "user-defined",
@@ -498,7 +497,7 @@ def _surface_name(surface: RoadwaySurface) -> str:
 
 
 def _shape_name(shape: CulvertShape) -> str:
-    mapping = {
+    mapping: dict[CulvertShape, str] = {
         CulvertShape.CIRCLE: "circle",
         CulvertShape.BOX: "box",
     }
@@ -506,7 +505,7 @@ def _shape_name(shape: CulvertShape) -> str:
 
 
 def _material_name(material: CulvertMaterial) -> str:
-    mapping = {
+    mapping: dict[CulvertMaterial, str] = {
         CulvertMaterial.CONCRETE: "concrete",
         CulvertMaterial.CORRUGATED_STEEL: "corrugated steel",
     }
@@ -527,8 +526,8 @@ def _normalized_lines(path: Path) -> list[str]:
         if not raw or raw[0].isspace():
             continue
         if raw.startswith("HY8PROJECTFILE"):
-            raw = _normalize_header(raw)
-        tokens = [_normalize_token(token) for token in raw.split()]
+            raw: str = _normalize_header(raw)
+        tokens: list[str] = [_normalize_token(token) for token in raw.split()]
         lines.append(" ".join(tokens))
     return lines
 
@@ -538,7 +537,7 @@ def _normalize_token(token: str) -> str:
         value = float(token)
     except ValueError:
         return token
-    formatted = f"{value:.6f}".rstrip("0").rstrip(".")
+    formatted: str = f"{value:.6f}".rstrip("0").rstrip(".")
     if not formatted:
         return "0.0"
     if "." not in formatted:
@@ -550,17 +549,17 @@ def _normalize_header(line: str) -> str:
     prefix = "HY8PROJECTFILE"
     if not line.startswith(prefix):
         return line
-    suffix = line[len(prefix) :]
+    suffix: str = line[len(prefix) :]
     try:
         number = float(suffix)
     except ValueError:
         return line
-    text = str(int(number)) if number.is_integer() else suffix
+    text: str = str(int(number)) if number.is_integer() else suffix
     return f"{prefix}{text}"
 
 
 def load_scenarios_from_data_file(path: Path, *, skip_zero_flow: bool) -> tuple[list[Scenario], int]:
-    suffix = path.suffix.lower()
+    suffix: str = path.suffix.lower()
     if suffix == ".json":
         return load_scenarios_from_json(path, skip_zero_flow=skip_zero_flow)
     if suffix == ".csv":
@@ -582,7 +581,7 @@ def load_scenarios_from_json(path: Path, *, skip_zero_flow: bool) -> tuple[list[
 
 def load_scenarios_from_csv(path: Path, *, skip_zero_flow: bool) -> tuple[list[Scenario], int]:
     with path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
+        reader: csv.DictReader[str] = csv.DictReader(handle)
         records = list(reader)
     return records_to_scenarios(records, skip_zero_flow=skip_zero_flow)
 
@@ -591,19 +590,19 @@ def records_to_scenarios(records: Sequence[dict[str, Any]], *, skip_zero_flow: b
     scenarios: list[Scenario] = []
     zero_flow_skipped = 0
     for sequence, record in enumerate(records):
-        q = _float(record.get("Q"))
+        q: float = _float(record.get("Q"))
         if skip_zero_flow and not math.isnan(q) and abs(q) <= 1e-9:
             zero_flow_skipped += 1
             continue
-        ds_headwater = _float(record.get("DS_h"))
-        height = _float(record.get("Height"))
+        ds_headwater: float = _float(record.get("DS_h"))
+        height: float = _float(record.get("Height"))
         if math.isnan(q) or math.isnan(ds_headwater) or math.isnan(height):
             continue
-        index = _int(record.get("index"), default=sequence)
-        us_invert = _float(record.get("US Invert"), fallback=ds_headwater)
-        ds_invert = _float(record.get("DS Invert"), fallback=ds_headwater)
-        crest_override = _float(record.get("roadway_crest"))
-        roadway_crest = crest_override if not math.isnan(crest_override) else us_invert + 10.0 * max(0.1, height)
+        index: int = _int(record.get("index"), default=sequence)
+        us_invert: float = _float(record.get("US Invert"), fallback=ds_headwater)
+        ds_invert: float = _float(record.get("DS Invert"), fallback=ds_headwater)
+        crest_override: float = _float(record.get("roadway_crest"))
+        roadway_crest: float = crest_override if not math.isnan(crest_override) else us_invert + 10.0 * max(0.1, height)
         mannings = _float(record.get("n or Cd"), fallback=0.0)
         barrels = record.get("number_interp", 1)
         scenarios.append(

@@ -179,6 +179,7 @@ def build_crossing(scenario: Scenario) -> CulvertCrossing:
     crossing = CulvertCrossing(name=scenario.crossing_name)
     flow = FlowDefinition(method=FlowMethod.MIN_DESIGN_MAX)
     flow.minimum, flow.design, flow.maximum = build_flow_range(scenario.q)
+    flow.user_values = [flow.minimum, flow.design, flow.maximum]
     crossing.flow = flow
     tailwater_constant = scenario.ds_headwater
     if tailwater_constant <= scenario.ds_invert:

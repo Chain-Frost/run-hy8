@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+from enum import Enum
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from run_hy8.models import FlowDefinition, TailwaterDefinition
 
@@ -14,11 +15,18 @@ from .models import (
     CulvertMaterial,
     CulvertShape,
     FlowMethod,
+    ImprovedInletEdgeType,
+    InletEdgeType,
+    InletEdgeType71,
+    InletType,
     Hy8Project,
     RoadwaySurface,
     TailwaterType,
     UnitSystem,
 )
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def load_project_from_hy8(path: Path) -> Hy8Project:
@@ -165,9 +173,15 @@ class _Hy8Parser:
                     if len(numbers) > 2:
                         crossing.flow.maximum = numbers[2]
             elif key == "DISCHARGEMETHOD":
-                crossing.flow.method = (
-                    FlowMethod.MIN_DESIGN_MAX if self._as_int(value=value) == 0 else FlowMethod.USER_DEFINED
-                )
+                method_flag: int = self._as_int(value=value)
+                if method_flag == 0:
+                    crossing.flow.method = FlowMethod.MIN_DESIGN_MAX
+                elif method_flag == 1:
+                    crossing.flow.method = FlowMethod.USER_DEFINED
+                else:
+                    raise ValueError(
+                        f"Crossing '{crossing.name}' uses unsupported flow method flag '{method_flag}'."
+                    )
             elif key == "DISCHARGEXYUSER":
                 pending_flow_values = self._read_flow_values(expected=self._as_int(value=value))
             elif key == "DISCHARGEXYUSER_NAME":
@@ -227,13 +241,13 @@ class _Hy8Parser:
             elif key == "CULVERTMATERIAL":
                 culvert.material = self._culvert_material(value=value)
             elif key == "INLETTYPE":
-                culvert.inlet_type = self._as_int(value=value, default=culvert.inlet_type)
+                culvert.inlet_type = self._inlet_type(value=value)
             elif key == "INLETEDGETYPE":
-                culvert.inlet_edge_type = self._as_int(value=value, default=culvert.inlet_edge_type)
+                culvert.inlet_edge_type = self._inlet_edge_type(value=value)
             elif key == "INLETEDGETYPE71":
-                culvert.inlet_edge_type71 = self._as_int(value=value, default=culvert.inlet_edge_type71)
+                culvert.inlet_edge_type71 = self._inlet_edge_type71(value=value)
             elif key == "IMPINLETEDGETYPE":
-                culvert.improved_inlet_edge_type = self._as_int(value=value, default=culvert.improved_inlet_edge_type)
+                culvert.improved_inlet_edge_type = self._improved_inlet_edge_type(value=value)
             elif key == "BARRELDATA":
                 numbers = self._floats(value=value, expected=4)
                 if len(numbers) >= 4:
@@ -270,29 +284,24 @@ class _Hy8Parser:
         user_values, labels = data
         flow: FlowDefinition = crossing.flow
         if flow.method is FlowMethod.MIN_DESIGN_MAX:
-            return
-        if not user_values:
-            flow.method = FlowMethod.USER_DEFINED
-            flow.user_values = []
+            if user_values:
+                if len(user_values) != 3:
+                    raise ValueError(
+                        f"Crossing '{crossing.name}' must provide exactly three flows for Min/Design/Max problems."
+                    )
+                flow.minimum, flow.design, flow.maximum = user_values[:3]
+                flow.user_values = list(user_values[:3])
+            else:
+                flow.user_values = [flow.minimum, flow.design, flow.maximum]
             flow.user_value_labels = []
             return
-        if labels:
-            flow.method = FlowMethod.USER_DEFINED
+        if flow.method is FlowMethod.USER_DEFINED:
             flow.user_values = list(user_values)
-            flow.user_value_labels = list(labels)
+            flow.user_value_labels = list(labels) if labels else []
             return
-        increment: float | None = self._detect_increment(values=user_values)
-        if increment is not None:
-            flow.method = FlowMethod.MIN_MAX_INCREMENT
-            flow.minimum = user_values[0]
-            flow.maximum = user_values[-1]
-            flow.increment = increment
-            flow.user_values = []
-            flow.user_value_labels = []
-        else:
-            flow.method = FlowMethod.USER_DEFINED
-            flow.user_values = list(user_values)
-            flow.user_value_labels = list(labels)
+        raise ValueError(
+            f"Crossing '{crossing.name}' uses unsupported flow method '{flow.method.value}'."
+        )
 
     def _read_flow_values(self, expected: int) -> tuple[list[float], list[str]]:
         if expected <= 0:
@@ -388,14 +397,57 @@ class _Hy8Parser:
             return CulvertMaterial.CONCRETE
 
     @staticmethod
-    def _detect_increment(values: list[float]) -> float | None:
-        if len(values) < 3:
-            return None
-        deltas: list[float] = [values[idx + 1] - values[idx] for idx in range(len(values) - 1)]
-        first: float = deltas[0]
-        if abs(first) <= 0.0:
-            return None
-        tolerance: float = max(abs(first), 1.0) * 1e-6
-        if all(abs(delta - first) <= tolerance for delta in deltas[1:]):
-            return first
-        return None
+    def _inlet_type(value: str) -> InletType:
+        index: int = _Hy8Parser._as_int(value=value, default=InletType.NOT_SET.value)
+        try:
+            return InletType(index)
+        except ValueError:
+            return InletType.NOT_SET
+
+    @staticmethod
+    def _inlet_edge_type(value: str) -> InletEdgeType:
+        index: int = _Hy8Parser._as_int(value=value, default=InletEdgeType.THIN_EDGE_PROJECTING.value)
+        try:
+            return InletEdgeType(index)
+        except ValueError:
+            return InletEdgeType.THIN_EDGE_PROJECTING
+
+    @staticmethod
+    def _inlet_edge_type71(value: str) -> InletEdgeType71:
+        index: int = _Hy8Parser._as_int(value=value, default=InletEdgeType71.CODE_0.value)
+        try:
+            return InletEdgeType71(index)
+        except ValueError:
+            return InletEdgeType71.CODE_0
+
+    @staticmethod
+    def _improved_inlet_edge_type(value: str) -> ImprovedInletEdgeType:
+        index: int = _Hy8Parser._as_int(value=value, default=ImprovedInletEdgeType.NONE.value)
+        try:
+            return ImprovedInletEdgeType(index)
+        except ValueError:
+            return ImprovedInletEdgeType.NONE
+
+
+def culvert_dataframe(project: Hy8Project) -> "pd.DataFrame":
+    """Return a pandas DataFrame describing every culvert barrel in a project."""
+    import pandas as pd
+
+    rows: list[dict[str, object]] = []
+    barrel_fields = [field for field in fields(CulvertBarrel) if field.name != "name"]
+    for crossing in project.crossings:
+        for culvert in crossing.culverts:
+            row: dict[str, object] = {"crossing": crossing.name, "culvert": culvert.name}
+            for field in barrel_fields:
+                value = getattr(culvert, field.name)
+                if isinstance(value, Enum):
+                    row[field.name] = value.value
+                    label: str = getattr(value, "label", value.name.replace("_", " ").title())
+                    row[f"{field.name}_name"] = label
+                else:
+                    row[field.name] = value
+            rows.append(row)
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df.set_index(["crossing", "culvert"]).sort_index()
+    return df

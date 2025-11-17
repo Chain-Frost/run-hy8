@@ -34,3 +34,15 @@ def test_user_defined_flows_must_increase() -> None:
     flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[10.0, 5.0])
     errors: list[str] = flow.validate("Flow: ")
     assert any("increasing" in message for message in errors)
+
+
+def test_user_defined_flows_require_two_values() -> None:
+    flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[10.0])
+    errors: list[str] = flow.validate("Flow: ")
+    assert any("at least two" in message for message in errors)
+
+
+def test_min_design_max_requires_three_flows() -> None:
+    flow = FlowDefinition(method=FlowMethod.MIN_DESIGN_MAX, user_values=[1.0, 2.0])
+    errors: list[str] = flow.validate("Flow: ")
+    assert any("exactly three flows" in message for message in errors)

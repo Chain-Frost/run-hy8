@@ -24,7 +24,13 @@ CONFIG_MAPPING: dict[str, object] = {
     "crossings": [
         {
             "name": "Sample Crossing",
-            "flow": {"minimum": 5.0, "design": 10.0, "maximum": 15.0},
+            "flow": {
+                "method": FlowMethod.MIN_DESIGN_MAX.value,
+                "minimum": 5.0,
+                "design": 10.0,
+                "maximum": 15.0,
+                "user_values": [5.0, 10.0, 15.0],
+            },
             "tailwater": {"constant_elevation": 100.5, "invert_elevation": 99.0},
             "roadway": {
                 "width": 36.0,
@@ -55,7 +61,13 @@ def build_sample_project() -> Hy8Project:
 
     project = Hy8Project(title="Sample Project", designer="Hydraulics Team")
     crossing = CulvertCrossing(name="Sample Crossing")
-    crossing.flow = FlowDefinition(minimum=5.0, design=10.0, maximum=15.0)
+    crossing.flow = FlowDefinition(
+        method=FlowMethod.MIN_DESIGN_MAX,
+        minimum=5.0,
+        design=10.0,
+        maximum=15.0,
+        user_values=[5.0, 10.0, 15.0],
+    )
     crossing.tailwater.constant_elevation = 100.5
     crossing.tailwater.invert_elevation = 99.0
     crossing.roadway.width = 36.0
@@ -85,10 +97,8 @@ def build_two_crossing_project() -> Hy8Project:
     project.crossings.append(first)
 
     second = CulvertCrossing(name="Second Crossing")
-    second.flow.method = FlowMethod.MIN_MAX_INCREMENT
-    second.flow.minimum = 0.0
-    second.flow.maximum = 30.0
-    second.flow.increment = 10.0
+    second.flow.method = FlowMethod.USER_DEFINED
+    second.flow.user_values = [0.0, 10.0, 20.0, 30.0]
     second.tailwater.constant_elevation = 150.0
     second.tailwater.invert_elevation = 148.5
     second.roadway.width = 40.0

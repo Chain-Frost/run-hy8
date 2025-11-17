@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from run_hy8.config import load_project_from_json
 from run_hy8.models import Hy8Project
@@ -23,3 +27,13 @@ def test_build_from_json_config(tmp_path: Path) -> None:
     assert any(line.startswith("PROJTITLE") and "Sample Project" in line for line in lines)
     assert any(line.startswith("STARTCROSSING") and '"Sample Crossing"' in line for line in lines)
     assert any(line.startswith("TAILWATERTYPE") and "6" in line for line in lines)  # Constant tailwater
+
+
+def test_config_rejects_min_max_increment(tmp_path: Path) -> None:
+    config: dict[str, Any] = json.loads(CONFIG_JSON)
+    config["crossings"][0]["flow"]["method"] = "min-max-increment"
+    config_path: Path = tmp_path / "invalid.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    with pytest.raises(expected_exception=ValueError, match="not supported"):
+        load_project_from_json(path=config_path)

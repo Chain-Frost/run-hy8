@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from pathlib import Path
 from typing import TextIO
 
@@ -74,7 +75,8 @@ class Hy8FileWriter:
     def _write_flow(self, handle: TextIO, crossing: CulvertCrossing) -> None:
         flow: FlowDefinition = crossing.flow
         discharge_method: int = 0 if flow.method is FlowMethod.MIN_DESIGN_MAX else 1
-        self._write_card(handle, "DISCHARGERANGE", flow.minimum, flow.design, flow.maximum)
+        min_flow, design_flow, max_flow = self._flow_range_values(flow)
+        self._write_card(handle, "DISCHARGERANGE", min_flow, design_flow, max_flow)
         self._write_card(handle, "DISCHARGEMETHOD", discharge_method)
         flow_values: list[float] = flow.sequence()
         labels: list[str] = flow.user_value_labels if flow.user_value_labels else []
@@ -85,6 +87,14 @@ class Hy8FileWriter:
             if include_labels:
                 label: str = labels[idx] if idx < len(labels) else ""
                 self._write_card(handle, "DISCHARGEXYUSER_NAME", f'"{label}"')
+
+    def _flow_range_values(self, flow: FlowDefinition) -> tuple[float, float, float]:
+        if flow.method is FlowMethod.MIN_DESIGN_MAX:
+            values: list[float] = flow.sequence()
+            if len(values) >= 3:
+                flow.minimum, flow.design, flow.maximum = values[0], values[1], values[2]
+            return flow.minimum, flow.design, flow.maximum
+        return flow.minimum, flow.design, flow.maximum
 
     def _write_tailwater(self, handle: TextIO, tailwater: TailwaterDefinition) -> None:
         if tailwater.type is not TailwaterType.CONSTANT:
@@ -209,6 +219,8 @@ class Hy8FileWriter:
             current += len(text)
 
         for value in values:
+            if isinstance(value, Enum):
+                value = value.value
             if value is None:
                 continue
             if isinstance(value, (int, float)):

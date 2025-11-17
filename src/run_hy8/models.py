@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Sequence
 
 
@@ -40,6 +40,59 @@ class RoadwaySurface(int, Enum):
     PAVED = 1
     GRAVEL = 2
     USER_DEFINED = 3
+
+
+class _DescribedIntEnum(IntEnum):
+    """Base class for HY-8 enums that exposes a user-friendly label."""
+
+    def __new__(cls, value: int, label: str) -> "_DescribedIntEnum":
+        obj = int.__new__(cls, value)
+        obj._value_ = value
+        obj._label_ = label
+        return obj
+
+    @property
+    def label(self) -> str:
+        return self._label_
+
+
+class InletType(_DescribedIntEnum):
+    NOT_SET = 0, "Not set"
+    STRAIGHT = 1, "Straight"
+    SIDE_TAPERED = 2, "Side tapered"
+    SLOPE_TAPERED = 3, "Slope tapered"
+    SINGLE_BROKEN_BACK = 4, "Single broken-back"
+    DOUBLE_BROKEN_BACK = 5, "Double broken-back"
+
+
+class InletEdgeType(_DescribedIntEnum):
+    THIN_EDGE_PROJECTING = 0, "Thin edge projecting"
+    GROOVED_END_PROJECTING = 1, "Grooved end projecting"
+    GROOVED_END_WITH_HEADWALL = 2, "Grooved end with headwall"
+    BEVELED_EDGE = 3, "Beveled edge"
+    SQUARE_EDGE_WITH_HEADWALL = 4, "Square edge with headwall"
+    MITERED_TO_SLOPE = 5, "Mitered to conform with fill slope"
+    HEADWALL = 6, "Headwall / flared end"
+
+
+class InletEdgeType71(_DescribedIntEnum):
+    """Legacy HY-8 7.1 inlet edge numbering."""
+
+    CODE_0 = 0, "Legacy edge code 0"
+    CODE_1 = 1, "Legacy edge code 1"
+    CODE_2 = 2, "Legacy edge code 2"
+    CODE_3 = 3, "Legacy edge code 3"
+    CODE_4 = 4, "Legacy edge code 4"
+
+
+class ImprovedInletEdgeType(_DescribedIntEnum):
+    NONE = 0, "None"
+    TYPE_1 = 1, "Improved inlet type 1"
+    TYPE_2 = 2, "Improved inlet type 2"
+    TYPE_3 = 3, "Improved inlet type 3"
+    TYPE_4 = 4, "Improved inlet type 4"
+    TYPE_5 = 5, "Improved inlet type 5"
+    TYPE_6 = 6, "Improved inlet type 6"
 
 
 class CulvertShape(int, Enum):
@@ -78,45 +131,41 @@ def _crossing_list() -> list["CulvertCrossing"]:
 
 @dataclass(slots=True)
 class FlowDefinition:
-    """Flow information for a crossing."""
+    """Flow information for a crossing.
 
-    method: FlowMethod = FlowMethod.MIN_DESIGN_MAX
+    FlowMethod.MIN_DESIGN_MAX problems must provide exactly three flows via
+    `minimum`/`design`/`maximum` or `user_values`.
+    FlowMethod.USER_DEFINED problems require at least two `user_values` and
+    may include matching `user_value_labels`.
+    """
+
+    method: FlowMethod = FlowMethod.USER_DEFINED
     minimum: float = 0.0
     design: float = 0.0
     maximum: float = 0.0
-    increment: float = 0.0
     user_values: list[float] = field(default_factory=_float_list)
     user_value_labels: list[str] = field(default_factory=_string_list)
 
     def sequence(self) -> list[float]:
         """Return the flows HY-8 expects to see in the DISCHARGEXYUSER cards."""
+        if self.method is FlowMethod.MIN_DESIGN_MAX:
+            return self._min_design_max_values()
         if self.method is FlowMethod.USER_DEFINED:
             return list(self.user_values)
-        if self.method is FlowMethod.MIN_MAX_INCREMENT:
-            values: list[float] = []
-            if self.increment <= 0:
-                return values
-            current: float = self.minimum
-            # Add a small epsilon to include the end point when the increment is fractional.
-            epsilon: float = self.increment / 1000.0
-            while current <= self.maximum + epsilon:
-                values.append(round(current, 6))
-                current += self.increment
-            return values
-        return [self.minimum, self.design, self.maximum]
+        raise ValueError(f"Flow method '{self.method}' is not supported.")
 
     def validate(self, prefix: str = "") -> list[str]:
         errors: list[str] = []
         if self.method is FlowMethod.MIN_DESIGN_MAX:
-            if not self.minimum < self.design < self.maximum:
+            if self.user_values and len(self.user_values) != 3:
+                errors.append(f"{prefix}Provide exactly three flows for Min/Design/Max problems.")
+            values: list[float] = self._min_design_max_values()
+            if len(values) != 3:
+                return errors
+            if not values[0] < values[1] < values[2]:
                 errors.append(f"{prefix}Min/Design/Max must be strictly increasing.")
-            if self.minimum < 0:
+            if values[0] < 0:
                 errors.append(f"{prefix}Minimum flow must be >= 0.")
-        elif self.method is FlowMethod.MIN_MAX_INCREMENT:
-            if not self.minimum < self.maximum:
-                errors.append(f"{prefix}Minimum flow must be less than maximum flow.")
-            if self.increment <= 0:
-                errors.append(f"{prefix}Flow increment must be greater than zero.")
         elif self.method is FlowMethod.USER_DEFINED:
             if len(self.user_values) < 2:
                 errors.append(f"{prefix}Provide at least two user-defined flow values.")
@@ -125,8 +174,13 @@ class FlowDefinition:
             if self.user_value_labels and len(self.user_value_labels) != len(self.user_values):
                 errors.append(f"{prefix}Provide the same number of flow labels as flow values.")
         else:
-            errors.append(f"{prefix}Unknown flow method '{self.method}'.")
+            errors.append(f"{prefix}Flow method '{self.method}' is not supported.")
         return errors
+
+    def _min_design_max_values(self) -> list[float]:
+        if self.user_values:
+            return list(self.user_values)
+        return [self.minimum, self.design, self.maximum]
 
 
 @dataclass(slots=True)
@@ -206,10 +260,10 @@ class CulvertBarrel:
     outlet_invert_station: float = 0.0
     outlet_invert_elevation: float = 0.0
     roadway_station: float = 0.0
-    inlet_type: int = 1
-    inlet_edge_type: int = 0
-    inlet_edge_type71: int = 0
-    improved_inlet_edge_type: int = 0
+    inlet_type: InletType = InletType.STRAIGHT
+    inlet_edge_type: InletEdgeType = InletEdgeType.THIN_EDGE_PROJECTING
+    inlet_edge_type71: InletEdgeType71 = InletEdgeType71.CODE_0
+    improved_inlet_edge_type: ImprovedInletEdgeType = ImprovedInletEdgeType.NONE
     barrel_spacing: float | None = None
     notes: str = ""
     manning_n_top: float | None = None

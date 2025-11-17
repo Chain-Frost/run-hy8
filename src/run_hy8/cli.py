@@ -13,6 +13,7 @@ from .models import (
     CulvertBarrel,
     CulvertCrossing,
     FlowDefinition,
+    FlowMethod,
     Hy8Project,
     RoadwayProfile,
     TailwaterDefinition,
@@ -26,15 +27,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    demo_parser = subparsers.add_parser(
-        "demo",
+    demo_parser: argparse.ArgumentParser = subparsers.add_parser(
+        name="demo",
         help="Write a demo .hy8 file that demonstrates the domain model and serialization.",
     )
     demo_parser.add_argument("--output", type=Path, default=Path("demo.hy8"), help="Destination .hy8 file.")
     demo_parser.add_argument("--overwrite", action="store_true", help="Replace output if it already exists.")
 
-    build_parser = subparsers.add_parser(
-        "build",
+    build_parser: argparse.ArgumentParser = subparsers.add_parser(
+        name="build",
         help="Generate a HY-8 file from a JSON configuration, optionally running HY-8 afterward.",
     )
     build_parser.add_argument(
@@ -58,7 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     args: argparse.Namespace = parser.parse_args(list(argv) if argv is not None else None)
     if args.command == "demo":
-        _run_demo(args.output, args.overwrite)
+        _run_demo(output=args.output, overwrite=args.overwrite)
         return 0
     if args.command == "build":
         _run_build(
@@ -69,7 +70,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             validate_only=args.validate_only,
         )
         return 0
-    parser.error(f"Unhandled command {args.command}")
+    parser.error(message=f"Unhandled command {args.command}")
     return 1
 
 
@@ -77,7 +78,13 @@ def _run_demo(output: Path, overwrite: bool) -> None:
     project: Hy8Project = Hy8Project(title="run-hy8 demo project", designer="Codex scaffolding")
     crossing: CulvertCrossing = CulvertCrossing(name="Demo Crossing")
     crossing.notes = "Automatically generated demo crossing."
-    crossing.flow = FlowDefinition(minimum=5.0, design=10.0, maximum=15.0)
+    crossing.flow = FlowDefinition(
+        method=FlowMethod.MIN_DESIGN_MAX,
+        minimum=5.0,
+        design=10.0,
+        maximum=15.0,
+        user_values=[5.0, 10.0, 15.0],
+    )
     crossing.tailwater = TailwaterDefinition(invert_elevation=99.0, constant_elevation=100.5)
     crossing.roadway = RoadwayProfile(
         width=40.0,
@@ -116,12 +123,12 @@ def _run_build(
         print(f"{config_path} is valid.")
         return
 
-    writer: Hy8FileWriter = Hy8FileWriter(project)
-    hy8_path: Path = writer.write(output, overwrite=overwrite)
+    writer: Hy8FileWriter = Hy8FileWriter(project=project)
+    hy8_path: Path = writer.write(output_path=output, overwrite=overwrite)
     print(f"Wrote HY-8 file to {hy8_path}")
     if exe_path is not None:
-        executor: Hy8Executable = Hy8Executable(exe_path)
-        result: CompletedProcess[str] = executor.open_run_save(hy8_path)
+        executor: Hy8Executable = Hy8Executable(exe_path=exe_path)
+        result: CompletedProcess[str] = executor.open_run_save(hy8_file=hy8_path)
         if result.stdout.strip():
             print(result.stdout.strip())
         if result.stderr.strip():
@@ -129,13 +136,13 @@ def _run_build(
 
 
 def _load_project(config_path: Path) -> Hy8Project:
-    suffix = config_path.suffix.lower()
+    suffix: str = config_path.suffix.lower()
     if suffix == ".json":
         return load_project_from_json(config_path)
     raise ValueError(f"Unsupported configuration extension '{config_path.suffix}'. Use .json.")
 
 
 def _validate_project(project: Hy8Project) -> None:
-    errors = project.validate()
+    errors: list[str] = project.validate()
     if errors:
         raise ValueError("Validation failed:\n" + "\n".join(errors))
