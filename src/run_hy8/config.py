@@ -46,7 +46,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     project.title = str(project_section.get("title", ""))
     project.designer = str(project_section.get("designer", ""))
     project.notes = str(project_section.get("notes", ""))
-    project.units = _parse_unit_system(project_section.get("units", UnitSystem.ENGLISH.cli_flag))
+    project.units = _parse_unit_system(project_section.get("units", UnitSystem.SI.cli_flag))
     project.exit_loss_option = int(project_section.get("exit_loss_option", 0))
 
     crossings_data_raw: Any = config.get("crossings", [])
@@ -69,7 +69,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
 
 
 def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
-    name = _require_str(entry, "name", "crossing")
+    name: str = _require_str(entry=entry, key="name", context="crossing")
     crossing = CulvertCrossing(name=name)
     crossing.notes = str(entry.get("notes", ""))
     if uuid := entry.get("uuid"):
@@ -99,7 +99,7 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
 def _parse_flow(entry: JSONMapping) -> FlowDefinition:
     method_value = str(entry.get("method", FlowMethod.USER_DEFINED.value))
     try:
-        method = FlowMethod(method_value)
+        method = FlowMethod(value=method_value)
     except ValueError as exc:
         raise ValueError(f"Unsupported flow method '{method_value}'") from exc
 
@@ -124,21 +124,21 @@ def _parse_flow(entry: JSONMapping) -> FlowDefinition:
 def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
     requested_type: Any = entry.get("type")
     if requested_type is not None:
-        requested_enum = _parse_tailwater_type(requested_type)
+        requested_enum: TailwaterType = _parse_tailwater_type(value=requested_type)
         if requested_enum is not TailwaterType.CONSTANT:
             raise ValueError(
                 f"Tailwater type '{requested_enum.name}' is not supported by run-hy8. "
                 "Configure a constant elevation or use the HY-8 GUI."
             )
 
-    unsupported_fields = {
+    unsupported_fields: set[str] = {
         "bottom_width",
         "channel_slope",
         "manning_n",
         "rating_curve",
     } & entry.keys()
     if unsupported_fields:
-        pretty = ", ".join(sorted(unsupported_fields))
+        pretty: str = ", ".join(sorted(unsupported_fields))
         raise ValueError(
             f"Tailwater fields ({pretty}) are not supported by run-hy8. Use the HY-8 GUI for this configuration."
         )
@@ -163,7 +163,7 @@ def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
 
 
 def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
-    name = _require_str(entry, "name", f"culvert in crossing '{crossing_name}'")
+    name: str = _require_str(entry=entry, key="name", context=f"culvert in crossing '{crossing_name}'")
     culvert = CulvertBarrel(name=name)
     culvert.span = float(entry.get("span", culvert.span))
     culvert.rise = float(entry.get("rise", culvert.rise))
@@ -187,7 +187,7 @@ def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
 def _parse_unit_system(value: Any) -> UnitSystem:
     if isinstance(value, UnitSystem):
         return value
-    normalized = str(value).strip().upper()
+    normalized: str = str(value).strip().upper()
     for unit in UnitSystem:
         if unit.cli_flag.upper() == normalized or unit.name == normalized:
             return unit
@@ -195,7 +195,7 @@ def _parse_unit_system(value: Any) -> UnitSystem:
 
 
 def _parse_surface(value: Any) -> RoadwaySurface:
-    normalized = str(value).strip().upper().replace("-", "_")
+    normalized: str = str(value).strip().upper().replace("-", "_")
     try:
         return RoadwaySurface[normalized]
     except KeyError as exc:
@@ -203,7 +203,7 @@ def _parse_surface(value: Any) -> RoadwaySurface:
 
 
 def _parse_culvert_shape(value: Any) -> CulvertShape:
-    normalized = str(value).strip().upper()
+    normalized: str = str(value).strip().upper()
     try:
         return CulvertShape[normalized]
     except KeyError as exc:
@@ -211,7 +211,7 @@ def _parse_culvert_shape(value: Any) -> CulvertShape:
 
 
 def _parse_culvert_material(value: Any) -> CulvertMaterial:
-    normalized = str(value).strip().upper().replace(" ", "_")
+    normalized: str = str(value).strip().upper().replace(" ", "_")
     try:
         return CulvertMaterial[normalized]
     except KeyError as exc:
@@ -219,7 +219,7 @@ def _parse_culvert_material(value: Any) -> CulvertMaterial:
 
 
 def _parse_tailwater_type(value: Any) -> TailwaterType:
-    normalized = str(value).strip().upper().replace("-", "_")
+    normalized: str = str(value).strip().upper().replace("-", "_")
     try:
         return TailwaterType[normalized]
     except KeyError as exc:

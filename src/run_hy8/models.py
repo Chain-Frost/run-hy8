@@ -2,10 +2,56 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, IntEnum
-from typing import Sequence
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Mapping, Sequence, Type, TypeVar
+
+from loguru import logger
+
+if TYPE_CHECKING:  # pragma: no cover - convenience imports for type checking
+    from .executor import Hy8Executable
+    from .hydraulics import HydraulicsResult
+
+
+TEnum = TypeVar("TEnum", bound=Enum)
+
+
+class ValidationError(ValueError):
+    """Exception raised when a model fails validation."""
+
+    def __init__(self, errors: Sequence[str]):
+        self.errors: list[str] = list(errors)
+        message: str = "; ".join(self.errors) if self.errors else "Unknown validation error."
+        super().__init__(message)
+
+
+class Validatable:
+    """Mixin that supplies an assert_valid helper for domain models."""
+
+    def assert_valid(self, prefix: str = "") -> None:
+        errors = self.validate(prefix=prefix)  # type: ignore[call-arg]
+        if errors:
+            logger.debug("Validation failed for %s: %s", self.__class__.__name__, errors)
+            raise ValidationError(errors)
+        logger.debug("Validation succeeded for %s.", self.__class__.__name__)
+
+
+def _coerce_enum(enum_cls: Type[TEnum], value: Any, *, default: TEnum) -> TEnum:
+    """Return enum member from the provided value, accepting names/values."""
+
+    if value is None:
+        return default
+    if isinstance(value, enum_cls):
+        return value
+    if isinstance(value, str):
+        try:
+            return enum_cls[value]
+        except KeyError:
+            pass
+    return enum_cls(value)
 
 
 class UnitSystem(Enum):
@@ -130,7 +176,7 @@ def _crossing_list() -> list["CulvertCrossing"]:
 
 
 @dataclass(slots=True)
-class FlowDefinition:
+class FlowDefinition(Validatable):
     """Flow information for a crossing.
 
     FlowMethod.MIN_DESIGN_MAX problems must provide exactly three flows via
@@ -146,6 +192,22 @@ class FlowDefinition:
     user_values: list[float] = field(default_factory=_float_list)
     user_value_labels: list[str] = field(default_factory=_string_list)
 
+    def describe(self) -> str:
+        try:
+            values: list[float] = self.sequence()
+        except ValueError:
+            values = []
+        preview = ", ".join(f"{value:.3f}" for value in values[:3])
+        if len(values) > 3:
+            preview += ", ..."
+        return f"FlowDefinition(method={self.method.name}, count={len(values)}, values=[{preview}])"
+
+    def __str__(self) -> str:
+        return self.describe()
+
+    def __repr__(self) -> str:
+        return self.describe()
+
     def sequence(self) -> list[float]:
         """Return the flows HY-8 expects to see in the DISCHARGEXYUSER cards."""
         if self.method is FlowMethod.MIN_DESIGN_MAX:
@@ -153,6 +215,61 @@ class FlowDefinition:
         if self.method is FlowMethod.USER_DEFINED:
             return list(self.user_values)
         raise ValueError(f"Flow method '{self.method}' is not supported.")
+
+    def add_user_flow(self, value: float, label: str | None = None) -> "FlowDefinition":
+        """Append a user-defined flow (and optional label) while maintaining invariants."""
+
+        self.method = FlowMethod.USER_DEFINED
+        self.user_values.append(value)
+        if label is not None:
+            while len(self.user_value_labels) < len(self.user_values) - 1:
+                self.user_value_labels.append("")
+            self.user_value_labels.append(label)
+        elif self.user_value_labels:
+            self.user_value_labels.append("")
+        logger.debug("Added user flow %.4f to %s", value, self.describe())
+        return self
+
+    def set_min_design_max(self, minimum: float, design: float, maximum: float) -> "FlowDefinition":
+        """Configure the Min/Design/Max trio in a fluent-friendly way."""
+
+        self.method = FlowMethod.MIN_DESIGN_MAX
+        self.minimum = minimum
+        self.design = design
+        self.maximum = maximum
+        self.user_values.clear()
+        self.user_value_labels.clear()
+        logger.debug(
+            "Configured min/design/max flows (%.4f/%.4f/%.4f) for %s",
+            minimum,
+            design,
+            maximum,
+            self.describe(),
+        )
+        return self
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "method": self.method.name,
+            "minimum": self.minimum,
+            "design": self.design,
+            "maximum": self.maximum,
+            "user_values": list(self.user_values),
+            "user_value_labels": list(self.user_value_labels),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "FlowDefinition":
+        method_value = data.get("method", FlowMethod.USER_DEFINED.name)
+        method = _coerce_enum(FlowMethod, method_value, default=FlowMethod.USER_DEFINED)
+        return cls(
+            method=method,
+            minimum=float(data.get("minimum", 0.0)),
+            design=float(data.get("design", 0.0)),
+            maximum=float(data.get("maximum", 0.0)),
+            user_values=[float(value) for value in (data.get("user_values") or [])],
+            user_value_labels=[str(value) for value in (data.get("user_value_labels") or [])],
+        )
 
     def validate(self, prefix: str = "") -> list[str]:
         errors: list[str] = []
@@ -184,7 +301,7 @@ class FlowDefinition:
 
 
 @dataclass(slots=True)
-class TailwaterDefinition:
+class TailwaterDefinition(Validatable):
     """Tailwater configuration."""
 
     type: TailwaterType = TailwaterType.CONSTANT
@@ -196,6 +313,65 @@ class TailwaterDefinition:
     invert_elevation: float = 0.0
     rating_curve_entries: int = 6
     rating_curve: list[TailwaterRatingPoint] = field(default_factory=_rating_curve_list)
+
+    def describe(self) -> str:
+        if self.type is TailwaterType.CONSTANT:
+            return (
+                f"Tailwater(type=CONSTANT, elevation={self.constant_elevation:.3f}, "
+                f"invert={self.invert_elevation:.3f})"
+            )
+        return f"Tailwater(type={self.type.name}, entries={len(self.rating_curve)})"
+
+    def __str__(self) -> str:
+        return self.describe()
+
+    def __repr__(self) -> str:
+        return self.describe()
+
+    def set_constant(self, *, elevation: float, invert: float | None = None) -> "TailwaterDefinition":
+        """Fluent helper to configure a constant tailwater elevation."""
+
+        self.type = TailwaterType.CONSTANT
+        self.constant_elevation = elevation
+        if invert is not None:
+            self.invert_elevation = invert
+        logger.debug(
+            "Configured constant tailwater elevation %.4f (invert %.4f)",
+            self.constant_elevation,
+            self.invert_elevation,
+        )
+        return self
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": self.type.name,
+            "bottom_width": self.bottom_width,
+            "sideslope": self.sideslope,
+            "channel_slope": self.channel_slope,
+            "manning_n": self.manning_n,
+            "constant_elevation": self.constant_elevation,
+            "invert_elevation": self.invert_elevation,
+            "rating_curve_entries": self.rating_curve_entries,
+            "rating_curve": [tuple(point) for point in self.rating_curve],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "TailwaterDefinition":
+        rating_curve_data = [
+            (float(a), float(b), float(c))
+            for a, b, c in (data.get("rating_curve") or [])
+        ]
+        return cls(
+            type=_coerce_enum(TailwaterType, data.get("type"), default=TailwaterType.CONSTANT),
+            bottom_width=float(data.get("bottom_width", 0.0)),
+            sideslope=float(data.get("sideslope", 1.0)),
+            channel_slope=float(data.get("channel_slope", 0.0)),
+            manning_n=float(data.get("manning_n", 0.0)),
+            constant_elevation=float(data.get("constant_elevation", 0.0)),
+            invert_elevation=float(data.get("invert_elevation", 0.0)),
+            rating_curve_entries=int(data.get("rating_curve_entries", 6)),
+            rating_curve=rating_curve_data,
+        )
 
     def validate(self, prefix: str = "") -> list[str]:
         errors: list[str] = []
@@ -217,7 +393,7 @@ class TailwaterDefinition:
 
 
 @dataclass(slots=True)
-class RoadwayProfile:
+class RoadwayProfile(Validatable):
     """Roadway geometry and metadata."""
 
     width: float = 0.0
@@ -226,8 +402,26 @@ class RoadwayProfile:
     stations: list[float] = field(default_factory=_float_list)
     elevations: list[float] = field(default_factory=_float_list)
 
+    def describe(self) -> str:
+        count: int = min(len(self.stations), len(self.elevations))
+        return f"Roadway(width={self.width:.3f}, points={count})"
+
+    def __str__(self) -> str:
+        return self.describe()
+
+    def __repr__(self) -> str:
+        return self.describe()
+
     def points(self) -> list[tuple[float, float]]:
         return list(zip(self.stations, self.elevations))
+
+    def add_point(self, station: float, elevation: float) -> "RoadwayProfile":
+        """Append a station/elevation pair while keeping arrays aligned."""
+
+        self.stations.append(station)
+        self.elevations.append(elevation)
+        logger.debug("Added roadway point (station %.3f, elevation %.3f)", station, elevation)
+        return self
 
     def validate(self, prefix: str = "") -> list[str]:
         errors: list[str] = []
@@ -244,9 +438,28 @@ class RoadwayProfile:
             raise ValueError("Roadway elevations are required before computing crest elevation.")
         return min(self.elevations)
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "width": self.width,
+            "shape": self.shape,
+            "surface": self.surface.name,
+            "stations": list(self.stations),
+            "elevations": list(self.elevations),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "RoadwayProfile":
+        return cls(
+            width=float(data.get("width", 0.0)),
+            shape=int(data.get("shape", 1)),
+            surface=_coerce_enum(RoadwaySurface, data.get("surface"), default=RoadwaySurface.PAVED),
+            stations=[float(value) for value in (data.get("stations") or [])],
+            elevations=[float(value) for value in (data.get("elevations") or [])],
+        )
+
 
 @dataclass(slots=True)
-class CulvertBarrel:
+class CulvertBarrel(Validatable):
     """Single culvert barrel definition."""
 
     name: str = ""
@@ -269,6 +482,19 @@ class CulvertBarrel:
     manning_n_top: float | None = None
     manning_n_bottom: float | None = None
 
+    def describe(self) -> str:
+        shape = self.shape.name
+        return (
+            f"CulvertBarrel(name={self.name or '<unnamed>'}, shape={shape}, "
+            f"span={self.span:.3f}, rise={self.rise:.3f}, count={self.number_of_barrels})"
+        )
+
+    def __str__(self) -> str:
+        return self.describe()
+
+    def __repr__(self) -> str:
+        return self.describe()
+
     def validate(self, prefix: str = "") -> list[str]:
         errors: list[str] = []
         if self.span <= 0:
@@ -284,9 +510,60 @@ class CulvertBarrel:
             return 0.024, 0.024
         return 0.012, 0.012
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "span": self.span,
+            "rise": self.rise,
+            "shape": self.shape.name,
+            "material": self.material.name,
+            "number_of_barrels": self.number_of_barrels,
+            "inlet_invert_station": self.inlet_invert_station,
+            "inlet_invert_elevation": self.inlet_invert_elevation,
+            "outlet_invert_station": self.outlet_invert_station,
+            "outlet_invert_elevation": self.outlet_invert_elevation,
+            "roadway_station": self.roadway_station,
+            "inlet_type": self.inlet_type.name,
+            "inlet_edge_type": self.inlet_edge_type.name,
+            "inlet_edge_type71": self.inlet_edge_type71.name,
+            "improved_inlet_edge_type": self.improved_inlet_edge_type.name,
+            "barrel_spacing": self.barrel_spacing,
+            "notes": self.notes,
+            "manning_n_top": self.manning_n_top,
+            "manning_n_bottom": self.manning_n_bottom,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "CulvertBarrel":
+        return cls(
+            name=data.get("name", ""),
+            span=float(data.get("span", 0.0)),
+            rise=float(data.get("rise", 0.0)),
+            shape=_coerce_enum(CulvertShape, data.get("shape"), default=CulvertShape.CIRCLE),
+            material=_coerce_enum(CulvertMaterial, data.get("material"), default=CulvertMaterial.CONCRETE),
+            number_of_barrels=int(data.get("number_of_barrels", 1)),
+            inlet_invert_station=float(data.get("inlet_invert_station", 0.0)),
+            inlet_invert_elevation=float(data.get("inlet_invert_elevation", 0.0)),
+            outlet_invert_station=float(data.get("outlet_invert_station", 0.0)),
+            outlet_invert_elevation=float(data.get("outlet_invert_elevation", 0.0)),
+            roadway_station=float(data.get("roadway_station", 0.0)),
+            inlet_type=_coerce_enum(InletType, data.get("inlet_type"), default=InletType.STRAIGHT),
+            inlet_edge_type=_coerce_enum(
+                InletEdgeType, data.get("inlet_edge_type"), default=InletEdgeType.THIN_EDGE_PROJECTING
+            ),
+            inlet_edge_type71=_coerce_enum(InletEdgeType71, data.get("inlet_edge_type71"), default=InletEdgeType71.CODE_0),
+            improved_inlet_edge_type=_coerce_enum(
+                ImprovedInletEdgeType, data.get("improved_inlet_edge_type"), default=ImprovedInletEdgeType.NONE
+            ),
+            barrel_spacing=float(data["barrel_spacing"]) if data.get("barrel_spacing") is not None else None,
+            notes=str(data.get("notes", "")),
+            manning_n_top=float(data["manning_n_top"]) if data.get("manning_n_top") is not None else None,
+            manning_n_bottom=float(data["manning_n_bottom"]) if data.get("manning_n_bottom") is not None else None,
+        )
+
 
 @dataclass(slots=True)
-class CulvertCrossing:
+class CulvertCrossing(Validatable):
     """A culvert crossing which may contain multiple barrels."""
 
     name: str
@@ -296,6 +573,23 @@ class CulvertCrossing:
     roadway: RoadwayProfile = field(default_factory=RoadwayProfile)
     culverts: list[CulvertBarrel] = field(default_factory=_culvert_list)
     uuid: str | None = None
+
+    def describe(self) -> str:
+        barrel_count: int = len(self.culverts)
+        crest = None
+        if self.roadway.elevations:
+            crest = self.roadway.crest_elevation()
+        crest_str = f", crest={crest:.3f}" if crest is not None else ""
+        return (
+            f"CulvertCrossing(name={self.name}, barrels={barrel_count}, flow_method={self.flow.method.name}"
+            f"{crest_str})"
+        )
+
+    def __str__(self) -> str:
+        return self.describe()
+
+    def __repr__(self) -> str:
+        return self.describe()
 
     def validate(self, prefix: str = "") -> list[str]:
         errors: list[str] = []
@@ -320,9 +614,152 @@ class CulvertCrossing:
                 )
         return errors
 
+    def add_barrel(self, barrel: CulvertBarrel | None = None, **kwargs: Any) -> CulvertBarrel:
+        """Append a barrel definition, optionally constructing one from kwargs."""
+
+        if barrel is not None and kwargs:
+            raise ValueError("Provide either a barrel instance or keyword arguments, not both.")
+        if barrel is None:
+            options = dict(kwargs)
+            options.setdefault("name", f"Barrel {len(self.culverts) + 1}")
+            barrel = CulvertBarrel(**options)
+        self.culverts.append(barrel)
+        logger.debug("Added barrel %s to crossing %s", barrel.describe(), self.name)
+        return barrel
+
+    def hw_from_q(
+        self,
+        q: float,
+        *,
+        hy8: "Hy8Executable | Path | None" = None,
+        project: "Hy8Project | None" = None,
+        units: UnitSystem | None = None,
+        exit_loss_option: int | None = None,
+        workspace: Path | None = None,
+        keep_files: bool = False,
+    ) -> "HydraulicsResult":
+        """Run HY-8 for a specific discharge and return the resulting headwater."""
+        from .hydraulics import crossing_hw_from_q
+
+        logger.info("Crossing %s running hw_from_q for flow %.4f", self.name, q)
+        result = crossing_hw_from_q(
+            crossing=self,
+            q=q,
+            hy8=hy8,
+            project=project,
+            units=units,
+            exit_loss_option=exit_loss_option,
+            workspace=workspace,
+            keep_files=keep_files,
+        )
+        logger.debug(
+            "Crossing %s hw_from_q computed headwater %.4f for flow %.4f",
+            self.name,
+            result.computed_headwater,
+            result.computed_flow,
+        )
+        return result
+
+    def q_from_hw(
+        self,
+        hw: float,
+        *,
+        q_hint: float | None = None,
+        hy8: "Hy8Executable | Path | None" = None,
+        project: "Hy8Project | None" = None,
+        units: UnitSystem | None = None,
+        exit_loss_option: int | None = None,
+        workspace: Path | None = None,
+        keep_files: bool = False,
+    ) -> "HydraulicsResult":
+        """Iteratively run HY-8 to find the discharge that produces the requested headwater."""
+        from .hydraulics import crossing_q_from_hw
+
+        logger.info("Crossing %s running q_from_hw for HW %.4f", self.name, hw)
+        result = crossing_q_from_hw(
+            crossing=self,
+            hw=hw,
+            q_hint=q_hint,
+            hy8=hy8,
+            project=project,
+            units=units,
+            exit_loss_option=exit_loss_option,
+            workspace=workspace,
+            keep_files=keep_files,
+        )
+        logger.debug(
+            "Crossing %s q_from_hw computed flow %.4f for headwater %.4f",
+            self.name,
+            result.computed_flow,
+            result.requested_headwater or hw,
+        )
+        return result
+
+    def q_for_hwd(
+        self,
+        hw_d_ratio: float,
+        *,
+        q_hint: float | None = None,
+        hy8: "Hy8Executable | Path | None" = None,
+        project: "Hy8Project | None" = None,
+        units: UnitSystem | None = None,
+        exit_loss_option: int | None = None,
+        workspace: Path | None = None,
+        keep_files: bool = False,
+    ) -> "HydraulicsResult":
+        """Run HY-8 to find the discharge that satisfies a headwater-to-diameter ratio (optionally seeding with q_hint)."""
+        from .hydraulics import crossing_q_for_hwd
+
+        logger.info("Crossing %s running q_for_hwd for ratio %.4f", self.name, hw_d_ratio)
+        result = crossing_q_for_hwd(
+            crossing=self,
+            hw_d_ratio=hw_d_ratio,
+            q_hint=q_hint,
+            hy8=hy8,
+            project=project,
+            units=units,
+            exit_loss_option=exit_loss_option,
+            workspace=workspace,
+            keep_files=keep_files,
+        )
+        logger.debug(
+            "Crossing %s q_for_hwd computed flow %.4f for HW/D %.4f",
+            self.name,
+            result.computed_flow,
+            hw_d_ratio,
+        )
+        return result
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "notes": self.notes,
+            "flow": self.flow.to_dict(),
+            "tailwater": self.tailwater.to_dict(),
+            "roadway": self.roadway.to_dict(),
+            "culverts": [culvert.to_dict() for culvert in self.culverts],
+            "uuid": self.uuid,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "CulvertCrossing":
+        flow_data = FlowDefinition.from_dict(data.get("flow", {}))
+        tailwater_data = TailwaterDefinition.from_dict(data.get("tailwater", {}))
+        roadway_data = RoadwayProfile.from_dict(data.get("roadway", {}))
+        culvert_data = [CulvertBarrel.from_dict(raw) for raw in (data.get("culverts") or [])]
+        return cls(
+            name=data.get("name", "Crossing"),
+            notes=str(data.get("notes", "")),
+            flow=flow_data,
+            tailwater=tailwater_data,
+            roadway=roadway_data,
+            culverts=culvert_data,
+            uuid=data.get("uuid"),
+        )
+
 
 @dataclass(slots=True)
-class Hy8Project:
+class Hy8Project(Validatable):
     """A full HY-8 project containing one or more crossings."""
 
     title: str = ""
@@ -332,13 +769,22 @@ class Hy8Project:
     exit_loss_option: int = 0
     crossings: list[CulvertCrossing] = field(default_factory=_crossing_list)
 
-    def validate(self) -> list[str]:
+    def describe(self) -> str:
+        return f"Hy8Project(title={self.title or '<untitled>'}, crossings={len(self.crossings)})"
+
+    def __str__(self) -> str:
+        return self.describe()
+
+    def __repr__(self) -> str:
+        return self.describe()
+
+    def validate(self, prefix: str = "") -> list[str]:
         errors: list[str] = []
         if not self.crossings:
-            errors.append("At least one crossing is required.")
+            errors.append(f"{prefix}At least one crossing is required.")
         for index, crossing in enumerate(self.crossings, start=1):
-            prefix: str = f"Crossing #{index} ({crossing.name}): "
-            errors.extend(crossing.validate(prefix))
+            crossing_prefix: str = f"{prefix}Crossing #{index} ({crossing.name}): "
+            errors.extend(crossing.validate(crossing_prefix))
         return errors
 
     @staticmethod
@@ -350,7 +796,101 @@ class Hy8Project:
         if crossing is None:
             crossing = CulvertCrossing(name=f"Crossing {len(self.crossings) + 1}")
         self.crossings.append(crossing)
+        logger.debug("Added crossing %s to project %s", crossing.name, self.title or "<untitled>")
         return crossing
 
     def flow_values(self) -> Sequence[list[float]]:
         return [crossing.flow.sequence() for crossing in self.crossings]
+
+    def hw_from_q(
+        self,
+        q: float,
+        *,
+        hy8: "Hy8Executable | Path | None" = None,
+        workspace: Path | None = None,
+        keep_files: bool = False,
+    ) -> "OrderedDict[str, HydraulicsResult]":
+        """Return per-crossing headwater elevations by running HY-8 for the specified discharge."""
+        from .hydraulics import project_hw_from_q
+
+        logger.info("Project %s running hw_from_q for flow %.4f", self.title or "<untitled>", q)
+        results = project_hw_from_q(
+            project=self,
+            q=q,
+            hy8=hy8,
+            workspace=workspace,
+            keep_files=keep_files,
+        )
+        logger.debug("Project hw_from_q complete for flow %.4f across %s crossings", q, len(results))
+        return results
+
+    def q_from_hw(
+        self,
+        hw: float,
+        *,
+        q_hint: float | None = None,
+        hy8: "Hy8Executable | Path | None" = None,
+        workspace: Path | None = None,
+        keep_files: bool = False,
+    ) -> "OrderedDict[str, HydraulicsResult]":
+        """Return per-crossing discharges for a requested headwater."""
+        from .hydraulics import project_q_from_hw
+
+        logger.info("Project %s running q_from_hw for HW %.4f", self.title or "<untitled>", hw)
+        results = project_q_from_hw(
+            project=self,
+            hw=hw,
+            q_hint=q_hint,
+            hy8=hy8,
+            workspace=workspace,
+            keep_files=keep_files,
+        )
+        logger.debug("Project q_from_hw complete for HW %.4f across %s crossings", hw, len(results))
+        return results
+
+    def q_for_hwd(
+        self,
+        hw_d_ratio: float,
+        *,
+        q_hint: float | None = None,
+        hy8: "Hy8Executable | Path | None" = None,
+        workspace: Path | None = None,
+        keep_files: bool = False,
+    ) -> "OrderedDict[str, HydraulicsResult]":
+        """Return per-crossing discharges for a headwater-to-diameter ratio (optionally seeded by q_hint)."""
+        from .hydraulics import project_q_for_hwd
+
+        logger.info(
+            "Project %s running q_for_hwd for ratio %.4f", self.title or "<untitled>", hw_d_ratio
+        )
+        results = project_q_for_hwd(
+            project=self,
+            hw_d_ratio=hw_d_ratio,
+            q_hint=q_hint,
+            hy8=hy8,
+            workspace=workspace,
+            keep_files=keep_files,
+        )
+        logger.debug("Project q_for_hwd complete for ratio %.4f across %s crossings", hw_d_ratio, len(results))
+        return results
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "title": self.title,
+            "designer": self.designer,
+            "notes": self.notes,
+            "units": self.units.name,
+            "exit_loss_option": self.exit_loss_option,
+            "crossings": [crossing.to_dict() for crossing in self.crossings],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "Hy8Project":
+        return cls(
+            title=data.get("title", ""),
+            designer=data.get("designer", ""),
+            notes=data.get("notes", ""),
+            units=_coerce_enum(UnitSystem, data.get("units"), default=UnitSystem.SI),
+            exit_loss_option=int(data.get("exit_loss_option", 0)),
+            crossings=[CulvertCrossing.from_dict(raw) for raw in (data.get("crossings") or [])],
+        )

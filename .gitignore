@@ -209,3 +209,5 @@ __marimo__/
 sample_compare
 example_crossings_roundtrip.hy8
 */~$*.xlsx
+hy8_benchmark_runs/*
+hy8_benchmark_tmp/*
