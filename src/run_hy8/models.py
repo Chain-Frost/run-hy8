@@ -74,6 +74,8 @@ class FlowMethod(str, Enum):
 
 
 class TailwaterType(int, Enum):
+    """Tailwater boundary condition categories supported by HY-8."""
+
     RECTANGULAR = 1
     TRAPEZOIDAL = 2
     TRIANGULAR = 3
@@ -83,6 +85,8 @@ class TailwaterType(int, Enum):
 
 
 class RoadwaySurface(int, Enum):
+    """Roadway surface assumptions used when HY-8 estimates friction losses."""
+
     PAVED = 1
     GRAVEL = 2
     USER_DEFINED = 3
@@ -103,6 +107,8 @@ class _DescribedIntEnum(IntEnum):
 
 
 class InletType(_DescribedIntEnum):
+    """HY-8 inlet geometry definitions."""
+
     NOT_SET = 0, "Not set"
     STRAIGHT = 1, "Straight"
     SIDE_TAPERED = 2, "Side tapered"
@@ -112,6 +118,8 @@ class InletType(_DescribedIntEnum):
 
 
 class InletEdgeType(_DescribedIntEnum):
+    """HY-8 inlet edge types for current releases."""
+
     THIN_EDGE_PROJECTING = 0, "Thin edge projecting"
     GROOVED_END_PROJECTING = 1, "Grooved end projecting"
     GROOVED_END_WITH_HEADWALL = 2, "Grooved end with headwall"
@@ -132,6 +140,8 @@ class InletEdgeType71(_DescribedIntEnum):
 
 
 class ImprovedInletEdgeType(_DescribedIntEnum):
+    """Enhanced inlet edge treatments used by the optimized HY-8 options."""
+
     NONE = 0, "None"
     TYPE_1 = 1, "Improved inlet type 1"
     TYPE_2 = 2, "Improved inlet type 2"
@@ -142,11 +152,15 @@ class ImprovedInletEdgeType(_DescribedIntEnum):
 
 
 class CulvertShape(int, Enum):
+    """Culvert barrel shapes supported by HY-8."""
+
     CIRCLE = 1
     BOX = 2
 
 
 class CulvertMaterial(int, Enum):
+    """Material identifiers used throughout HY-8 projects."""
+
     CONCRETE = 1
     CORRUGATED_STEEL = 2
     HDPE = 5
@@ -156,22 +170,27 @@ TailwaterRatingPoint = tuple[float, float, float]
 
 
 def _float_list() -> list[float]:
+    """Return a new list[float]; helper avoids mutable default arguments."""
     return []
 
 
 def _string_list() -> list[str]:
+    """Return a new list[str] for dataclass default_factory."""
     return []
 
 
 def _rating_curve_list() -> list[TailwaterRatingPoint]:
+    """Return an empty rating-curve list for dataclass defaults."""
     return []
 
 
 def _culvert_list() -> list["CulvertBarrel"]:
+    """Return a fresh list of CulvertBarrel instances for defaults."""
     return []
 
 
 def _crossing_list() -> list["CulvertCrossing"]:
+    """Return a fresh list of CulvertCrossing objects for defaults."""
     return []
 
 

@@ -42,15 +42,19 @@ class Hy8Executable:
         return destination
 
     def run(self, hy8_file: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+        """Invoke HY-8 with a custom list of switches."""
         return self._execute(hy8_file=hy8_file, args=list(args), check=check)
 
     def build_full_report(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+        """Trigger HY-8's -BuildFullReport automation hook."""
         return self._execute(hy8_file=hy8_file, args=["-BuildFullReport"], check=check)
 
     def open_run_save(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+        """Open and re-run the project in HY-8 using the -OpenRunSave switch."""
         return self._execute(hy8_file=hy8_file, args=["-OpenRunSave"], check=check)
 
     def open_run_save_plots(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+        """Open, rerun, and capture plots via the -OpenRunSavePlots switch."""
         return self._execute(hy8_file=hy8_file, args=["-OpenRunSavePlots"], check=check)
 
     def build_flow_tw_table(
@@ -64,6 +68,7 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
+        """Generate flow-tailwater tables by automating the HY-8 CLI."""
         args: list[str] = [
             "-BuildFlowTwTable",
             "FLOWCOEF",
@@ -88,6 +93,7 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
+        """Build headwater and tailwater tables for the provided project."""
         args: list[str] = [
             "-BuildHwTwTable",
             "UNITS",
@@ -100,6 +106,7 @@ class Hy8Executable:
         return self._execute(hy8_file=hy8_file, args=args, check=check)
 
     def _execute(self, hy8_file: Path, args: Sequence[str], *, check: bool) -> subprocess.CompletedProcess[str]:
+        """Run HY-8 with shared validation and capture stdout/stderr."""
         hy8_file = hy8_file.with_suffix(".hy8")
         if not hy8_file.exists():
             raise FileNotFoundError(f"HY-8 project not found: {hy8_file}")
@@ -108,9 +115,11 @@ class Hy8Executable:
 
     @staticmethod
     def _ensure_windows() -> None:
+        """Make sure the caller is on Windows before shelling out."""
         if os.name != "nt":
             raise OSError("The HY-8 executable is only available on Windows.")
 
     def _ensure_exists(self) -> None:
+        """Ensure the resolved executable path exists before invoking."""
         if not self.exe_path.exists():
             raise FileNotFoundError(f"HY-8 executable not found: {self.exe_path}")

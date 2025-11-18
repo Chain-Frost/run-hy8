@@ -22,6 +22,7 @@ from .writer import Hy8FileWriter
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Parse command line arguments and dispatch the requested subcommand."""
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description="Utilities for generating HY-8 project files."
     )
@@ -75,6 +76,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _run_demo(output: Path, overwrite: bool) -> None:
+    """Write a small demo HY-8 project file so new users can inspect the format."""
     project: Hy8Project = Hy8Project(title="run-hy8 demo project", designer="Codex scaffolding")
     crossing: CulvertCrossing = CulvertCrossing(name="Demo Crossing")
     crossing.notes = "Automatically generated demo crossing."
@@ -113,6 +115,7 @@ def _run_build(
     exe_path: Path | None,
     validate_only: bool,
 ) -> None:
+    """Build a HY-8 file from JSON configuration and optionally run HY-8 afterwards."""
     try:
         project: Hy8Project = _load_project(config_path)
         _validate_project(project)
@@ -136,6 +139,7 @@ def _run_build(
 
 
 def _load_project(config_path: Path) -> Hy8Project:
+    """Load an Hy8Project from supported configuration formats."""
     suffix: str = config_path.suffix.lower()
     if suffix == ".json":
         return load_project_from_json(config_path)
@@ -143,6 +147,7 @@ def _load_project(config_path: Path) -> Hy8Project:
 
 
 def _validate_project(project: Hy8Project) -> None:
+    """Raise a ValueError if the project contains validation errors."""
     errors: list[str] = project.validate()
     if errors:
         raise ValueError("Validation failed:\n" + "\n".join(errors))

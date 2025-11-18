@@ -537,6 +537,7 @@ def crossing_q_for_hwd(
 
 
 def _unique_crossing_key(name: str, counts: dict[str, int]) -> str:
+    """Return a stable dictionary key when projects contain duplicate names."""
     if name not in counts:
         counts[name] = 1
         return name

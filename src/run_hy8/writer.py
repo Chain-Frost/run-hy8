@@ -44,6 +44,7 @@ class Hy8FileWriter:
         return output_path
 
     def _write_project(self, handle: TextIO) -> None:
+        """Write top-level project metadata and each crossing."""
         version_value: float = self.version
         version_text: str = str(int(version_value)) if float(version_value).is_integer() else str(version_value)
         handle.write(f"HY8PROJECTFILE{version_text}\n")
@@ -60,6 +61,7 @@ class Hy8FileWriter:
         handle.write("ENDPROJECTFILE")
 
     def _write_crossing(self, handle: TextIO, crossing: CulvertCrossing) -> None:
+        """Serialize notes, flow, geometry, and culverts for a crossing."""
         self._write_card(handle, "STARTCROSSING", f'"{crossing.name}"')
         self._write_card(handle, "STARTCROSSNOTES", f'"{crossing.notes}"')
         self._write_flow(handle, crossing)
@@ -73,6 +75,7 @@ class Hy8FileWriter:
         self._write_card(handle, "ENDCROSSING", f'"{crossing.name}"')
 
     def _write_flow(self, handle: TextIO, crossing: CulvertCrossing) -> None:
+        """Serialize the discharge definition HY-8 expects."""
         flow: FlowDefinition = crossing.flow
         discharge_method: int = 0 if flow.method is FlowMethod.MIN_DESIGN_MAX else 1
         min_flow, design_flow, max_flow = self._flow_range_values(flow)
@@ -89,6 +92,7 @@ class Hy8FileWriter:
                 self._write_card(handle, "DISCHARGEXYUSER_NAME", f'"{label}"')
 
     def _flow_range_values(self, flow: FlowDefinition) -> tuple[float, float, float]:
+        """Return the min/design/max tuple HY-8 uses for min-design-max flows."""
         if flow.method is FlowMethod.MIN_DESIGN_MAX:
             values: list[float] = flow.sequence()
             if len(values) >= 3:
@@ -97,6 +101,7 @@ class Hy8FileWriter:
         return flow.minimum, flow.design, flow.maximum
 
     def _write_tailwater(self, handle: TextIO, tailwater: TailwaterDefinition) -> None:
+        """Encode tailwater conditions (currently constant depth only)."""
         if tailwater.type is not TailwaterType.CONSTANT:
             raise ValueError(
                 f"Tailwater type '{tailwater.type.name}' is not supported by run-hy8. "
@@ -131,6 +136,7 @@ class Hy8FileWriter:
         return [tailwater.constant_elevation] * count
 
     def _write_roadway(self, handle: TextIO, crossing: CulvertCrossing) -> None:
+        """Write roadway surface, station, elevation, and label cards."""
         roadway: RoadwayProfile = crossing.roadway
         self._write_card(handle, "ROADWAYSHAPE", roadway.shape)
         self._write_card(handle, "ROADWIDTH", roadway.width)
@@ -144,6 +150,7 @@ class Hy8FileWriter:
             card = "ROADWAYPOINT"
 
     def _write_culvert(self, handle: TextIO, culvert: CulvertBarrel) -> None:
+        """Write geometric and hydraulic properties for a barrel."""
         self._write_card(handle, "STARTCULVERT", f'"{culvert.name}"')
         culvert_shape: int = culvert.shape.value
         culvert_material: int = culvert.material.value

@@ -26,6 +26,8 @@ SUMMARY_LABELS: dict[SummaryKey, str] = {
 
 
 class Hy8Series(TypedDict, total=False):
+    """Normalized HY-8 result vectors keyed by crossing name."""
+
     flow: list[float]
     headwater: list[float]
     velocity: list[float]
@@ -34,6 +36,7 @@ class Hy8Series(TypedDict, total=False):
 
 
 def parse_rst(path: Path) -> dict[str, Hy8Series]:
+    """Parse a .rst report file into series keyed by crossing."""
     data: dict[str, Hy8Series] = {}
     summary_crossing: str | None = None
     capturing_culvert: str | None = None
@@ -73,6 +76,7 @@ def parse_rst(path: Path) -> dict[str, Hy8Series]:
 
 
 def parse_series(line: str) -> list[float]:
+    """Convert a CSV-like line from HY-8 into a float list."""
     parts: list[str] = line.split(",")[1:]
     values: list[float] = []
     for part in parts:
@@ -88,12 +92,15 @@ def parse_series(line: str) -> list[float]:
 
 
 def parse_text_series(line: str) -> list[str]:
+    """Return trimmed string entries from a HY-8 CSV-style line."""
     parts: list[str] = line.split(",")[1:]
     return [part.strip() for part in parts if part.strip()]
 
 
 @dataclass(slots=True)
 class FlowProfile:
+    """Single flow profile row emitted by HY-8's .rsql output."""
+
     flow: float = math.nan
     headwater_depth: float = math.nan
     flow_type: str = ""
@@ -102,6 +109,8 @@ class FlowProfile:
 
 @dataclass(slots=True)
 class Hy8ResultRow:
+    """Merged .rst/.rsql row describing HY-8 results for a single flow."""
+
     flow: float = math.nan
     headwater_elevation: float = math.nan
     velocity: float = math.nan
@@ -165,6 +174,7 @@ class Hy8Results:
 
 
 def parse_rsql(path: Path) -> dict[str, list[FlowProfile]]:
+    """Parse a .rsql file into flow profiles grouped by crossing."""
     data: dict[str, list[FlowProfile]] = {}
     if not path.exists():
         return data
@@ -210,6 +220,7 @@ def parse_rsql(path: Path) -> dict[str, list[FlowProfile]]:
 
 
 def nearest_profile(profiles: list[FlowProfile], target: float) -> FlowProfile | None:
+    """Return the profile whose flow is closest to the requested value."""
     best: FlowProfile | None = None
     best_delta = float("inf")
     for profile in profiles:

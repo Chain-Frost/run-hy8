@@ -37,6 +37,7 @@ def load_project_from_json(path: Path) -> Hy8Project:
 
 
 def project_from_mapping(config: JSONMapping) -> Hy8Project:
+    """Build a Hy8Project from the parsed configuration mapping."""
     project_section_raw: Any = config.get("project", {})
     if not isinstance(project_section_raw, Mapping):
         raise ValueError("Project section must be an object.")
@@ -69,6 +70,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
 
 
 def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
+    """Convert a single crossing dictionary into a CulvertCrossing instance."""
     name: str = _require_str(entry=entry, key="name", context="crossing")
     crossing = CulvertCrossing(name=name)
     crossing.notes = str(entry.get("notes", ""))
@@ -97,6 +99,7 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
 
 
 def _parse_flow(entry: JSONMapping) -> FlowDefinition:
+    """Parse the flow block into a FlowDefinition with validation."""
     method_value = str(entry.get("method", FlowMethod.USER_DEFINED.value))
     try:
         method = FlowMethod(value=method_value)
@@ -122,6 +125,7 @@ def _parse_flow(entry: JSONMapping) -> FlowDefinition:
 
 
 def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
+    """Interpret a tailwater configuration dictionary."""
     requested_type: Any = entry.get("type")
     if requested_type is not None:
         requested_enum: TailwaterType = _parse_tailwater_type(value=requested_type)
@@ -150,6 +154,7 @@ def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
 
 
 def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
+    """Convert the roadway section into a RoadwayProfile."""
     roadway = RoadwayProfile()
     roadway.width = float(entry.get("width", roadway.width))
     roadway.shape = int(entry.get("shape", roadway.shape))
@@ -163,6 +168,7 @@ def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
 
 
 def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
+    """Create a CulvertBarrel from a serialized entry."""
     name: str = _require_str(entry=entry, key="name", context=f"culvert in crossing '{crossing_name}'")
     culvert = CulvertBarrel(name=name)
     culvert.span = float(entry.get("span", culvert.span))
@@ -185,6 +191,7 @@ def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
 
 
 def _parse_unit_system(value: Any) -> UnitSystem:
+    """Coerce configuration unit strings into the UnitSystem enum."""
     if isinstance(value, UnitSystem):
         return value
     normalized: str = str(value).strip().upper()
@@ -195,6 +202,7 @@ def _parse_unit_system(value: Any) -> UnitSystem:
 
 
 def _parse_surface(value: Any) -> RoadwaySurface:
+    """Convert roadway surface names or codes into RoadwaySurface enum values."""
     normalized: str = str(value).strip().upper().replace("-", "_")
     try:
         return RoadwaySurface[normalized]
@@ -203,6 +211,7 @@ def _parse_surface(value: Any) -> RoadwaySurface:
 
 
 def _parse_culvert_shape(value: Any) -> CulvertShape:
+    """Return the CulvertShape that matches the serialized value."""
     normalized: str = str(value).strip().upper()
     try:
         return CulvertShape[normalized]
@@ -211,6 +220,7 @@ def _parse_culvert_shape(value: Any) -> CulvertShape:
 
 
 def _parse_culvert_material(value: Any) -> CulvertMaterial:
+    """Return the CulvertMaterial that matches the serialized value."""
     normalized: str = str(value).strip().upper().replace(" ", "_")
     try:
         return CulvertMaterial[normalized]
@@ -219,6 +229,7 @@ def _parse_culvert_material(value: Any) -> CulvertMaterial:
 
 
 def _parse_tailwater_type(value: Any) -> TailwaterType:
+    """Return the TailwaterType derived from configuration text."""
     normalized: str = str(value).strip().upper().replace("-", "_")
     try:
         return TailwaterType[normalized]
@@ -227,6 +238,7 @@ def _parse_tailwater_type(value: Any) -> TailwaterType:
 
 
 def _require_str(entry: JSONMapping, key: str, context: str) -> str:
+    """Fetch a mandatory string field or raise a ValueError with context."""
     if key not in entry:
         raise ValueError(f"Missing required field '{key}' in {context}")
     value = entry[key]

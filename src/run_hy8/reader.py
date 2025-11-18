@@ -37,6 +37,8 @@ def load_project_from_hy8(path: Path) -> Hy8Project:
 
 @dataclass
 class _Hy8Card:
+    """Single HY-8 line split into a card key and payload."""
+
     key: str
     value: str
 

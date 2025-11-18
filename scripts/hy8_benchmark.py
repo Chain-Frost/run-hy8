@@ -7,7 +7,7 @@ from concurrent.futures._base import Future
 import csv
 import math
 import shutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from subprocess import CompletedProcess
@@ -208,6 +208,12 @@ def parse_args() -> argparse.Namespace:
         default=UnitSystem.SI.name,
         help="HY-8 unit system.",
     )
+    parser.add_argument(
+        "--executor",
+        choices=["thread", "process"],
+        default="thread",
+        help="Orchestration backend (threads submit subprocesses anyway; process mode avoids Python GIL overhead).",
+    )
     return parser.parse_args()
 
 
@@ -358,6 +364,7 @@ def run_configuration(
     repeat: int,
     workdir: Path,
     units: UnitSystem,
+    executor_mode: str,
 ) -> tuple[list[BatchResult], float]:
     batches: list[list[CrossingSpec]] = chunk_specs(specs=specs, batch_size=batch_size)
     run_dir: Path = workdir / f"bs{batch_size}_w{workers}_r{repeat}"
@@ -367,7 +374,8 @@ def run_configuration(
 
     results: list[BatchResult] = []
     wall_start: float = perf_counter()
-    with ThreadPoolExecutor(max_workers=workers) as executor:
+    executor_cls = ThreadPoolExecutor if executor_mode == "thread" else ProcessPoolExecutor
+    with executor_cls(max_workers=workers) as executor:
         futures: dict[Future[BatchResult], int] = {
             executor.submit(
                 run_batch,
@@ -424,6 +432,7 @@ def main() -> None:
                     repeat=repeat,
                     workdir=workdir,
                     units=unit_system,
+                    executor_mode=args.executor,
                 )
                 detailed_rows.extend(record.to_row() for record in records)
                 summary: dict[str, float | int | str] = summarize_configuration(records=records, wall_time=wall_time)
