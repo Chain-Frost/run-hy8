@@ -211,3 +211,7 @@ example_crossings_roundtrip.hy8
 */~$*.xlsx
 hy8_benchmark_runs/*
 hy8_benchmark_tmp/*
+hy8_benchmark_batches_tmp.csv
+hy8_benchmark_batches.csv
+hy8_benchmark_summary.csv
+hy8_benchmark_summary_tmp.csv
