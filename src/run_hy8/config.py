@@ -8,6 +8,8 @@ from typing import Any, cast
 
 import json
 
+from .classes_references import UnitSystem
+
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -20,7 +22,6 @@ from .models import (
     RoadwaySurface,
     TailwaterDefinition,
     TailwaterType,
-    UnitSystem,
 )
 
 JSONMapping = Mapping[str, Any]

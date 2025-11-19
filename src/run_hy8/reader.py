@@ -5,9 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
+from _collections_abc import Iterable
 
-from run_hy8.models import FlowDefinition, TailwaterDefinition
+from .classes_references import UnitSystem
+
+from .models import FlowDefinition, TailwaterDefinition
+from .units import cfs_to_cms, feet_to_metres
 
 from .models import (
     CulvertBarrel,
@@ -22,7 +26,6 @@ from .models import (
     Hy8Project,
     RoadwaySurface,
     TailwaterType,
-    UnitSystem,
 )
 
 if TYPE_CHECKING:
@@ -130,6 +133,7 @@ class _Hy8Parser:
                 project.crossings.append(crossing)
                 continue
             self._apply_project_card(project=project, card=card)
+        project.units = UnitSystem.SI
         return project
 
     def _consume_header(self) -> None:
@@ -142,9 +146,8 @@ class _Hy8Parser:
 
     def _apply_project_card(self, project: Hy8Project, card: _Hy8Card) -> None:
         if card.key == "UNITS":
-            project.units = (
-                UnitSystem.SI if self._as_int(value=card.value) == UnitSystem.SI.project_flag else UnitSystem.ENGLISH
-            )
+            # The UNITS flag is for display only; HY-8 calculations are English units.
+            return
         elif card.key == "EXITLOSSOPTION":
             project.exit_loss_option = self._as_int(value=card.value, default=0)
         elif card.key == "PROJTITLE":
@@ -169,11 +172,11 @@ class _Hy8Parser:
             elif key == "DISCHARGERANGE":
                 numbers: list[float] = self._floats(value=value, expected=3)
                 if numbers:
-                    crossing.flow.minimum = numbers[0]
+                    crossing.flow.minimum = self._flow_from_source(numbers[0])
                     if len(numbers) > 1:
-                        crossing.flow.design = numbers[1]
+                        crossing.flow.design = self._flow_from_source(numbers[1])
                     if len(numbers) > 2:
-                        crossing.flow.maximum = numbers[2]
+                        crossing.flow.maximum = self._flow_from_source(numbers[2])
             elif key == "DISCHARGEMETHOD":
                 method_flag: int = self._as_int(value=value)
                 if method_flag == 0:
@@ -181,22 +184,22 @@ class _Hy8Parser:
                 elif method_flag == 1:
                     crossing.flow.method = FlowMethod.USER_DEFINED
                 else:
-                    raise ValueError(
-                        f"Crossing '{crossing.name}' uses unsupported flow method flag '{method_flag}'."
-                    )
+                    raise ValueError(f"Crossing '{crossing.name}' uses unsupported flow method flag '{method_flag}'.")
             elif key == "DISCHARGEXYUSER":
                 pending_flow_values = self._read_flow_values(expected=self._as_int(value=value))
             elif key == "DISCHARGEXYUSER_NAME":
                 continue
             elif key == "TAILWATERTYPE":
-                crossing.tailwater.type = self._tailwater_type(value)
+                crossing.tailwater.tw_type = self._tailwater_type(value)
             elif key == "NUMRATINGCURVE":
-                crossing.tailwater.rating_curve_entries = max(1, self._as_int(value, default=crossing.tailwater.rating_curve_entries))
+                crossing.tailwater.rating_curve_entries = max(
+                    1, self._as_int(value, default=crossing.tailwater.rating_curve_entries)
+                )
             elif key == "CHANNELGEOMETRY":
                 numbers = self._floats(value=value, expected=5)
                 if numbers:
                     tw: TailwaterDefinition = crossing.tailwater
-                    tw.bottom_width = numbers[0]
+                    tw.bottom_width = self._length_from_source(numbers[0])
                     if len(numbers) > 1:
                         tw.sideslope = numbers[1]
                     if len(numbers) > 2:
@@ -204,24 +207,25 @@ class _Hy8Parser:
                     if len(numbers) > 3:
                         tw.manning_n = numbers[3]
                     if len(numbers) > 4:
-                        tw.invert_elevation = numbers[4]
+                        tw.invert_elevation = self._length_from_source(numbers[4])
             elif key == "TWRATINGCURVE":
                 stages: list[float] = self._floats(value=value)
                 if stages:
-                    crossing.tailwater.constant_elevation = stages[0]
+                    crossing.tailwater.constant_elevation = self._length_from_source(stages[0])
             elif key == "RATINGCURVE":
                 self._stream.skip_until(target="END RATINGCURVE")
             elif key == "ROADWAYSHAPE":
                 crossing.roadway.shape = self._as_int(value=value, default=crossing.roadway.shape)
             elif key == "ROADWIDTH":
-                crossing.roadway.width = self._as_float(value=value, default=crossing.roadway.width)
+                width = self._as_float(value=value, default=crossing.roadway.width)
+                crossing.roadway.width = self._length_from_source(width)
             elif key == "SURFACE":
                 crossing.roadway.surface = self._roadway_surface(value=value)
             elif key in {"ROADWAYSECDATA", "ROADWAYPOINT"}:
                 station_elev: list[float] = self._floats(value=value, expected=2)
                 if len(station_elev) == 2:
-                    crossing.roadway.stations.append(station_elev[0])
-                    crossing.roadway.elevations.append(station_elev[1])
+                    crossing.roadway.stations.append(self._length_from_source(station_elev[0]))
+                    crossing.roadway.elevations.append(self._length_from_source(station_elev[1]))
             elif key == "STARTCULVERT":
                 culvert: CulvertBarrel = self._parse_culvert(name=self._clean_string(raw=value))
                 crossing.culverts.append(culvert)
@@ -253,8 +257,8 @@ class _Hy8Parser:
             elif key == "BARRELDATA":
                 numbers = self._floats(value=value, expected=4)
                 if len(numbers) >= 4:
-                    culvert.span = numbers[0]
-                    culvert.rise = numbers[1]
+                    culvert.span = self._length_from_source(numbers[0])
+                    culvert.rise = self._length_from_source(numbers[1])
                     culvert.manning_n_top = numbers[2]
                     culvert.manning_n_bottom = numbers[3]
             elif key == "NUMBEROFBARRELS":
@@ -262,14 +266,16 @@ class _Hy8Parser:
             elif key == "INVERTDATA":
                 numbers: list[float] = self._floats(value=value, expected=4)
                 if len(numbers) >= 4:
-                    culvert.inlet_invert_station = numbers[0]
-                    culvert.inlet_invert_elevation = numbers[1]
-                    culvert.outlet_invert_station = numbers[2]
-                    culvert.outlet_invert_elevation = numbers[3]
+                    culvert.inlet_invert_station = self._length_from_source(numbers[0])
+                    culvert.inlet_invert_elevation = self._length_from_source(numbers[1])
+                    culvert.outlet_invert_station = self._length_from_source(numbers[2])
+                    culvert.outlet_invert_elevation = self._length_from_source(numbers[3])
             elif key == "ROADCULVSTATION":
-                culvert.roadway_station = self._as_float(value=value, default=culvert.roadway_station)
+                station = self._as_float(value=value, default=culvert.roadway_station)
+                culvert.roadway_station = self._length_from_source(station)
             elif key == "BARRELSPACING":
-                culvert.barrel_spacing = self._as_float(value=value)
+                spacing = self._as_float(value=value)
+                culvert.barrel_spacing = self._length_from_source(spacing)
             elif key == "STARTCULVNOTES":
                 culvert.notes = self._collect_notes(inline_value=value, end_marker="ENDCULVNOTES")
 
@@ -301,9 +307,7 @@ class _Hy8Parser:
             flow.user_values = list(user_values)
             flow.user_value_labels = list(labels) if labels else []
             return
-        raise ValueError(
-            f"Crossing '{crossing.name}' uses unsupported flow method '{flow.method.value}'."
-        )
+        raise ValueError(f"Crossing '{crossing.name}' uses unsupported flow method '{flow.method.value}'.")
 
     def _read_flow_values(self, expected: int) -> tuple[list[float], list[str]]:
         if expected <= 0:
@@ -316,7 +320,7 @@ class _Hy8Parser:
             card: _Hy8Card = self._stream.next_card()
             if card.key == "DISCHARGEXYUSER_Y":
                 try:
-                    values.append(float(card.value.split()[0]))
+                    values.append(self._flow_from_source(float(card.value.split()[0])))
                 except (IndexError, ValueError):
                     values.append(0.0)
                 labels.append("")
@@ -335,6 +339,12 @@ class _Hy8Parser:
         if not saw_label:
             labels = []
         return values, labels
+
+    def _length_from_source(self, value: float) -> float:
+        return feet_to_metres(value)
+
+    def _flow_from_source(self, value: float) -> float:
+        return cfs_to_cms(value)
 
     @staticmethod
     def _clean_string(raw: str) -> str:

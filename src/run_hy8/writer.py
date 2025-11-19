@@ -6,7 +6,10 @@ from enum import Enum
 from pathlib import Path
 from typing import TextIO
 
-from run_hy8.models import FlowDefinition, RoadwayProfile
+from .classes_references import UnitSystem
+
+from .models import FlowDefinition, RoadwayProfile
+from .units import cms_to_cfs, metres_to_feet
 
 from .models import (
     CulvertBarrel,
@@ -23,7 +26,7 @@ from .models import (
 class Hy8FileWriter:
     """Writes HY-8 project files (.hy8) from the object model."""
 
-    def __init__(self, project: Hy8Project, *, version: float = 80.0) -> None:
+    def __init__(self, project: Hy8Project, *, version: float = 78.0) -> None:
         self.project: Hy8Project = project
         self.version: float = version
 
@@ -48,7 +51,7 @@ class Hy8FileWriter:
         version_value: float = self.version
         version_text: str = str(int(version_value)) if float(version_value).is_integer() else str(version_value)
         handle.write(f"HY8PROJECTFILE{version_text}\n")
-        self._write_card(handle, "UNITS", self.project.units.project_flag)
+        self._write_card(handle, "UNITS", UnitSystem.ENGLISH.project_flag)
         self._write_card(handle, "EXITLOSSOPTION", self.project.exit_loss_option)
         self._write_card(handle, "PROJTITLE", self.project.title)
         self._write_card(handle, "PROJDESIGNER", self.project.designer)
@@ -79,14 +82,20 @@ class Hy8FileWriter:
         flow: FlowDefinition = crossing.flow
         discharge_method: int = 0 if flow.method is FlowMethod.MIN_DESIGN_MAX else 1
         min_flow, design_flow, max_flow = self._flow_range_values(flow)
-        self._write_card(handle, "DISCHARGERANGE", min_flow, design_flow, max_flow)
+        self._write_card(
+            handle,
+            "DISCHARGERANGE",
+            self._flow_value(value=min_flow),
+            self._flow_value(value=design_flow),
+            self._flow_value(value=max_flow),
+        )
         self._write_card(handle, "DISCHARGEMETHOD", discharge_method)
         flow_values: list[float] = flow.sequence()
         labels: list[str] = flow.user_value_labels if flow.user_value_labels else []
         include_labels: bool = bool(labels)
         self._write_card(handle, "DISCHARGEXYUSER", len(flow_values))
         for idx, value in enumerate(flow_values):
-            self._write_card(handle, "DISCHARGEXYUSER_Y", value)
+            self._write_card(handle, "DISCHARGEXYUSER_Y", self._flow_value(value))
             if include_labels:
                 label: str = labels[idx] if idx < len(labels) else ""
                 self._write_card(handle, "DISCHARGEXYUSER_NAME", f'"{label}"')
@@ -102,24 +111,24 @@ class Hy8FileWriter:
 
     def _write_tailwater(self, handle: TextIO, tailwater: TailwaterDefinition) -> None:
         """Encode tailwater conditions (currently constant depth only)."""
-        if tailwater.type is not TailwaterType.CONSTANT:
+        if tailwater.tw_type is not TailwaterType.CONSTANT:
             raise ValueError(
-                f"Tailwater type '{tailwater.type.name}' is not supported by run-hy8. "
+                f"Tailwater type '{tailwater.tw_type.name}' is not supported by run-hy8. "
                 "Use the HY-8 GUI for advanced tailwater definitions."
             )
         self._write_card(
             handle,
             "TAILWATERTYPE",
-            tailwater.type.value,
+            tailwater.tw_type.value,
         )
         self._write_card(
             handle,
             "CHANNELGEOMETRY",
-            tailwater.bottom_width,
+            self._length_value(tailwater.bottom_width),
             tailwater.sideslope,
             tailwater.channel_slope,
             tailwater.manning_n,
-            tailwater.invert_elevation,
+            self._length_value(tailwater.invert_elevation),
         )
         stages: list[float] = self._tailwater_stages(tailwater)
         vel: float = 0.0
@@ -127,9 +136,9 @@ class Hy8FileWriter:
         froude: float = 0.0
         self._write_card(handle, "NUMRATINGCURVE", len(stages))
         first_stage: float = stages[0] if stages else 0.0
-        self._write_card(handle, "TWRATINGCURVE", first_stage, vel, shear, froude)
+        self._write_card(handle, "TWRATINGCURVE", self._length_value(first_stage), vel, shear, froude)
         for stage in stages[1:]:
-            self._write_card(handle, "", stage, vel, shear, froude)
+            self._write_card(handle, "", self._length_value(stage), vel, shear, froude)
 
     def _tailwater_stages(self, tailwater: TailwaterDefinition) -> list[float]:
         count: int = max(1, tailwater.rating_curve_entries)
@@ -139,14 +148,14 @@ class Hy8FileWriter:
         """Write roadway surface, station, elevation, and label cards."""
         roadway: RoadwayProfile = crossing.roadway
         self._write_card(handle, "ROADWAYSHAPE", roadway.shape)
-        self._write_card(handle, "ROADWIDTH", roadway.width)
+        self._write_card(handle, "ROADWIDTH", self._length_value(roadway.width))
         self._write_card(handle, "SURFACE", roadway.surface.value)
         self._write_card(handle, "NUMSTATIONS", len(roadway.stations))
         card: str = "ROADWAYSECDATA"
         for station, elevation in roadway.points():
             station: float
             elevation: float
-            self._write_card(handle, card, station, elevation)
+            self._write_card(handle, card, self._length_value(station), self._length_value(elevation))
             card = "ROADWAYPOINT"
 
     def _write_culvert(self, handle: TextIO, culvert: CulvertBarrel) -> None:
@@ -168,23 +177,40 @@ class Hy8FileWriter:
         self._write_card(handle, "INLETEDGETYPE", culvert.inlet_edge_type)
         self._write_card(handle, "INLETEDGETYPE71", culvert.inlet_edge_type71)
         self._write_card(handle, "IMPINLETEDGETYPE", culvert.improved_inlet_edge_type)
-        self._write_card(handle, "BARRELDATA", culvert.span, culvert.rise, n_top, n_bottom)
+        self._write_card(
+            handle,
+            "BARRELDATA",
+            self._length_value(culvert.span),
+            self._length_value(culvert.rise),
+            n_top,
+            n_bottom,
+        )
         self._write_card(handle, "EMBANKMENTTYPE", 2)
         self._write_card(handle, "NUMBEROFBARRELS", culvert.number_of_barrels)
         self._write_card(
             handle,
             "INVERTDATA",
-            culvert.inlet_invert_station,
-            culvert.inlet_invert_elevation,
-            culvert.outlet_invert_station,
-            culvert.outlet_invert_elevation,
+            self._length_value(culvert.inlet_invert_station),
+            self._length_value(culvert.inlet_invert_elevation),
+            self._length_value(culvert.outlet_invert_station),
+            self._length_value(culvert.outlet_invert_elevation),
         )
         self._write_card(handle, "STARTCULVNOTES", f'"{culvert.notes}"')
         self._write_card(handle, "ENDCULVNOTES")
-        self._write_card(handle, "ROADCULVSTATION", culvert.roadway_station)
+        self._write_card(handle, "ROADCULVSTATION", self._length_value(culvert.roadway_station))
         spacing: float = culvert.barrel_spacing if culvert.barrel_spacing is not None else max(culvert.span * 1.5, 0.0)
-        self._write_card(handle, "BARRELSPACING", spacing)
+        self._write_card(handle, "BARRELSPACING", self._length_value(spacing))
         self._write_card(handle, "ENDCULVERT", f'"{culvert.name}"')
+
+    def _length_value(self, value: float) -> float:
+        if self.project.units is UnitSystem.SI:
+            return metres_to_feet(value)
+        return value
+
+    def _flow_value(self, value: float) -> float:
+        if self.project.units is UnitSystem.SI:
+            return cms_to_cfs(value)
+        return value
 
     @staticmethod
     def _write_card(handle: TextIO, name: str, *values: object) -> None:

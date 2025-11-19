@@ -24,7 +24,7 @@ exit /b 1
 
 :install
 echo Installing "%PACKAGE_FILE%"...
-py -3.13 -m pip install --force-reinstall "%DIST_DIR%\!PACKAGE_FILE!" || goto :error
+python -m pip install --force-reinstall "%DIST_DIR%\!PACKAGE_FILE!" || goto :error
 
 echo.
 echo run-hy8 installed from "%PACKAGE_FILE%".

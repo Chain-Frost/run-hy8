@@ -5,10 +5,10 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Sequence
+from _collections_abc import Sequence
 
 from .hy8_path import resolve_hy8_path, save_hy8_path
-from .models import UnitSystem
+from .classes_references import UnitSystem
 
 
 class Hy8Executable:

@@ -7,20 +7,22 @@ from .hydraulics import HydraulicsResult
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
+    FlowDefinition,
+    Hy8Project,
+    RoadwayProfile,
+    TailwaterDefinition,
+    UnitSystem,
+)
+from .type_helpers import (
     CulvertMaterial,
     CulvertShape,
-    FlowDefinition,
     FlowMethod,
     ImprovedInletEdgeType,
-    Hy8Project,
     InletEdgeType,
     InletEdgeType71,
     InletType,
-    RoadwayProfile,
     RoadwaySurface,
-    TailwaterDefinition,
     TailwaterType,
-    UnitSystem,
 )
 from .reader import culvert_dataframe, load_project_from_hy8
 from .results import Hy8Results, parse_rsql, parse_rst

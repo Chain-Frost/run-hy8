@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from loguru import logger
+
+from .classes_references import UnitSystem
 from .executor import Hy8Executable
 from .models import (
     CulvertBarrel,
@@ -32,7 +34,6 @@ from .models import (
     FlowDefinition,
     FlowMethod,
     Hy8Project,
-    UnitSystem,
 )
 from .results import Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
 from .writer import Hy8FileWriter
@@ -279,6 +280,7 @@ def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
             best_delta = delta
             best = row
     if best is None:
+        logger.error(f"{flow}, {results}")
         raise ValueError("HY-8 output did not include any valid flow rows.")
     return best
 
@@ -457,9 +459,7 @@ def crossing_q_from_hw(
                 else:
                     guess = low.flow + ((hw - low.headwater) / slope) * (high.flow - low.flow)
                 run_count += 1
-                logger.debug(
-                    "Interpolated guess {flow:.4f} for crossing {name}", flow=guess, name=crossing.name
-                )
+                logger.debug("Interpolated guess {flow:.4f} for crossing {name}", flow=guess, name=crossing.name)
                 scenario_crossing.flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[guess])
                 results = _write_and_run(
                     project=scenario_project,
@@ -578,9 +578,7 @@ def project_hw_from_q(
         for index, crossing in enumerate(project.crossings, start=1):
             crossing_workspace = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
-            logger.debug(
-                "Project hw_from_q processing crossing {name} (#{index})", name=crossing.name, index=index
-            )
+            logger.debug("Project hw_from_q processing crossing {name} (#{index})", name=crossing.name, index=index)
             result: HydraulicsResult = crossing.hw_from_q(
                 q=q,
                 hy8=hy8_exec,
@@ -614,9 +612,7 @@ def project_q_from_hw(
         for index, crossing in enumerate(project.crossings, start=1):
             crossing_workspace = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
-            logger.debug(
-                "Project q_from_hw processing crossing {name} (#{index})", name=crossing.name, index=index
-            )
+            logger.debug("Project q_from_hw processing crossing {name} (#{index})", name=crossing.name, index=index)
             result: HydraulicsResult = crossing.q_from_hw(
                 hw=hw,
                 q_hint=q_hint,
@@ -651,9 +647,7 @@ def project_q_for_hwd(
         for index, crossing in enumerate(project.crossings, start=1):
             crossing_workspace = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
-            logger.debug(
-                "Project q_for_hwd processing crossing {name} (#{index})", name=crossing.name, index=index
-            )
+            logger.debug("Project q_for_hwd processing crossing {name} (#{index})", name=crossing.name, index=index)
             result: HydraulicsResult = crossing.q_for_hwd(
                 hw_d_ratio=hw_d_ratio,
                 q_hint=q_hint,
