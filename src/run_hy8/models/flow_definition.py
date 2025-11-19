@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 from _collections_abc import Mapping
 
 from loguru import logger
 
-from .base import Validatable, _float_list, _string_list, _normalize_sequence
+from .base import Validatable, float_list, string_list, normalize_sequence
 from ..type_helpers import FlowMethod, coerce_enum
 
 
@@ -22,12 +22,13 @@ class FlowDefinition(Validatable):
     may include matching `user_value_labels`.
     """
 
+    DUMMY_FLOW_LABEL: ClassVar[str] = "dummy flow"
     method: FlowMethod = FlowMethod.USER_DEFINED
     minimum: float = 0.0
     design: float = 0.0
     maximum: float = 0.0
-    user_values: list[float] = field(default_factory=_float_list)
-    user_value_labels: list[str] = field(default_factory=_string_list)
+    user_values: list[float] = field(default_factory=float_list)
+    user_value_labels: list[str] = field(default_factory=string_list)
 
     def describe(self) -> str:
         try:
@@ -113,8 +114,8 @@ class FlowDefinition(Validatable):
     def from_dict(cls, data: Mapping[str, Any]) -> "FlowDefinition":
         method_value = data.get("method", FlowMethod.USER_DEFINED.name)
         method: FlowMethod = coerce_enum(FlowMethod, method_value, default=FlowMethod.USER_DEFINED)
-        user_values_raw = _normalize_sequence(data.get("user_values"))
-        user_value_labels_raw = _normalize_sequence(data.get("user_value_labels"))
+        user_values_raw = normalize_sequence(data.get("user_values"))
+        user_value_labels_raw = normalize_sequence(data.get("user_value_labels"))
 
         return cls(
             method=method,

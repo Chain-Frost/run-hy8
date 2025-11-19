@@ -9,13 +9,15 @@ from typing import TYPE_CHECKING
 from _collections_abc import Iterable
 
 from .classes_references import UnitSystem
-
 from .models import FlowDefinition, TailwaterDefinition
 from .units import cfs_to_cms, feet_to_metres
 
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
+    Hy8Project,
+)
+from .type_helpers import (
     CulvertMaterial,
     CulvertShape,
     FlowMethod,
@@ -23,7 +25,6 @@ from .models import (
     InletEdgeType,
     InletEdgeType71,
     InletType,
-    Hy8Project,
     RoadwaySurface,
     TailwaterType,
 )

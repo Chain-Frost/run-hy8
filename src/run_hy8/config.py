@@ -9,18 +9,19 @@ from typing import Any, cast
 import json
 
 from .classes_references import UnitSystem
-
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
-    CulvertMaterial,
-    CulvertShape,
     FlowDefinition,
-    FlowMethod,
     Hy8Project,
     RoadwayProfile,
-    RoadwaySurface,
     TailwaterDefinition,
+)
+from .type_helpers import (
+    CulvertMaterial,
+    CulvertShape,
+    FlowMethod,
+    RoadwaySurface,
     TailwaterType,
 )
 

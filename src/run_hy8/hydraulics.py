@@ -30,11 +30,10 @@ from .executor import Hy8Executable
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
-    CulvertShape,
     FlowDefinition,
-    FlowMethod,
     Hy8Project,
 )
+from .type_helpers import CulvertShape, FlowMethod
 from .results import Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
 from .writer import Hy8FileWriter
 
@@ -246,11 +245,17 @@ def _write_and_run(
     *,
     workspace: Path,
     run_index: int,
+    scenario: str | None = None,
 ) -> Hy8Results:
     """Write the temporary project to disk, run HY-8, and parse the outputs."""
 
-    hy8_file: Path = workspace / f"{crossing_name}_run_{run_index:03d}.hy8"
-    logger.info("Writing HY-8 project {file} (iteration {iteration})", file=hy8_file, iteration=run_index)
+    scenario_suffix = f"_{scenario}" if scenario else ""
+    hy8_file: Path = workspace / f"{crossing_name}{scenario_suffix}_run_{run_index:03d}.hy8"
+    logger.info(
+        "Writing HY-8 project {file} (iteration {iteration})",
+        file=hy8_file,
+        iteration=run_index,
+    )
     Hy8FileWriter(project).write(hy8_file, overwrite=True)
     logger.info(
         "Running HY-8 for crossing {crossing} (iteration {iteration})",
@@ -271,6 +276,7 @@ def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
     """Return the HY-8 result row whose flow most closely matches `flow`."""
 
     best: Hy8ResultRow | None = None
+    logger.debug(results)
     best_delta: float = float("inf")
     for row in results.rows:
         if math.isnan(row.flow):
@@ -353,6 +359,7 @@ def crossing_hw_from_q(
             hy8_exec=hy8_exec,
             workspace=workspace_path,
             run_index=1,
+            scenario="hw_from_q",
         )
         row: Hy8ResultRow = _select_row_by_flow(results=results, flow=q)
         logger.debug(
@@ -419,6 +426,7 @@ def crossing_q_from_hw(
                 hy8_exec,
                 workspace=workspace_path,
                 run_index=run_count,
+                scenario="q_from_hw",
             )
             row = _select_row_by_flow(results, candidate)
             search.record(candidate, row)
@@ -467,6 +475,7 @@ def crossing_q_from_hw(
                     hy8_exec=hy8_exec,
                     workspace=workspace_path,
                     run_index=run_count,
+                    scenario="q_from_hw",
                 )
                 row = _select_row_by_flow(results=results, flow=guess)
                 final_row = row
@@ -484,6 +493,7 @@ def crossing_q_from_hw(
                 hy8_exec=hy8_exec,
                 workspace=workspace_path,
                 run_index=run_count,
+                scenario="q_from_hw",
             )
             row: Hy8ResultRow = _select_row_by_flow(results=results, flow=next_guess)
             search.record(flow=next_guess, row=row)

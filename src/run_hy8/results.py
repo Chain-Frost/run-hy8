@@ -18,6 +18,9 @@ RST_VALUE_LABELS: dict[ValueKey, str] = {
     "headwater": "Headwater Elevation (m)",
     "velocity": "Outlet Velocity (m/s)",
 }
+RST_TEXT_LABELS: dict[str, str] = {
+    "flow_type": "Flow Type",
+}
 SUMMARY_RE: re.Pattern[str] = re.compile(pattern=r"Dialog:\s+Summary of Flows at Crossing - (?P<name>.+)")
 SUMMARY_LABELS: dict[SummaryKey, str] = {
     "roadway": "Roadway Discharge (cms)",
@@ -33,6 +36,7 @@ class Hy8Series(TypedDict, total=False):
     velocity: list[float]
     roadway: list[float]
     iterations: list[str]
+    flow_type: list[str]
 
 
 def parse_rst(path: Path) -> dict[str, Hy8Series]:
@@ -72,6 +76,9 @@ def parse_rst(path: Path) -> dict[str, Hy8Series]:
                 if line.startswith(label):
                     series: list[float] = parse_series(line)
                     data[capturing_culvert][key] = series
+            for key, label in RST_TEXT_LABELS.items():
+                if line.startswith(label):
+                    data[capturing_culvert][key] = parse_text_series(line)
     return data
 
 
@@ -97,6 +104,13 @@ def parse_text_series(line: str) -> list[str]:
     return [part.strip() for part in parts if part.strip()]
 
 
+def _format_float(value: float, unit: str | None = None) -> str:
+    if math.isnan(value):
+        return "nan"
+    formatted = f"{value:.3f}"
+    return f"{formatted}{unit}" if unit else formatted
+
+
 @dataclass(slots=True)
 class FlowProfile:
     """Single flow profile row emitted by HY-8's .rsql output."""
@@ -105,6 +119,20 @@ class FlowProfile:
     headwater_depth: float = math.nan
     flow_type: str = ""
     overtopping: bool = False
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(flow={_format_float(self.flow)} cms, "
+            f"headwater_depth={_format_float(self.headwater_depth, ' m')}, "
+            f"flow_type={self.flow_type!r}, overtopping={self.overtopping})"
+        )
+
+    def __str__(self) -> str:
+        overtopping_note = " (overtopping)" if self.overtopping else ""
+        return f"{_format_float(self.flow)} cms @ {self._present_depth()}{overtopping_note}"
+
+    def _present_depth(self) -> str:
+        return _format_float(self.headwater_depth, " m")
 
 
 @dataclass(slots=True)
@@ -120,6 +148,21 @@ class Hy8ResultRow:
     flow_type: str = ""
     overtopping: bool = False
 
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(flow={_format_float(self.flow)} cms, "
+            f"headwater={_format_float(self.headwater_elevation, ' m')}, "
+            f"velocity={_format_float(self.velocity, ' m/s')}, "
+            f"roadway={_format_float(self.roadway_discharge)} cms, "
+            f"overtopping={self.overtopping})"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{_format_float(self.flow)} cms -> headwater {_format_float(self.headwater_elevation, ' m')}, "
+            f"velocity {_format_float(self.velocity, ' m/s')}"
+        )
+
 
 class Hy8Results:
     """Aggregated HY-8 output that merges .rst and .rsql data."""
@@ -134,6 +177,7 @@ class Hy8Results:
         velocities: list[float] = entry.get("velocity") or []
         roadway: list[float] = entry.get("roadway") or []
         iterations: list[str] = entry.get("iterations") or []
+        flow_types: list[str] = entry.get("flow_type") or []
         profiles = profiles or []
         self.rows: list[Hy8ResultRow] = []
         for idx, flow in enumerate(flows):
@@ -142,6 +186,8 @@ class Hy8Results:
             roadway_val = roadway[idx] if idx < len(roadway) else math.nan
             iteration = iterations[idx] if idx < len(iterations) else ""
             profile: FlowProfile | None = nearest_profile(profiles, flow)
+            flow_type_text: str = flow_types[idx] if idx < len(flow_types) else ""
+            profile_type: str = profile.flow_type if profile else ""
             row: Hy8ResultRow = Hy8ResultRow(
                 flow=flow,
                 headwater_elevation=head,
@@ -149,12 +195,29 @@ class Hy8Results:
                 roadway_discharge=roadway_val,
                 iterations=iteration,
                 headwater_depth=profile.headwater_depth if profile else math.nan,
-                flow_type=profile.flow_type if profile else "",
+                flow_type=flow_type_text or profile_type,
                 overtopping=profile.overtopping if profile else False,
             )
             if iteration and "overtopping" in iteration.lower():
                 row.overtopping = True
             self.rows.append(row)
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def __repr__(self) -> str:
+        range_label = self._flow_range_label() or "empty"
+        return f"{self.__class__.__name__}(rows={len(self.rows)}, flows={range_label} cms)"
+
+    def __str__(self) -> str:
+        range_label = self._flow_range_label() or "empty"
+        return f"{self.__class__.__name__} with {len(self)} rows (flows={range_label} cms)"
+
+    def _flow_range_label(self) -> str | None:
+        flows = [row.flow for row in self.rows if not math.isnan(row.flow)]
+        if not flows:
+            return None
+        return f"{_format_float(flows[0])}↔{_format_float(flows[-1])}"
 
     def nearest(self, target: float) -> Hy8ResultRow | None:
         best_row: Hy8ResultRow | None = None

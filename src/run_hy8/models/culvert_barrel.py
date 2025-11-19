@@ -1,13 +1,9 @@
 """Single culvert barrel definition for HY-8."""
 
 from __future__ import annotations
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 from _collections_abc import Mapping
-
-from loguru import logger
-
 from .base import Validatable
 from ..type_helpers import (
     CulvertMaterial,

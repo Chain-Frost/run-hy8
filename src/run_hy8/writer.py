@@ -7,26 +7,27 @@ from pathlib import Path
 from typing import TextIO
 
 from .classes_references import UnitSystem
-
-from .models import FlowDefinition, RoadwayProfile
-from .units import cms_to_cfs, metres_to_feet
-
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
+    FlowDefinition,
+    Hy8Project,
+    RoadwayProfile,
+    TailwaterDefinition,
+)
+from .type_helpers import (
     CulvertMaterial,
     CulvertShape,
     FlowMethod,
-    Hy8Project,
-    TailwaterDefinition,
     TailwaterType,
 )
+from .units import cms_to_cfs, metres_to_feet
 
 
 class Hy8FileWriter:
     """Writes HY-8 project files (.hy8) from the object model."""
 
-    def __init__(self, project: Hy8Project, *, version: float = 78.0) -> None:
+    def __init__(self, project: Hy8Project, *, version: float = 80.0) -> None:
         self.project: Hy8Project = project
         self.version: float = version
 
@@ -51,7 +52,7 @@ class Hy8FileWriter:
         version_value: float = self.version
         version_text: str = str(int(version_value)) if float(version_value).is_integer() else str(version_value)
         handle.write(f"HY8PROJECTFILE{version_text}\n")
-        self._write_card(handle, "UNITS", UnitSystem.ENGLISH.project_flag)
+        self._write_card(handle, "UNITS", self.project.units.project_flag)
         self._write_card(handle, "EXITLOSSOPTION", self.project.exit_loss_option)
         self._write_card(handle, "PROJTITLE", self.project.title)
         self._write_card(handle, "PROJDESIGNER", self.project.designer)
@@ -91,14 +92,45 @@ class Hy8FileWriter:
         )
         self._write_card(handle, "DISCHARGEMETHOD", discharge_method)
         flow_values: list[float] = flow.sequence()
-        labels: list[str] = flow.user_value_labels if flow.user_value_labels else []
-        include_labels: bool = bool(labels)
+        has_user_labels: bool = bool(flow.user_value_labels)
+        labels: list[str] = list(flow.user_value_labels)
+        flow_values, labels = self._ensure_minimum_user_defined_flows(
+            flow,
+            flow_values,
+            labels,
+            has_user_labels,
+        )
+        include_labels: bool = has_user_labels
         self._write_card(handle, "DISCHARGEXYUSER", len(flow_values))
         for idx, value in enumerate(flow_values):
             self._write_card(handle, "DISCHARGEXYUSER_Y", self._flow_value(value))
             if include_labels:
                 label: str = labels[idx] if idx < len(labels) else ""
                 self._write_card(handle, "DISCHARGEXYUSER_NAME", f'"{label}"')
+
+    def _ensure_minimum_user_defined_flows(
+        self,
+        flow: FlowDefinition,
+        flow_values: list[float],
+        labels: list[str],
+        has_labels: bool,
+    ) -> tuple[list[float], list[str]]:
+        """Guarantee HY-8 sees two user flows, inserting a 10% value if needed."""
+        if flow.method is not FlowMethod.USER_DEFINED or len(flow_values) != 1:
+            return flow_values, labels
+        base_value: float = flow_values[0]
+        generated_value: float = base_value * 0.1
+        entries: list[tuple[float, str | None]] = []
+        base_label: str | None = labels[0] if has_labels and labels else None
+        entries.append((base_value, base_label))
+        dummy_label: str | None = FlowDefinition.DUMMY_FLOW_LABEL if has_labels else None
+        entries.append((generated_value, dummy_label))
+        entries.sort(key=lambda entry: entry[0])
+        normalized_values: list[float] = [value for value, _ in entries]
+        if not has_labels:
+            return normalized_values, []
+        normalized_labels: list[str] = [label or "" for _, label in entries]
+        return normalized_values, normalized_labels
 
     def _flow_range_values(self, flow: FlowDefinition) -> tuple[float, float, float]:
         """Return the min/design/max tuple HY-8 uses for min-design-max flows."""

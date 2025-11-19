@@ -8,7 +8,7 @@ from _collections_abc import Mapping, Sequence as ABCSequence
 
 from loguru import logger
 
-from .base import Validatable, _normalize_sequence, _rating_curve_list
+from .base import Validatable, normalize_sequence, rating_curve_list
 from ..type_helpers import TailwaterType, coerce_enum, TailwaterRatingPoint
 
 
@@ -24,7 +24,7 @@ class TailwaterDefinition(Validatable):
     constant_elevation: float = 0.0
     invert_elevation: float = 0.0
     rating_curve_entries: int = 6
-    rating_curve: list[TailwaterRatingPoint] = field(default_factory=_rating_curve_list)
+    rating_curve: list[TailwaterRatingPoint] = field(default_factory=rating_curve_list)
 
     def describe(self) -> str:
         if self.tw_type is TailwaterType.CONSTANT:
@@ -70,7 +70,7 @@ class TailwaterDefinition(Validatable):
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "TailwaterDefinition":
         rating_curve_data: list[tuple[float, float, float]] = []
-        for entry in _normalize_sequence(data.get("rating_curve")):
+        for entry in normalize_sequence(data.get("rating_curve")):
             if not (isinstance(entry, ABCSequence) and not isinstance(entry, (str, bytes))):
                 continue
             entry_tuple = tuple(entry)

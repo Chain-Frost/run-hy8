@@ -8,7 +8,7 @@ from _collections_abc import Mapping
 
 from loguru import logger
 
-from .base import Validatable, _float_list, _normalize_sequence
+from .base import Validatable, float_list, normalize_sequence
 from ..type_helpers import RoadwaySurface, coerce_enum
 
 
@@ -19,8 +19,8 @@ class RoadwayProfile(Validatable):
     width: float = 0.0
     shape: int = 1
     surface: RoadwaySurface = RoadwaySurface.PAVED
-    stations: list[float] = field(default_factory=_float_list)
-    elevations: list[float] = field(default_factory=_float_list)
+    stations: list[float] = field(default_factory=float_list)
+    elevations: list[float] = field(default_factory=float_list)
 
     def describe(self) -> str:
         count: int = min(len(self.stations), len(self.elevations))
@@ -77,6 +77,6 @@ class RoadwayProfile(Validatable):
             width=float(data.get("width", 0.0)),
             shape=int(data.get("shape", 1)),
             surface=coerce_enum(RoadwaySurface, data.get("surface"), default=RoadwaySurface.PAVED),
-            stations=[float(value) for value in _normalize_sequence(data.get("stations"))],
-            elevations=[float(value) for value in _normalize_sequence(data.get("elevations"))],
+            stations=[float(value) for value in normalize_sequence(data.get("stations"))],
+            elevations=[float(value) for value in normalize_sequence(data.get("elevations"))],
         )

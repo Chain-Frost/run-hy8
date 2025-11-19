@@ -4,17 +4,20 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence, TYPE_CHECKING, cast
 from _collections_abc import Mapping as ABCMapping
 
 from loguru import logger
 
-from .base import Validatable, _crossing_list, _normalize_mapping, _normalize_sequence
+from .base import Validatable, crossing_list, normalize_sequence
 from ..classes_references import UnitSystem
 from ..type_helpers import coerce_enum
 from .culvert_crossing import CulvertCrossing
-from ..hydraulics import HydraulicsResult
+
+if TYPE_CHECKING:
+    from ..hydraulics import HydraulicsResult
 
 if TYPE_CHECKING:
     from ..executor import Hy8Executable
@@ -29,7 +32,13 @@ class Hy8Project(Validatable):
     notes: str = ""
     units: UnitSystem = UnitSystem.SI
     exit_loss_option: int = 0
-    crossings: list[CulvertCrossing] = field(default_factory=_crossing_list)
+    crossings: list[CulvertCrossing] = field(default_factory=crossing_list)
+
+    @staticmethod
+    def project_timestamp_hours() -> float:
+        """HY-8 expects the project date as hours since epoch."""
+
+        return datetime.now().timestamp() / 3600.0
 
     def describe(self) -> str:
         return f"Hy8Project(title={self.title or '<untitled>'}, crossings={len(self.crossings)})"
@@ -77,7 +86,7 @@ class Hy8Project(Validatable):
         logger.info(
             "Project {project} running hw_from_q for flow {flow:.4f}", project=self.title or "<untitled>", flow=q
         )
-        results: OrderedDict[str, HydraulicsResult] = project_hw_from_q(
+        results: OrderedDict[str, "HydraulicsResult"] = project_hw_from_q(
             project=self,
             q=q,
             hy8=hy8,
@@ -108,7 +117,7 @@ class Hy8Project(Validatable):
             project=self.title or "<untitled>",
             headwater=hw,
         )
-        results: OrderedDict[str, HydraulicsResult] = project_q_from_hw(
+        results: OrderedDict[str, "HydraulicsResult"] = project_q_from_hw(
             project=self,
             hw=hw,
             q_hint=q_hint,
@@ -140,7 +149,7 @@ class Hy8Project(Validatable):
             project=self.title or "<untitled>",
             ratio=hw_d_ratio,
         )
-        results: OrderedDict[str, HydraulicsResult] = project_q_for_hwd(
+        results: OrderedDict[str, "HydraulicsResult"] = project_q_for_hwd(
             project=self,
             hw_d_ratio=hw_d_ratio,
             q_hint=q_hint,
@@ -175,7 +184,7 @@ class Hy8Project(Validatable):
             exit_loss_option=int(data.get("exit_loss_option", 0)),
             crossings=[
                 CulvertCrossing.from_dict(cast(Mapping[str, Any], raw))
-                for raw in _normalize_sequence(data.get("crossings"))
+                for raw in normalize_sequence(data.get("crossings"))
                 if isinstance(raw, Mapping)
             ],
         )

@@ -13,11 +13,11 @@ from .models import (
     CulvertBarrel,
     CulvertCrossing,
     FlowDefinition,
-    FlowMethod,
     Hy8Project,
     RoadwayProfile,
     TailwaterDefinition,
 )
+from .type_helpers import FlowMethod
 from .writer import Hy8FileWriter
 
 

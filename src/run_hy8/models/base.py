@@ -1,16 +1,15 @@
 """Shared base helpers for HY-8 model dataclasses."""
 
 from __future__ import annotations
-
 from abc import abstractmethod
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Mapping, Sequence, TYPE_CHECKING, cast
 from _collections_abc import Mapping as ABCMapping, Sequence as ABCSequence
-
 from loguru import logger
-
-from src.run_hy8.classes_references import ValidationError
-
+from ..classes_references import ValidationError
 from ..type_helpers import TailwaterRatingPoint
+
+if TYPE_CHECKING:
+    from .culvert_crossing import CulvertCrossing
 
 
 class Validatable:
@@ -28,31 +27,31 @@ class Validatable:
         pass
 
 
-def _float_list() -> list[float]:
+def float_list() -> list[float]:
     """Return a new list[float]; helper avoids mutable default arguments."""
 
     return []
 
 
-def _string_list() -> list[str]:
+def string_list() -> list[str]:
     """Return a new list[str] for dataclass default_factory."""
 
     return []
 
 
-def _rating_curve_list() -> list[TailwaterRatingPoint]:
+def rating_curve_list() -> list[TailwaterRatingPoint]:
     """Return an empty rating-curve list for dataclass defaults."""
 
     return []
 
 
-def _crossing_list() -> list["CulvertCrossing"]:
+def crossing_list() -> list["CulvertCrossing"]:
     """Return a fresh list of CulvertCrossing objects for defaults."""
 
     return []
 
 
-def _normalize_sequence(value: Any) -> Sequence[Any]:
+def normalize_sequence(value: Any) -> Sequence[Any]:
     """Return sequences or fall back to an empty tuple for non-iterables."""
 
     if isinstance(value, ABCSequence) and not isinstance(value, (str, bytes)):
@@ -60,7 +59,7 @@ def _normalize_sequence(value: Any) -> Sequence[Any]:
     return ()
 
 
-def _normalize_mapping(value: Any) -> Mapping[str, Any]:
+def normalize_mapping(value: Any) -> Mapping[str, Any]:
     """Return a mapping or an empty dict when the value is not mapping-like."""
 
     if isinstance(value, ABCMapping):

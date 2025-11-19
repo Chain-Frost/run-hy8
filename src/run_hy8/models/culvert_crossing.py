@@ -6,10 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, TYPE_CHECKING, cast
 from _collections_abc import Mapping
-
 from loguru import logger
-
-from .base import Validatable, _normalize_mapping, _normalize_sequence
+from .base import Validatable, normalize_mapping, normalize_sequence
 from ..classes_references import UnitSystem
 from .flow_definition import FlowDefinition
 from .tailwater_definition import TailwaterDefinition
@@ -210,12 +208,12 @@ class CulvertCrossing(Validatable):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "CulvertCrossing":
-        flow_data: FlowDefinition = FlowDefinition.from_dict(_normalize_mapping(data.get("flow")))
-        tailwater_data: TailwaterDefinition = TailwaterDefinition.from_dict(_normalize_mapping(data.get("tailwater")))
-        roadway_data: RoadwayProfile = RoadwayProfile.from_dict(_normalize_mapping(data.get("roadway")))
+        flow_data: FlowDefinition = FlowDefinition.from_dict(normalize_mapping(data.get("flow")))
+        tailwater_data: TailwaterDefinition = TailwaterDefinition.from_dict(normalize_mapping(data.get("tailwater")))
+        roadway_data: RoadwayProfile = RoadwayProfile.from_dict(normalize_mapping(data.get("roadway")))
         culvert_data: list[CulvertBarrel] = [
             CulvertBarrel.from_dict(cast(Mapping[str, Any], raw))
-            for raw in _normalize_sequence(data.get("culverts"))
+            for raw in normalize_sequence(data.get("culverts"))
             if isinstance(raw, Mapping)
         ]
         return cls(

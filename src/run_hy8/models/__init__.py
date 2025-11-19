@@ -10,7 +10,7 @@ from .culvert_barrel import CulvertBarrel
 from .culvert_crossing import CulvertCrossing
 from .project import Hy8Project
 
-__all__ = [
+__all__: list[str] = [
     "Validatable",
     "FlowDefinition",
     "TailwaterDefinition",
