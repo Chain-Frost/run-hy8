@@ -34,9 +34,11 @@ class Validatable:
     def assert_valid(self, prefix: str = "") -> None:
         errors = self.validate(prefix=prefix)  # type: ignore[call-arg]
         if errors:
-            logger.debug("Validation failed for %s: %s", self.__class__.__name__, errors)
+            logger.debug(
+                "Validation failed for {model}: {errors}", model=self.__class__.__name__, errors=errors
+            )
             raise ValidationError(errors)
-        logger.debug("Validation succeeded for %s.", self.__class__.__name__)
+        logger.debug("Validation succeeded for {model}.", model=self.__class__.__name__)
 
 
 def _coerce_enum(enum_cls: Type[TEnum], value: Any, *, default: TEnum) -> TEnum:
@@ -200,7 +202,7 @@ class FlowDefinition(Validatable):
 
     FlowMethod.MIN_DESIGN_MAX problems must provide exactly three flows via
     `minimum`/`design`/`maximum` or `user_values`.
-    FlowMethod.USER_DEFINED problems require at least two `user_values` and
+    FlowMethod.USER_DEFINED problems require at least one `user_values` and
     may include matching `user_value_labels`.
     """
 
@@ -246,7 +248,7 @@ class FlowDefinition(Validatable):
             self.user_value_labels.append(label)
         elif self.user_value_labels:
             self.user_value_labels.append("")
-        logger.debug("Added user flow %.4f to %s", value, self.describe())
+        logger.debug("Added user flow {value:.4f} to {definition}", value=value, definition=self.describe())
         return self
 
     def set_min_design_max(self, minimum: float, design: float, maximum: float) -> "FlowDefinition":
@@ -259,11 +261,11 @@ class FlowDefinition(Validatable):
         self.user_values.clear()
         self.user_value_labels.clear()
         logger.debug(
-            "Configured min/design/max flows (%.4f/%.4f/%.4f) for %s",
-            minimum,
-            design,
-            maximum,
-            self.describe(),
+            "Configured min/design/max flows ({minimum:.4f}/{design:.4f}/{maximum:.4f}) for {definition}",
+            minimum=minimum,
+            design=design,
+            maximum=maximum,
+            definition=self.describe(),
         )
         return self
 
@@ -303,9 +305,11 @@ class FlowDefinition(Validatable):
             if values[0] < 0:
                 errors.append(f"{prefix}Minimum flow must be >= 0.")
         elif self.method is FlowMethod.USER_DEFINED:
-            if len(self.user_values) < 2:
-                errors.append(f"{prefix}Provide at least two user-defined flow values.")
-            elif any(a >= b for a, b in zip(self.user_values, self.user_values[1:])):
+            if not self.user_values:
+                errors.append(f"{prefix}Provide at least one user-defined flow value.")
+            elif len(self.user_values) > 1 and any(
+                a >= b for a, b in zip(self.user_values, self.user_values[1:])
+            ):
                 errors.append(f"{prefix}User-defined flows must be strictly increasing.")
             if self.user_value_labels and len(self.user_value_labels) != len(self.user_values):
                 errors.append(f"{prefix}Provide the same number of flow labels as flow values.")
@@ -355,9 +359,9 @@ class TailwaterDefinition(Validatable):
         if invert is not None:
             self.invert_elevation = invert
         logger.debug(
-            "Configured constant tailwater elevation %.4f (invert %.4f)",
-            self.constant_elevation,
-            self.invert_elevation,
+            "Configured constant tailwater elevation {elevation:.4f} (invert {invert:.4f})",
+            elevation=self.constant_elevation,
+            invert=self.invert_elevation,
         )
         return self
 
@@ -439,7 +443,11 @@ class RoadwayProfile(Validatable):
 
         self.stations.append(station)
         self.elevations.append(elevation)
-        logger.debug("Added roadway point (station %.3f, elevation %.3f)", station, elevation)
+        logger.debug(
+            "Added roadway point (station {station:.3f}, elevation {elevation:.3f})",
+            station=station,
+            elevation=elevation,
+        )
         return self
 
     def validate(self, prefix: str = "") -> list[str]:
@@ -643,7 +651,7 @@ class CulvertCrossing(Validatable):
             options.setdefault("name", f"Barrel {len(self.culverts) + 1}")
             barrel = CulvertBarrel(**options)
         self.culverts.append(barrel)
-        logger.debug("Added barrel %s to crossing %s", barrel.describe(), self.name)
+        logger.debug("Added barrel {barrel} to crossing {crossing}", barrel=barrel.describe(), crossing=self.name)
         return barrel
 
     def hw_from_q(
@@ -660,7 +668,7 @@ class CulvertCrossing(Validatable):
         """Run HY-8 for a specific discharge and return the resulting headwater."""
         from .hydraulics import crossing_hw_from_q
 
-        logger.info("Crossing %s running hw_from_q for flow %.4f", self.name, q)
+        logger.info("Crossing {name} running hw_from_q for flow {flow:.4f}", name=self.name, flow=q)
         result = crossing_hw_from_q(
             crossing=self,
             q=q,
@@ -672,10 +680,10 @@ class CulvertCrossing(Validatable):
             keep_files=keep_files,
         )
         logger.debug(
-            "Crossing %s hw_from_q computed headwater %.4f for flow %.4f",
-            self.name,
-            result.computed_headwater,
-            result.computed_flow,
+            "Crossing {name} hw_from_q computed headwater {headwater:.4f} for flow {flow:.4f}",
+            name=self.name,
+            headwater=result.computed_headwater,
+            flow=result.computed_flow,
         )
         return result
 
@@ -694,7 +702,7 @@ class CulvertCrossing(Validatable):
         """Iteratively run HY-8 to find the discharge that produces the requested headwater."""
         from .hydraulics import crossing_q_from_hw
 
-        logger.info("Crossing %s running q_from_hw for HW %.4f", self.name, hw)
+        logger.info("Crossing {name} running q_from_hw for HW {headwater:.4f}", name=self.name, headwater=hw)
         result = crossing_q_from_hw(
             crossing=self,
             hw=hw,
@@ -707,10 +715,10 @@ class CulvertCrossing(Validatable):
             keep_files=keep_files,
         )
         logger.debug(
-            "Crossing %s q_from_hw computed flow %.4f for headwater %.4f",
-            self.name,
-            result.computed_flow,
-            result.requested_headwater or hw,
+            "Crossing {name} q_from_hw computed flow {flow:.4f} for headwater {headwater:.4f}",
+            name=self.name,
+            flow=result.computed_flow,
+            headwater=result.requested_headwater or hw,
         )
         return result
 
@@ -729,7 +737,7 @@ class CulvertCrossing(Validatable):
         """Run HY-8 to find the discharge that satisfies a headwater-to-diameter ratio (optionally seeding with q_hint)."""
         from .hydraulics import crossing_q_for_hwd
 
-        logger.info("Crossing %s running q_for_hwd for ratio %.4f", self.name, hw_d_ratio)
+        logger.info("Crossing {name} running q_for_hwd for ratio {ratio:.4f}", name=self.name, ratio=hw_d_ratio)
         result = crossing_q_for_hwd(
             crossing=self,
             hw_d_ratio=hw_d_ratio,
@@ -742,10 +750,10 @@ class CulvertCrossing(Validatable):
             keep_files=keep_files,
         )
         logger.debug(
-            "Crossing %s q_for_hwd computed flow %.4f for HW/D %.4f",
-            self.name,
-            result.computed_flow,
-            hw_d_ratio,
+            "Crossing {name} q_for_hwd computed flow {flow:.4f} for HW/D {ratio:.4f}",
+            name=self.name,
+            flow=result.computed_flow,
+            ratio=hw_d_ratio,
         )
         return result
 
@@ -815,7 +823,11 @@ class Hy8Project(Validatable):
         if crossing is None:
             crossing = CulvertCrossing(name=f"Crossing {len(self.crossings) + 1}")
         self.crossings.append(crossing)
-        logger.debug("Added crossing %s to project %s", crossing.name, self.title or "<untitled>")
+        logger.debug(
+            "Added crossing {crossing} to project {project}",
+            crossing=crossing.name,
+            project=self.title or "<untitled>",
+        )
         return crossing
 
     def flow_values(self) -> Sequence[list[float]]:
@@ -832,7 +844,9 @@ class Hy8Project(Validatable):
         """Return per-crossing headwater elevations by running HY-8 for the specified discharge."""
         from .hydraulics import project_hw_from_q
 
-        logger.info("Project %s running hw_from_q for flow %.4f", self.title or "<untitled>", q)
+        logger.info(
+            "Project {project} running hw_from_q for flow {flow:.4f}", project=self.title or "<untitled>", flow=q
+        )
         results = project_hw_from_q(
             project=self,
             q=q,
@@ -840,7 +854,11 @@ class Hy8Project(Validatable):
             workspace=workspace,
             keep_files=keep_files,
         )
-        logger.debug("Project hw_from_q complete for flow %.4f across %s crossings", q, len(results))
+        logger.debug(
+            "Project hw_from_q complete for flow {flow:.4f} across {count} crossings",
+            flow=q,
+            count=len(results),
+        )
         return results
 
     def q_from_hw(
@@ -855,7 +873,11 @@ class Hy8Project(Validatable):
         """Return per-crossing discharges for a requested headwater."""
         from .hydraulics import project_q_from_hw
 
-        logger.info("Project %s running q_from_hw for HW %.4f", self.title or "<untitled>", hw)
+        logger.info(
+            "Project {project} running q_from_hw for HW {headwater:.4f}",
+            project=self.title or "<untitled>",
+            headwater=hw,
+        )
         results = project_q_from_hw(
             project=self,
             hw=hw,
@@ -864,7 +886,11 @@ class Hy8Project(Validatable):
             workspace=workspace,
             keep_files=keep_files,
         )
-        logger.debug("Project q_from_hw complete for HW %.4f across %s crossings", hw, len(results))
+        logger.debug(
+            "Project q_from_hw complete for HW {headwater:.4f} across {count} crossings",
+            headwater=hw,
+            count=len(results),
+        )
         return results
 
     def q_for_hwd(
@@ -880,7 +906,9 @@ class Hy8Project(Validatable):
         from .hydraulics import project_q_for_hwd
 
         logger.info(
-            "Project %s running q_for_hwd for ratio %.4f", self.title or "<untitled>", hw_d_ratio
+            "Project {project} running q_for_hwd for ratio {ratio:.4f}",
+            project=self.title or "<untitled>",
+            ratio=hw_d_ratio,
         )
         results = project_q_for_hwd(
             project=self,
@@ -890,7 +918,11 @@ class Hy8Project(Validatable):
             workspace=workspace,
             keep_files=keep_files,
         )
-        logger.debug("Project q_for_hwd complete for ratio %.4f across %s crossings", hw_d_ratio, len(results))
+        logger.debug(
+            "Project q_for_hwd complete for ratio {ratio:.4f} across {count} crossings",
+            ratio=hw_d_ratio,
+            count=len(results),
+        )
         return results
 
     def to_dict(self) -> dict[str, Any]:

@@ -191,10 +191,10 @@ def _prepare_workspace(base: Path | None, *, keep_files: bool) -> tuple[Path, bo
     if base is not None:
         base = Path(base)
         base.mkdir(parents=True, exist_ok=True)
-        logger.debug("Reusing workspace directory %s", base)
+        logger.debug("Reusing workspace directory {path}", path=base)
         return base, False
     temp_dir = Path(tempfile.mkdtemp(prefix="run-hy8-"))
-    logger.debug("Created temporary workspace directory %s", temp_dir)
+    logger.debug("Created temporary workspace directory {path}", path=temp_dir)
     if keep_files:
         return temp_dir, False
     return temp_dir, True
@@ -204,7 +204,7 @@ def _cleanup_workspace(path: Path, *, should_cleanup: bool) -> None:
     """Remove a temporary workspace unless the caller opted to keep files."""
 
     if should_cleanup and path.exists():
-        logger.debug("Removing temporary workspace %s", path)
+        logger.debug("Removing temporary workspace {path}", path=path)
         shutil.rmtree(path, ignore_errors=True)
 
 
@@ -216,7 +216,7 @@ def _clone_project_with_crossing(
 ) -> tuple[Hy8Project, CulvertCrossing]:
     """Clone the crossing into a standalone project for HY-8 execution."""
 
-    logger.debug("Cloning crossing %s for HY-8 execution", crossing.name)
+    logger.debug("Cloning crossing {name} for HY-8 execution", name=crossing.name)
     crossing_copy: CulvertCrossing = copy.deepcopy(crossing)
     if project:
         snapshot = Hy8Project(
@@ -249,9 +249,13 @@ def _write_and_run(
     """Write the temporary project to disk, run HY-8, and parse the outputs."""
 
     hy8_file: Path = workspace / f"{crossing_name}_run_{run_index:03d}.hy8"
-    logger.info("Writing HY-8 project %s (iteration %s)", hy8_file, run_index)
+    logger.info("Writing HY-8 project {file} (iteration {iteration})", file=hy8_file, iteration=run_index)
     Hy8FileWriter(project).write(hy8_file, overwrite=True)
-    logger.info("Running HY-8 for crossing %s (iteration %s)", crossing_name, run_index)
+    logger.info(
+        "Running HY-8 for crossing {crossing} (iteration {iteration})",
+        crossing=crossing_name,
+        iteration=run_index,
+    )
     hy8_exec.open_run_save(hy8_file)
     rst_path = hy8_file.with_suffix(".rst")
     rsql_path = hy8_file.with_suffix(".rsql")
@@ -333,7 +337,7 @@ def crossing_hw_from_q(
 ) -> HydraulicsResult:
     """Run HY-8 once for a single discharge and return the resulting headwater."""
 
-    logger.info("Computing headwater for crossing %s at flow %.4f", crossing.name, q)
+    logger.info("Computing headwater for crossing {name} at flow {flow:.4f}", name=crossing.name, flow=q)
     hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8)
     scenario_project, scenario_crossing = _clone_project_with_crossing(
         crossing=crossing, project=project, units=units, exit_loss_option=exit_loss_option
@@ -350,10 +354,10 @@ def crossing_hw_from_q(
         )
         row: Hy8ResultRow = _select_row_by_flow(results=results, flow=q)
         logger.debug(
-            "HY-8 returned headwater %.4f for crossing %s at flow %.4f",
-            row.headwater_elevation,
-            scenario_crossing.name,
-            row.flow,
+            "HY-8 returned headwater {headwater:.4f} for crossing {name} at flow {flow:.4f}",
+            headwater=row.headwater_elevation,
+            name=scenario_crossing.name,
+            flow=row.flow,
         )
         return HydraulicsResult(
             crossing_name=scenario_crossing.name,
@@ -383,7 +387,11 @@ def crossing_q_from_hw(
 
     if math.isnan(hw):
         raise ValueError("Target headwater cannot be NaN.")
-    logger.info("Searching for discharge that yields HW=%.4f for crossing %s", hw, crossing.name)
+    logger.info(
+        "Searching for discharge that yields HW={headwater:.4f} for crossing {name}",
+        headwater=hw,
+        name=crossing.name,
+    )
     hy8_exec = _resolve_hy8_executable(hy8)
     scenario_project, scenario_crossing = _clone_project_with_crossing(crossing, project, units, exit_loss_option)
     workspace_path, should_cleanup = _prepare_workspace(workspace, keep_files=keep_files)
@@ -396,7 +404,12 @@ def crossing_q_from_hw(
         seeds = search.initial_candidates()
         for candidate in seeds:
             run_count += 1
-            logger.debug("Seed flow %.4f for crossing %s (iteration %s)", candidate, crossing.name, run_count)
+            logger.debug(
+                "Seed flow {flow:.4f} for crossing {name} (iteration {iteration})",
+                flow=candidate,
+                name=crossing.name,
+                iteration=run_count,
+            )
             scenario_crossing.flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[candidate])
             results = _write_and_run(
                 scenario_project,
@@ -408,10 +421,10 @@ def crossing_q_from_hw(
             row = _select_row_by_flow(results, candidate)
             search.record(candidate, row)
             logger.debug(
-                "Seed result for crossing %s: flow %.4f => headwater %.4f",
-                crossing.name,
-                candidate,
-                row.headwater_elevation,
+                "Seed result for crossing {name}: flow {flow:.4f} => headwater {headwater:.4f}",
+                name=crossing.name,
+                flow=candidate,
+                headwater=row.headwater_elevation,
             )
             exact = search.exact_match()
             if exact:
@@ -423,12 +436,12 @@ def crossing_q_from_hw(
             if bracket:
                 low, high = bracket
                 logger.debug(
-                    "Bracket for crossing %s: low %.4f (HW %.4f) high %.4f (HW %.4f)",
-                    crossing.name,
-                    low.flow,
-                    low.headwater,
-                    high.flow,
-                    high.headwater,
+                    "Bracket for crossing {name}: low {low_flow:.4f} (HW {low_hw:.4f}) high {high_flow:.4f} (HW {high_hw:.4f})",
+                    name=crossing.name,
+                    low_flow=low.flow,
+                    low_hw=low.headwater,
+                    high_flow=high.flow,
+                    high_hw=high.headwater,
                 )
                 if abs(low.headwater - hw) <= search.tolerance:
                     final_row = low.row
@@ -438,41 +451,43 @@ def crossing_q_from_hw(
                     final_row = high.row
                     final_flow = high.flow
                     break
-                slope = high.headwater - low.headwater
+                slope: float = high.headwater - low.headwater
                 if slope == 0:
-                    guess = (low.flow + high.flow) / 2
+                    guess: float = (low.flow + high.flow) / 2
                 else:
                     guess = low.flow + ((hw - low.headwater) / slope) * (high.flow - low.flow)
                 run_count += 1
-                logger.debug("Interpolated guess %.4f for crossing %s", guess, crossing.name)
+                logger.debug(
+                    "Interpolated guess {flow:.4f} for crossing {name}", flow=guess, name=crossing.name
+                )
                 scenario_crossing.flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[guess])
                 results = _write_and_run(
-                    scenario_project,
-                    scenario_crossing.name,
-                    hy8_exec,
+                    project=scenario_project,
+                    crossing_name=scenario_crossing.name,
+                    hy8_exec=hy8_exec,
                     workspace=workspace_path,
                     run_index=run_count,
                 )
-                row = _select_row_by_flow(results, guess)
+                row = _select_row_by_flow(results=results, flow=guess)
                 final_row = row
                 final_flow = row.flow
                 break
-            next_guess = search.next_guess()
+            next_guess: float | None = search.next_guess()
             if next_guess is None:
                 break
             run_count += 1
-            logger.debug("Bisected guess %.4f for crossing %s", next_guess, crossing.name)
+            logger.debug("Bisected guess {flow:.4f} for crossing {name}", flow=next_guess, name=crossing.name)
             scenario_crossing.flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[next_guess])
-            results = _write_and_run(
-                scenario_project,
-                scenario_crossing.name,
-                hy8_exec,
+            results: Hy8Results = _write_and_run(
+                project=scenario_project,
+                crossing_name=scenario_crossing.name,
+                hy8_exec=hy8_exec,
                 workspace=workspace_path,
                 run_index=run_count,
             )
-            row = _select_row_by_flow(results, next_guess)
-            search.record(next_guess, row)
-            exact = search.exact_match()
+            row: Hy8ResultRow = _select_row_by_flow(results=results, flow=next_guess)
+            search.record(flow=next_guess, row=row)
+            exact: _FlowSample | None = search.exact_match()
             if exact:
                 final_row = exact.row
                 final_flow = exact.flow
@@ -480,10 +495,10 @@ def crossing_q_from_hw(
         if final_row is None or final_flow is None:
             raise ValueError("Unable to bracket the requested headwater.")
         logger.info(
-            "Crossing %s: HW %.4f achieved at flow %.4f",
-            crossing.name,
-            final_row.headwater_elevation,
-            final_flow,
+            "Crossing {name}: HW {headwater:.4f} achieved at flow {flow:.4f}",
+            name=crossing.name,
+            headwater=final_row.headwater_elevation,
+            flow=final_flow,
         )
         return HydraulicsResult(
             crossing_name=scenario_crossing.name,
@@ -512,17 +527,17 @@ def crossing_q_for_hwd(
     """Run HY-8 to find the discharge that produces the requested HW/D ratio."""
     if hw_d_ratio < 0:
         raise ValueError("Headwater-to-diameter ratio must be non-negative.")
-    diameter = _characteristic_diameter(crossing)
-    inlet_elevation = crossing.culverts[0].inlet_invert_elevation
-    target_headwater = inlet_elevation + hw_d_ratio * diameter
+    diameter: float = _characteristic_diameter(crossing)
+    inlet_elevation: float = crossing.culverts[0].inlet_invert_elevation
+    target_headwater: float = inlet_elevation + hw_d_ratio * diameter
     logger.info(
-        "Searching for HW/D %.3f (target HW %.4f) for crossing %s",
-        hw_d_ratio,
-        target_headwater,
-        crossing.name,
+        "Searching for HW/D {ratio:.3f} (target HW {headwater:.4f}) for crossing {name}",
+        ratio=hw_d_ratio,
+        headwater=target_headwater,
+        name=crossing.name,
     )
-    result = crossing_q_from_hw(
-        crossing,
+    result: HydraulicsResult = crossing_q_from_hw(
+        crossing=crossing,
         hw=target_headwater,
         q_hint=q_hint,
         hy8=hy8,
@@ -554,7 +569,7 @@ def project_hw_from_q(
     keep_files: bool = False,
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute headwaters for each project crossing at a fixed discharge."""
-    logger.info("Running project-level headwater lookup for flow %.4f", q)
+    logger.info("Running project-level headwater lookup for flow {flow:.4f}", flow=q)
     hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8)
     base_workspace, should_cleanup = _prepare_workspace(workspace, keep_files=keep_files)
     results: OrderedDict[str, HydraulicsResult] = OrderedDict()
@@ -563,7 +578,9 @@ def project_hw_from_q(
         for index, crossing in enumerate(project.crossings, start=1):
             crossing_workspace = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
-            logger.debug("Project hw_from_q processing crossing %s (#%s)", crossing.name, index)
+            logger.debug(
+                "Project hw_from_q processing crossing {name} (#{index})", name=crossing.name, index=index
+            )
             result: HydraulicsResult = crossing.hw_from_q(
                 q=q,
                 hy8=hy8_exec,
@@ -588,7 +605,7 @@ def project_q_from_hw(
     keep_files: bool = False,
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute discharges for each project crossing that reach the target headwater."""
-    logger.info("Running project-level discharge search for HW=%.4f", hw)
+    logger.info("Running project-level discharge search for HW={headwater:.4f}", headwater=hw)
     hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8)
     base_workspace, should_cleanup = _prepare_workspace(workspace, keep_files=keep_files)
     results: OrderedDict[str, HydraulicsResult] = OrderedDict()
@@ -597,7 +614,9 @@ def project_q_from_hw(
         for index, crossing in enumerate(project.crossings, start=1):
             crossing_workspace = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
-            logger.debug("Project q_from_hw processing crossing %s (#%s)", crossing.name, index)
+            logger.debug(
+                "Project q_from_hw processing crossing {name} (#{index})", name=crossing.name, index=index
+            )
             result: HydraulicsResult = crossing.q_from_hw(
                 hw=hw,
                 q_hint=q_hint,
@@ -623,7 +642,7 @@ def project_q_for_hwd(
     keep_files: bool = False,
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute discharges for each project crossing that satisfy the HW/D ratio."""
-    logger.info("Running project-level discharge search for HW/D ratio %.3f", hw_d_ratio)
+    logger.info("Running project-level discharge search for HW/D ratio {ratio:.3f}", ratio=hw_d_ratio)
     hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8)
     base_workspace, should_cleanup = _prepare_workspace(workspace, keep_files=keep_files)
     results: OrderedDict[str, HydraulicsResult] = OrderedDict()
@@ -632,7 +651,9 @@ def project_q_for_hwd(
         for index, crossing in enumerate(project.crossings, start=1):
             crossing_workspace = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
-            logger.debug("Project q_for_hwd processing crossing %s (#%s)", crossing.name, index)
+            logger.debug(
+                "Project q_for_hwd processing crossing {name} (#{index})", name=crossing.name, index=index
+            )
             result: HydraulicsResult = crossing.q_for_hwd(
                 hw_d_ratio=hw_d_ratio,
                 q_hint=q_hint,
