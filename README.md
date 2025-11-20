@@ -17,6 +17,22 @@ supported runtime.
 - Small CLI scaffold (`python -m run_hy8`) that can emit a demo file or build projects from 
   JSON configs, and a `validate-only` mode to lint configs without writing any files.
 
+## Project Structure
+
+The `run-hy8` project is organized into the following modules:
+
+-   **`run_hy8.models`**: Contains the core data classes that represent the HY-8 project structure, including `Hy8Project`, `CulvertCrossing`, `CulvertBarrel`, `FlowDefinition`, `TailwaterDefinition`, and `RoadwayProfile`.
+-   **`run_hy8.reader`**: Handles the parsing of existing HY-8 project files (`.hy8`) into the object model.
+-   **`run_hy8.writer`**: Serializes the object model back into HY-8 project files.
+-   **`run_hy8.executor`**: Provides a wrapper around the HY-8 command-line executable for running simulations.
+-   **`run_hy8.hydraulics`**: Contains helper functions for running hydraulic scenarios and parsing the results.
+-   **`run_hy8.results`**: Parses the HY-8 output files (`.rst` and `.rsql`) into a more usable format.
+-   **`run_hy8.cli`**: Implements the command-line interface for the `run-hy8` package.
+-   **`run_hy8.config`**: Handles the loading of project configurations from JSON files.
+-   **`run_hy8.classes_references`**: Contains core data classes and references for `run-hy8`.
+-   **`run_hy8.type_helpers`**: Contains enums and enum helpers shared between HY-8 domain models.
+-   **`run_hy8.units`**: Contains unit conversion helpers shared across the `run-hy8` domain.
+
 ## Quick Start
 
 ```powershell
@@ -178,6 +194,16 @@ The repository includes Windows batch helpers so packaging can happen without re
 3. `run_tests.bat` runs `python -m pytest`. Pass any additional pytest arguments after the script name (for example `run_tests.bat -k culvert`).
 
 Before running tests locally, install the development extras once per virtual environment:
+
+```powershell
+pip install -e .[dev]
+```
+
+## Contributing
+
+Contributions are welcome! If you would like to contribute to the project, please follow the guidelines in [`docs/agents.md`](docs/agents.md). It is recommended to first open an issue to discuss any planned changes.
+
+Before submitting a pull request, please ensure your changes are `pyright`-clean and that all tests pass. To get started with the development environment:
 
 ```powershell
 pip install -e .[dev]

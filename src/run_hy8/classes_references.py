@@ -1,3 +1,4 @@
+"""Core data classes and references for run-hy8."""
 from _collections_abc import Sequence
 from enum import Enum
 

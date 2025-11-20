@@ -23,6 +23,7 @@ class RoadwayProfile(Validatable):
     elevations: list[float] = field(default_factory=float_list)
 
     def describe(self) -> str:
+        """Return a short, human-readable description of the roadway profile."""
         count: int = min(len(self.stations), len(self.elevations))
         return f"Roadway(width={self.width:.3f}, points={count})"
 
@@ -33,6 +34,7 @@ class RoadwayProfile(Validatable):
         return self.describe()
 
     def points(self) -> list[tuple[float, float]]:
+        """Return a list of (station, elevation) tuples."""
         return list(zip(self.stations, self.elevations))
 
     def add_point(self, station: float, elevation: float) -> "RoadwayProfile":
@@ -48,6 +50,7 @@ class RoadwayProfile(Validatable):
         return self
 
     def validate(self, prefix: str = "") -> list[str]:
+        """Return a list of validation errors, or an empty list if the model is valid."""
         errors: list[str] = []
         if self.width <= 0:
             errors.append(f"{prefix}Roadway width must be > 0.")
@@ -58,11 +61,13 @@ class RoadwayProfile(Validatable):
         return errors
 
     def crest_elevation(self) -> float:
+        """Return the lowest elevation in the roadway profile."""
         if not self.elevations:
             raise ValueError("Roadway elevations are required before computing crest elevation.")
         return min(self.elevations)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of the roadway profile."""
         return {
             "width": self.width,
             "shape": self.shape,
@@ -73,6 +78,7 @@ class RoadwayProfile(Validatable):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RoadwayProfile":
+        """Create a RoadwayProfile from a dictionary."""
         return cls(
             width=float(data.get("width", 0.0)),
             shape=int(data.get("shape", 1)),

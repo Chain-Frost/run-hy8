@@ -27,6 +27,7 @@ class TailwaterDefinition(Validatable):
     rating_curve: list[TailwaterRatingPoint] = field(default_factory=rating_curve_list)
 
     def describe(self) -> str:
+        """Return a short, human-readable description of the tailwater definition."""
         if self.tw_type is TailwaterType.CONSTANT:
             return (
                 f"Tailwater(type=CONSTANT, elevation={self.constant_elevation:.3f}, "
@@ -55,6 +56,7 @@ class TailwaterDefinition(Validatable):
         return self
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of the tailwater definition."""
         return {
             "type": self.tw_type.name,
             "bottom_width": self.bottom_width,
@@ -69,6 +71,7 @@ class TailwaterDefinition(Validatable):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "TailwaterDefinition":
+        """Create a TailwaterDefinition from a dictionary."""
         rating_curve_data: list[tuple[float, float, float]] = []
         for entry in normalize_sequence(data.get("rating_curve")):
             if not (isinstance(entry, ABCSequence) and not isinstance(entry, (str, bytes))):
@@ -91,6 +94,7 @@ class TailwaterDefinition(Validatable):
         )
 
     def validate(self, prefix: str = "") -> list[str]:
+        """Return a list of validation errors, or an empty list if the model is valid."""
         errors: list[str] = []
         if self.tw_type is not TailwaterType.CONSTANT:
             errors.append(
@@ -106,4 +110,5 @@ class TailwaterDefinition(Validatable):
         return errors
 
     def rating_curve_rows(self) -> list[TailwaterRatingPoint]:
+        """Return the rating curve as a list of (flow, elevation, shear) tuples."""
         return list(self.rating_curve)

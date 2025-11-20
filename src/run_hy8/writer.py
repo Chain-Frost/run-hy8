@@ -1,4 +1,4 @@
-"""Serialization helpers for .hy8 project files."""
+"Serialization helpers for .hy8 project files."
 
 from __future__ import annotations
 
@@ -271,7 +271,7 @@ class Hy8FileWriter:
         builder: list[str] = [line]
 
         if not values:
-            handle.write(f"{''.join(builder)}\n")
+            handle.write(f"{''}.join(builder)}\n")
             return
 
         current: int = len(line)

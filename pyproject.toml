@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "run-hy8"
-version = "2025.11.19.2"
+version = "2025.11.21.1"
 description = "Windows-only utilities for generating and executing HY-8 projects"
 readme = "README.md"
+keywords = ["hydraulics", "culvert", "HY-8", "engineering"]
 requires-python = ">=3.13"
 authors = [{name = "Codex scaffolding"}]
 license = "MIT"
@@ -16,11 +17,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Operating System :: Microsoft :: Windows",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
 ]
 
 [project.optional-dependencies]
-dev = ["build", "pyright", "ruff", "pytest"]
+dev = ["build", "pyright", "ruff", "pytest", "pytest-cov", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

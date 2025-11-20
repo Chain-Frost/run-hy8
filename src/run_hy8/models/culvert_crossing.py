@@ -40,6 +40,7 @@ class CulvertCrossing(Validatable):
     uuid: str | None = None
 
     def describe(self) -> str:
+        """Return a short, human-readable description of the culvert crossing."""
         barrel_count: int = len(self.culverts)
         crest: float | None = None
         if self.roadway.elevations:
@@ -57,6 +58,7 @@ class CulvertCrossing(Validatable):
         return self.describe()
 
     def validate(self, prefix: str = "") -> list[str]:
+        """Return a list of validation errors, or an empty list if the model is valid."""
         errors: list[str] = []
         flow_prefix: str = f"{prefix}Flow: "
         errors.extend(self.flow.validate(flow_prefix))
@@ -196,6 +198,7 @@ class CulvertCrossing(Validatable):
         return result
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of the culvert crossing."""
         return {
             "name": self.name,
             "notes": self.notes,
@@ -208,6 +211,7 @@ class CulvertCrossing(Validatable):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "CulvertCrossing":
+        """Create a CulvertCrossing from a dictionary."""
         flow_data: FlowDefinition = FlowDefinition.from_dict(normalize_mapping(data.get("flow")))
         tailwater_data: TailwaterDefinition = TailwaterDefinition.from_dict(normalize_mapping(data.get("tailwater")))
         roadway_data: RoadwayProfile = RoadwayProfile.from_dict(normalize_mapping(data.get("roadway")))

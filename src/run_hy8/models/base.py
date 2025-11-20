@@ -16,6 +16,7 @@ class Validatable:
     """Mixin that supplies an assert_valid helper for domain models."""
 
     def assert_valid(self, prefix: str = "") -> None:
+        """Raise a ValidationError if the model is invalid."""
         errors: str = str(self.validate(prefix=prefix))
         if errors:
             logger.debug("Validation failed for {model}: {errors}", model=self.__class__.__name__, errors=errors)
@@ -24,6 +25,7 @@ class Validatable:
 
     @abstractmethod
     def validate(self, prefix: str) -> list[str]:
+        """Return a list of validation errors, or an empty list if the model is valid."""
         pass
 
 
@@ -41,6 +43,8 @@ def string_list() -> list[str]:
 
 def rating_curve_list() -> list[TailwaterRatingPoint]:
     """Return an empty rating-curve list for dataclass defaults."""
+
+
 
     return []
 
