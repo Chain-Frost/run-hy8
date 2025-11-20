@@ -45,6 +45,9 @@ ROADWAY_ELEVATION = 20.0
 ROADWAY_WIDTH = 10.0
 TAILWATER = 0.0
 
+HEADWALL_RATIO_MULTIPLIER = 1.5
+VELOCITY_RATIO_FIELD: str = f"Outlet Velocity (HW:D {HEADWALL_RATIO_MULTIPLIER:.2f}) (m/s)"
+
 RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results.csv"
 RESULT_FIELDNAMES: list[str] = [
     "Crossing",
@@ -69,6 +72,7 @@ RESULT_FIELDNAMES: list[str] = [
     "Headwater Elevation (m)",
     "HW:D ratio",
     "Outlet Velocity (m/s)",
+    VELOCITY_RATIO_FIELD,
     "Flow Type",
     "Overtopping",
     "q_from_hw (m^3/s)",
@@ -114,6 +118,7 @@ class CrossingOutcome:
     headwater: float | None
     headwater_ratio: float | None
     velocity: float | None
+    velocity_at_ratio: float | None
     flow_type: str | None
     overtopping: bool | None
     backcheck_flow: float | None
@@ -149,6 +154,7 @@ class CrossingOutcome:
             "Headwater Elevation (m)": self._format(self.headwater),
             "HW:D ratio": self._format(self.headwater_ratio),
             "Outlet Velocity (m/s)": self._format(self.velocity),
+            VELOCITY_RATIO_FIELD: self._format(self.velocity_at_ratio),
             "Flow Type": self.flow_type or "",
             "Overtopping": ("Yes" if self.overtopping else ("No" if self.overtopping is not None else "")),
             "q_from_hw (m^3/s)": self._format(self.backcheck_flow),
@@ -341,11 +347,46 @@ def compute_metrics(result: HydraulicsResult, diameter: float, inlet_invert: flo
     return hw_level, hw_ratio, velocity
 
 
-def describe(result: HydraulicsResult, hw_ratio: float, velocity: float) -> None:
+def velocity_at_hw_ratio(
+    crossing: CulvertCrossing,
+    *,
+    project: Hy8Project,
+    ratio: float,
+    diameter: float,
+    inlet_invert: float,
+    q_hint: float,
+    hy8: Path | None,
+    keep_files: bool,
+    workspace: Path | None,
+) -> float | None:
+    if diameter <= 0 or ratio <= 0:
+        return None
+    target_headwater: float = inlet_invert + (ratio * diameter)
+    result: HydraulicsResult = crossing.q_from_hw(
+        hw=target_headwater,
+        q_hint=q_hint,
+        hy8=hy8,
+        project=project,
+        keep_files=keep_files,
+        workspace=workspace,
+    )
+    return result.row.velocity if result.row else None
+
+
+def describe(
+    result: HydraulicsResult,
+    hw_ratio: float,
+    velocity: float,
+    *,
+    ratio_velocity: float | None = None,
+    ratio_label: float | None = None,
+) -> None:
     print(f"  Computed flow (m^3/s): {result.computed_flow:.4f}")
     print(f"  Headwater elevation (m): {result.computed_headwater:.4f}")
     print(f"  HW:D ratio: {hw_ratio:.4f}")
     print(f"  Outlet velocity (m/s): {velocity:.4f}")
+    if ratio_velocity is not None and ratio_label is not None:
+        print(f"  Outlet velocity at HW:D {ratio_label:.2f} (m/s): {ratio_velocity:.4f}")
     if result.row and result.row.flow_type:
         print(f"  Flow type: {result.row.flow_type}")
     if result.row and result.row.overtopping:
@@ -388,6 +429,7 @@ def make_failure_outcome(row: dict[str, str], error: Exception) -> CrossingOutco
         headwater=None,
         headwater_ratio=None,
         velocity=None,
+        velocity_at_ratio=None,
         flow_type=None,
         overtopping=None,
         backcheck_flow=None,
@@ -430,7 +472,24 @@ def run_crossing(
     hw_level, hw_ratio, velocity = compute_metrics(
         result=hw_result, diameter=diameter, inlet_invert=inputs.inlet_invert
     )
-    describe(result=hw_result, hw_ratio=hw_ratio, velocity=velocity)
+    ratio_velocity = velocity_at_hw_ratio(
+        crossing=crossing,
+        project=project,
+        ratio=HEADWALL_RATIO_MULTIPLIER,
+        diameter=diameter,
+        inlet_invert=inputs.inlet_invert,
+        q_hint=flow_value,
+        hy8=hy8_path,
+        keep_files=keep_workspace,
+        workspace=workspace,
+    )
+    describe(
+        result=hw_result,
+        hw_ratio=hw_ratio,
+        velocity=velocity,
+        ratio_velocity=ratio_velocity,
+        ratio_label=HEADWALL_RATIO_MULTIPLIER,
+    )
 
     backcheck: HydraulicsResult = crossing.q_from_hw(
         hw=hw_level,
@@ -475,6 +534,7 @@ def run_crossing(
         headwater=hw_level,
         headwater_ratio=hw_ratio,
         velocity=velocity,
+        velocity_at_ratio=ratio_velocity,
         flow_type=flow_type,
         overtopping=overtopping,
         backcheck_flow=backcheck.computed_flow,
