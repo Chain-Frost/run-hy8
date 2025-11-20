@@ -1,4 +1,5 @@
 """Core data classes and references for run-hy8."""
+
 from _collections_abc import Sequence
 from enum import Enum
 
@@ -10,6 +11,13 @@ class UnitSystem(Enum):
     SI = ("SI", 1)
 
     def __init__(self, cli_flag: str, project_flag: int) -> None:
+        """
+        Initializes a UnitSystem enum member.
+
+        Args:
+            cli_flag: The string representation used in the HY-8 command-line interface.
+            project_flag: The integer flag used within the HY-8 project file.
+        """
         self.cli_flag: str = cli_flag
         self.project_flag: int = project_flag
 
@@ -18,6 +26,12 @@ class ValidationError(ValueError):
     """Exception raised when a model fails validation."""
 
     def __init__(self, errors: Sequence[str]) -> None:
+        """
+        Initializes the ValidationError.
+
+        Args:
+            errors: A sequence of strings describing the validation errors.
+        """
         self.errors: list[str] = list(errors)
         message: str = "; ".join(self.errors) if self.errors else "Unknown validation error."
         super().__init__(message)

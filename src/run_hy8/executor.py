@@ -12,11 +12,28 @@ from .classes_references import UnitSystem
 
 
 class Hy8Executable:
-    """Thin wrapper around the HY-8 command line switches."""
+    """
+    A thin wrapper around the HY-8 command-line interface.
+
+    This class provides methods to invoke the HY-8 executable with various
+    automation switches for running analyses and generating reports. It also
+    handles locating the executable on the system.
+
+    Attributes:
+        exe_path: The path to the resolved HY-8 executable.
+    """
 
     _default_path: Path | None = None
 
     def __init__(self, exe_path: Path | None = None) -> None:
+        """
+        Initializes the Hy8Executable instance.
+
+        Args:
+            exe_path: An optional path to a specific HY-8 executable. If not
+                provided, the path is resolved from environment variables, a
+                configuration file, or the default installation location.
+        """
         resolved: Path = Path(exe_path) if exe_path is not None else self.default_path()
         self.exe_path: Path = resolved
         self._ensure_windows()
@@ -24,19 +41,38 @@ class Hy8Executable:
 
     @classmethod
     def default_path(cls) -> Path:
-        """Return the configured default HY-8 executable path."""
+        """
+        Return the configured default HY-8 executable path.
+
+        The path is cached at the class level after the first resolution.
+        """
         if cls._default_path is not None:
             return cls._default_path
         return resolve_hy8_path()
 
     @classmethod
     def configure_default_path(cls, path: Path) -> None:
-        """Override the default HY-8 path used when none is provided."""
+        """
+        Override the default HY-8 path for the current session.
+
+        This does not persist the path to disk.
+
+        Args:
+            path: The path to set as the default for this class.
+        """
         cls._default_path = Path(path)
 
     @classmethod
     def persist_default_path(cls, path: Path) -> Path:
-        """Override and persist the default HY-8 path into HY8_PATH.txt."""
+        """
+        Override and persist the default HY-8 path into HY8_PATH.txt.
+
+        Args:
+            path: The path to save to the configuration file.
+
+        Returns:
+            The path to the configuration file where the path was saved.
+        """
         destination: Path = save_hy8_path(path=path)
         cls.configure_default_path(path=path)
         return destination
@@ -68,7 +104,21 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        """Generate flow-tailwater tables by automating the HY-8 CLI."""
+        """
+        Generate flow-tailwater tables using the -BuildFlowTwTable switch.
+
+        Args:
+            hy8_file: The path to the .hy8 project file.
+            flow_coef: The flow coefficient.
+            flow_const: The flow constant.
+            unit_system: The unit system to use for the analysis.
+            hw_increment: The headwater increment.
+            tw_increment: The tailwater increment.
+            check: If True, raises an exception if HY-8 returns a non-zero exit code.
+
+        Returns:
+            The completed subprocess result.
+        """
         args: list[str] = [
             "-BuildFlowTwTable",
             "FLOWCOEF",
@@ -93,7 +143,19 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        """Build headwater and tailwater tables for the provided project."""
+        """
+        Build headwater and tailwater tables using the -BuildHwTwTable switch.
+
+        Args:
+            hy8_file: The path to the .hy8 project file.
+            unit_system: The unit system to use for the analysis.
+            hw_increment: The headwater increment.
+            tw_increment: The tailwater increment.
+            check: If True, raises an exception if HY-8 returns a non-zero exit code.
+
+        Returns:
+            The completed subprocess result.
+        """
         args: list[str] = [
             "-BuildHwTwTable",
             "UNITS",

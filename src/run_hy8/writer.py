@@ -1,4 +1,4 @@
-"Serialization helpers for .hy8 project files."
+"""Serialization helpers for .hy8 project files."""
 
 from __future__ import annotations
 
@@ -25,14 +25,29 @@ from .units import cms_to_cfs, metres_to_feet
 
 
 class Hy8FileWriter:
-    """Writes HY-8 project files (.hy8) from the object model."""
+    """
+    Writes HY-8 project files (.hy8) from the internal object model.
+
+    This class serializes a `Hy8Project` instance into the text-based .hy8
+    format that the HY-8 executable can read. It handles unit conversions,
+    validation, and the specific formatting required by the HY-8 GUI.
+    """
 
     def __init__(self, project: Hy8Project, *, version: float = 80.0) -> None:
+        """
+        Initializes the writer with a project.
+
+        Args:
+            project: The `Hy8Project` instance to be written.
+            version: The HY-8 version number to write in the file header.
+        """
         self.project: Hy8Project = project
         self.version: float = version
 
     def write(self, output_path: Path, *, overwrite: bool = True) -> Path:
-        """Validate and write the project to disk."""
+        """
+        Validate the project and write it to a .hy8 file on disk.
+        """
         output_path = output_path.with_suffix(".hy8")
         errors: list[str] = self.project.validate()
         if errors:
@@ -49,6 +64,7 @@ class Hy8FileWriter:
 
     def _write_project(self, handle: TextIO) -> None:
         """Write top-level project metadata and each crossing."""
+        # The version number is written without a decimal if it's a whole number.
         version_value: float = self.version
         version_text: str = str(int(version_value)) if float(version_value).is_integer() else str(version_value)
         handle.write(f"HY8PROJECTFILE{version_text}\n")
@@ -116,6 +132,8 @@ class Hy8FileWriter:
         has_labels: bool,
     ) -> tuple[list[float], list[str]]:
         """Guarantee HY-8 sees two user flows, inserting a 10% value if needed."""
+        # The HY-8 GUI requires at least two points for a user-defined flow curve.
+        # If only one is provided, we add a second point at 10% of the value.
         if flow.method is not FlowMethod.USER_DEFINED or len(flow_values) != 1:
             return flow_values, labels
         base_value: float = flow_values[0]
@@ -134,6 +152,8 @@ class Hy8FileWriter:
 
     def _flow_range_values(self, flow: FlowDefinition) -> tuple[float, float, float]:
         """Return the min/design/max tuple HY-8 uses for min-design-max flows."""
+        # This ensures the flow definition's attributes are synchronized with the
+        # sequence values before being written.
         if flow.method is FlowMethod.MIN_DESIGN_MAX:
             values: list[float] = flow.sequence()
             if len(values) >= 3:
@@ -173,6 +193,8 @@ class Hy8FileWriter:
             self._write_card(handle, "", self._length_value(stage), vel, shear, froude)
 
     def _tailwater_stages(self, tailwater: TailwaterDefinition) -> list[float]:
+        """Generate a list of constant tailwater elevations for the rating curve."""
+        # For a constant elevation, the rating curve is just that elevation repeated.
         count: int = max(1, tailwater.rating_curve_entries)
         return [tailwater.constant_elevation] * count
 
@@ -235,11 +257,13 @@ class Hy8FileWriter:
         self._write_card(handle, "ENDCULVERT", f'"{culvert.name}"')
 
     def _length_value(self, value: float) -> float:
+        """Convert a length from meters (model) to feet (file) if necessary."""
         if self.project.units is UnitSystem.SI:
             return metres_to_feet(value)
         return value
 
     def _flow_value(self, value: float) -> float:
+        """Convert a flow from cms (model) to cfs (file) if necessary."""
         if self.project.units is UnitSystem.SI:
             return cms_to_cfs(value)
         return value
@@ -271,7 +295,7 @@ class Hy8FileWriter:
         builder: list[str] = [line]
 
         if not values:
-            handle.write(f"{''}.join(builder)}\n")
+            handle.write(f"{''.join(builder)}\n")
             return
 
         current: int = len(line)

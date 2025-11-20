@@ -1,4 +1,4 @@
-"""Public API for run-hy8."""
+"""Public API for run-hy8, a package to interact with the HY-8 hydraulics program."""
 
 from .classes_references import UnitSystem
 from .config import load_project_from_json, project_from_mapping

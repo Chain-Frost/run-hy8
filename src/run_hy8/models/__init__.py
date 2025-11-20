@@ -1,4 +1,10 @@
-"""Domain models that describe HY-8 projects."""
+"""
+Domain models that describe HY-8 projects.
+
+These data classes represent the various components of a HY-8 project,
+such as crossings, culverts, and flow definitions, providing a structured,
+in-memory representation that can be serialized to or from HY-8 files.
+"""
 
 from __future__ import annotations
 

@@ -34,7 +34,12 @@ if TYPE_CHECKING:
 
 
 def load_project_from_hy8(path: Path) -> Hy8Project:
-    """Read a .hy8 file from disk and convert it into a Hy8Project."""
+    """
+    Read a .hy8 file from disk and convert it into a Hy8Project object model.
+
+    Args:
+        path: The path to the .hy8 file.
+    """
     parser: _Hy8Parser = _Hy8Parser.from_path(path=path)
     return parser.parse()
 
@@ -48,7 +53,12 @@ class _Hy8Card:
 
 
 class _Hy8CardStream:
-    """Iterates over HY-8 card/value pairs and exposes raw-line helpers."""
+    """
+    A stream that iterates over HY-8 card/value pairs from a list of lines.
+
+    This class handles splitting lines into a (key, value) tuple, skipping
+    empty lines, and provides a push-back mechanism for more complex parsing.
+    """
 
     def __init__(self, lines: list[str]) -> None:
         self._lines: list[str] = lines
@@ -56,6 +66,12 @@ class _Hy8CardStream:
         self._buffer: list[_Hy8Card] = []
 
     def next_card(self) -> _Hy8Card:
+        """
+        Return the next card from the stream.
+
+        Raises:
+            StopIteration: When all lines have been consumed.
+        """
         if self._buffer:
             return self._buffer.pop()
         while self._index < len(self._lines):
@@ -69,10 +85,12 @@ class _Hy8CardStream:
         raise StopIteration
 
     def push_back(self, card: _Hy8Card) -> None:
+        """Push a card back onto the stream to be read again on the next call."""
         self._buffer.append(card)
 
     def read_block(self, end_marker: str) -> list[str]:
         """Consume raw lines until `end_marker` is encountered (exclusive)."""
+        # This is used for multi-line text blocks like notes.
         contents: list[str] = []
         target: str = end_marker.strip().upper()
         while self._index < len(self._lines):
@@ -80,6 +98,7 @@ class _Hy8CardStream:
             self._index += 1
             stripped: str = raw.strip()
             if stripped.upper().startswith(target):
+                # If the end marker line has trailing content, treat it as a new card.
                 trailing: str = stripped[len(end_marker) :].strip()
                 if trailing:
                     self._buffer.append(_Hy8Card(key=end_marker, value=trailing))
@@ -98,6 +117,7 @@ class _Hy8CardStream:
 
     @staticmethod
     def _split_card(line: str) -> tuple[str, str]:
+        # The header card has a different format than all other cards.
         if line.startswith("HY8PROJECTFILE"):
             return "HY8PROJECTFILE", line.removeprefix("HY8PROJECTFILE").strip()
         parts: list[str] = line.split(sep=None, maxsplit=1)
@@ -116,10 +136,12 @@ class _Hy8Parser:
 
     @classmethod
     def from_path(cls, path: Path) -> "_Hy8Parser":
+        """Create a parser instance from a file path."""
         text: str = path.read_text(encoding="utf-8", errors="ignore")
         return cls(text.splitlines(), source=path)
 
     def parse(self) -> Hy8Project:
+        """Parse the entire file stream and return a complete Hy8Project."""
         project = Hy8Project()
         self._consume_header()
         while True:
@@ -134,6 +156,8 @@ class _Hy8Parser:
                 project.crossings.append(crossing)
                 continue
             self._apply_project_card(project=project, card=card)
+        # All values in the .hy8 file are in English units. After parsing, we
+        # declare the project as SI, since all internal values have been converted.
         project.units = UnitSystem.SI
         return project
 
@@ -146,6 +170,7 @@ class _Hy8Parser:
             raise ValueError(f"Expected HY8PROJECTFILE header, found '{card.key}'.")
 
     def _apply_project_card(self, project: Hy8Project, card: _Hy8Card) -> None:
+        """Apply a card's value to the top-level Hy8Project object."""
         if card.key == "UNITS":
             # The UNITS flag is for display only; HY-8 calculations are English units.
             return
@@ -159,6 +184,7 @@ class _Hy8Parser:
             project.notes = self._collect_notes(inline_value=card.value, end_marker="ENDPROJNOTES")
 
     def _parse_crossing(self, name: str) -> CulvertCrossing:
+        """Parse a block of cards between STARTCROSSING and ENDCROSSING."""
         crossing = CulvertCrossing(name=name or "Crossing")
         pending_flow_values: tuple[list[float], list[str]] = ([], [])
         while True:
@@ -166,6 +192,8 @@ class _Hy8Parser:
             key: str = card.key
             value: str = card.value
             if key == "ENDCROSSING":
+                # User-defined flow values are collected during parsing but are
+                # only finalized and applied to the model just before the crossing is returned.
                 self._finalize_flow(crossing=crossing, data=pending_flow_values)
                 return crossing
             if key == "STARTCROSSNOTES":
@@ -236,6 +264,7 @@ class _Hy8Parser:
                 crossing.uuid = self._clean_string(raw=value)
 
     def _parse_culvert(self, name: str) -> CulvertBarrel:
+        """Parse a block of cards between STARTCULVERT and ENDCULVERT."""
         culvert = CulvertBarrel(name=name)
         while True:
             card: _Hy8Card = self._stream.next_card()
@@ -281,6 +310,7 @@ class _Hy8Parser:
                 culvert.notes = self._collect_notes(inline_value=value, end_marker="ENDCULVNOTES")
 
     def _collect_notes(self, inline_value: str, *, end_marker: str) -> str:
+        """Collect a multi-line block of text, like project or culvert notes."""
         lines: list[str] = []
         inline: str = self._clean_string(raw=inline_value)
         if inline:
@@ -290,6 +320,7 @@ class _Hy8Parser:
         return text
 
     def _finalize_flow(self, crossing: CulvertCrossing, data: tuple[list[float], list[str]]) -> None:
+        """Apply the collected user-defined flow values to the crossing's flow definition."""
         user_values, labels = data
         flow: FlowDefinition = crossing.flow
         if flow.method is FlowMethod.MIN_DESIGN_MAX:
@@ -311,6 +342,7 @@ class _Hy8Parser:
         raise ValueError(f"Crossing '{crossing.name}' uses unsupported flow method '{flow.method.value}'.")
 
     def _read_flow_values(self, expected: int) -> tuple[list[float], list[str]]:
+        """Read a sequence of user-defined flow values and their optional labels."""
         if expected <= 0:
             return ([], [])
         values: list[float] = []
@@ -342,15 +374,18 @@ class _Hy8Parser:
         return values, labels
 
     def _length_from_source(self, value: float) -> float:
+        """Convert a length value from feet (in the file) to meters (in the model)."""
         return feet_to_metres(value)
 
     def _flow_from_source(self, value: float) -> float:
+        """Convert a flow value from cfs (in the file) to cms (in the model)."""
         return cfs_to_cms(value)
 
     @staticmethod
     def _clean_string(raw: str) -> str:
+        """Strip whitespace and remove surrounding quotes from a string value."""
         text: str = raw.strip()
-        if text.startswith('"') and text.endswith('"') and len(text) >= 2:
+        if len(text) >= 2 and text.startswith('"') and text.endswith('"'):
             text = text[1:-1]
         return text.strip()
 
@@ -443,7 +478,13 @@ class _Hy8Parser:
 
 
 def culvert_dataframe(project: Hy8Project) -> "pd.DataFrame":
-    """Return a pandas DataFrame describing every culvert barrel in a project."""
+    """
+    Return a pandas DataFrame describing every culvert barrel in a project.
+
+    Args:
+        project: The Hy8Project to convert.
+    """
+    # This function requires pandas, which is an optional dependency.
     import pandas as pd
 
     rows: list[dict[str, object]] = []
