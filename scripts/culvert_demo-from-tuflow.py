@@ -6,8 +6,15 @@ from __future__ import annotations
 # At the very top of your script, before any imports:
 # This suppresses writing .pyc for imports after that line. It does not prevent Python from using existing .pyc files if they are already present.
 import sys
+from pathlib import Path
 
 # sys.dont_write_bytecode = True
+# this is to run it from within the repo and not use installed library.
+# ROOT_PATH: Path = Path(__file__).resolve().parent.parent
+# SRC_PATH: Path = ROOT_PATH / "src"
+# src_str: str = str(SRC_PATH)
+# if src_str not in sys.path:
+#     sys.path.insert(0, src_str)
 
 import csv
 import math
@@ -15,18 +22,10 @@ import shutil
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
-from pathlib import Path
+
 from typing import Any, LiteralString
 import pandas as pd
 from pandas import DataFrame
-
-# this is to run it from within the repo and not use installed library.
-ROOT_PATH: Path = Path(__file__).resolve().parent.parent
-SRC_PATH: Path = ROOT_PATH / "src"
-src_str: str = str(SRC_PATH)
-if src_str not in sys.path:
-    sys.path.insert(0, src_str)
-
 from run_hy8.writer import Hy8FileWriter
 from run_hy8.hydraulics import HydraulicsResult, FlowSearchError
 from run_hy8.classes_references import UnitSystem
