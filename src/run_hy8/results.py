@@ -12,7 +12,9 @@ from typing import Literal, TypedDict
 ValueKey = Literal["flow", "headwater", "velocity"]
 SummaryKey = Literal["roadway", "iterations"]
 
+# Regex to find the start of a culvert summary table and capture the crossing name.
 RST_DIALOG_RE: re.Pattern[str] = re.compile(pattern=r"Dialog:\s+Culvert Summary Table - (?P<name>.+)")
+# Labels for numeric data series in the .rst file.
 RST_VALUE_LABELS: dict[ValueKey, str] = {
     "flow": "Total Discharge (cms)",
     "headwater": "Headwater Elevation (m)",
@@ -21,7 +23,9 @@ RST_VALUE_LABELS: dict[ValueKey, str] = {
 RST_TEXT_LABELS: dict[str, str] = {
     "flow_type": "Flow Type",
 }
+# Regex to find the start of a crossing summary and capture the crossing name.
 SUMMARY_RE: re.Pattern[str] = re.compile(pattern=r"Dialog:\s+Summary of Flows at Crossing - (?P<name>.+)")
+# Labels for summary data series in the .rst file.
 SUMMARY_LABELS: dict[SummaryKey, str] = {
     "roadway": "Roadway Discharge (cms)",
     "iterations": "Iterations",
@@ -40,7 +44,13 @@ class Hy8Series(TypedDict, total=False):
 
 
 def parse_rst(path: Path) -> dict[str, Hy8Series]:
-    """Parse a .rst report file into series keyed by crossing."""
+    """
+    Parse a .rst report file into a dictionary of data series keyed by crossing name.
+
+    The .rst file contains summary tables for each crossing. This function iterates
+    through the file, identifies the current crossing, and extracts the comma-separated
+    data for flow, headwater, velocity, etc.
+    """
     data: dict[str, Hy8Series] = {}
     summary_crossing: str | None = None
     capturing_culvert: str | None = None
@@ -49,6 +59,7 @@ def parse_rst(path: Path) -> dict[str, Hy8Series]:
             line: str = raw_line.strip()
             if not line:
                 continue
+            # Check if we are in a "Summary of Flows" block.
             summary_match: re.Match[str] | None = SUMMARY_RE.match(string=line)
             if summary_match:
                 crossing_name: str = summary_match.group("name").strip()
@@ -56,6 +67,7 @@ def parse_rst(path: Path) -> dict[str, Hy8Series]:
                 capturing_culvert = None
                 data.setdefault(crossing_name, Hy8Series())
                 continue
+            # If in a summary block, parse the roadway discharge and iteration counts.
             if summary_crossing:
                 for key, label in SUMMARY_LABELS.items():
                     if line.startswith(label):
@@ -63,6 +75,7 @@ def parse_rst(path: Path) -> dict[str, Hy8Series]:
                             data[summary_crossing][key] = parse_text_series(line)
                         else:
                             data[summary_crossing][key] = parse_series(line)
+            # Check if we are in a "Culvert Summary Table" block.
             culvert_match: re.Match[str] | None = RST_DIALOG_RE.match(line)
             if culvert_match:
                 culvert_crossing: str | None = summary_crossing
@@ -72,6 +85,7 @@ def parse_rst(path: Path) -> dict[str, Hy8Series]:
                 continue
             if capturing_culvert is None:
                 continue
+            # If in a culvert block, parse the primary hydraulic results.
             for key, label in RST_VALUE_LABELS.items():
                 if line.startswith(label):
                     series: list[float] = parse_series(line)
@@ -83,7 +97,12 @@ def parse_rst(path: Path) -> dict[str, Hy8Series]:
 
 
 def parse_series(line: str) -> list[float]:
-    """Convert a CSV-like line from HY-8 into a float list."""
+    """
+    Convert a comma-separated value line from an HY-8 report into a list of floats.
+
+    It handles 'nan' strings and empty parts by converting them to `math.nan`.
+    The first part of the line (the label) is skipped.
+    """
     parts: list[str] = line.split(",")[1:]
     values: list[float] = []
     for part in parts:
@@ -99,12 +118,13 @@ def parse_series(line: str) -> list[float]:
 
 
 def parse_text_series(line: str) -> list[str]:
-    """Return trimmed string entries from a HY-8 CSV-style line."""
+    """Return trimmed string entries from a HY-8 comma-separated line."""
     parts: list[str] = line.split(",")[1:]
     return [part.strip() for part in parts if part.strip()]
 
 
 def _format_float(value: float, unit: str | None = None) -> str:
+    """Format a float for display, handling NaN values."""
     if math.isnan(value):
         return "nan"
     formatted = f"{value:.3f}"
@@ -199,6 +219,7 @@ class Hy8Results:
                 overtopping=profile.overtopping if profile else False,
             )
             if iteration and "overtopping" in iteration.lower():
+                # The .rst iteration string sometimes contains an "overtopping" note.
                 row.overtopping = True
             self.rows.append(row)
 
@@ -214,6 +235,7 @@ class Hy8Results:
         return f"{self.__class__.__name__} with {len(self)} rows (flows={range_label} cms)"
 
     def _flow_range_label(self) -> str | None:
+        """Generate a string representing the min and max flow in the results."""
         flows = [row.flow for row in self.rows if not math.isnan(row.flow)]
         if not flows:
             return None
@@ -237,7 +259,12 @@ class Hy8Results:
 
 
 def parse_rsql(path: Path) -> dict[str, list[FlowProfile]]:
-    """Parse a .rsql file into flow profiles grouped by crossing."""
+    """
+    Parse a .rsql file into a dictionary of FlowProfile objects grouped by crossing name.
+
+    The .rsql file contains detailed, line-by-line output for each flow profile
+    calculation, which is more detailed than the summary in the .rst file.
+    """
     data: dict[str, list[FlowProfile]] = {}
     if not path.exists():
         return data

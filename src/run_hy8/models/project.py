@@ -41,6 +41,7 @@ class Hy8Project(Validatable):
         return datetime.now().timestamp() / 3600.0
 
     def describe(self) -> str:
+        """Return a short, human-readable description of the project."""
         return f"Hy8Project(title={self.title or '<untitled>'}, crossings={len(self.crossings)})"
 
     def __str__(self) -> str:
@@ -50,6 +51,7 @@ class Hy8Project(Validatable):
         return self.describe()
 
     def validate(self, prefix: str = "") -> list[str]:
+        """Return a list of validation errors, or an empty list if the model is valid."""
         errors: list[str] = []
         if not self.crossings:
             errors.append(f"{prefix}At least one crossing is required.")
@@ -59,6 +61,7 @@ class Hy8Project(Validatable):
         return errors
 
     def add_crossing(self, crossing: CulvertCrossing | None = None) -> CulvertCrossing:
+        """Add a crossing to the project."""
         if crossing is None:
             crossing = CulvertCrossing(name=f"Crossing {len(self.crossings) + 1}")
         self.crossings.append(crossing)
@@ -70,6 +73,7 @@ class Hy8Project(Validatable):
         return crossing
 
     def flow_values(self) -> Sequence[list[float]]:
+        """Return a sequence of flow value lists for each crossing."""
         return [crossing.flow.sequence() for crossing in self.crossings]
 
     def hw_from_q(
@@ -165,6 +169,7 @@ class Hy8Project(Validatable):
         return results
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of the project."""
         return {
             "title": self.title,
             "designer": self.designer,
@@ -176,6 +181,7 @@ class Hy8Project(Validatable):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Hy8Project":
+        """Create a Hy8Project from a dictionary."""
         return cls(
             title=data.get("title", ""),
             designer=data.get("designer", ""),

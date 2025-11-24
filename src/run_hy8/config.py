@@ -40,11 +40,14 @@ def load_project_from_json(path: Path) -> Hy8Project:
 
 def project_from_mapping(config: JSONMapping) -> Hy8Project:
     """Build a Hy8Project from the parsed configuration mapping."""
+    # Ensure the top-level 'project' key points to a dictionary.
     project_section_raw: Any = config.get("project", {})
     if not isinstance(project_section_raw, Mapping):
         raise ValueError("Project section must be an object.")
     project_section: JSONMapping = cast(JSONMapping, project_section_raw)
 
+    # Initialize the project and populate top-level metadata.
+    # Default values are used if keys are missing from the config.
     project = Hy8Project()
     project.title = str(project_section.get("title", ""))
     project.designer = str(project_section.get("designer", ""))
@@ -52,12 +55,14 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     project.units = _parse_unit_system(project_section.get("units", UnitSystem.SI.cli_flag))
     project.exit_loss_option = int(project_section.get("exit_loss_option", 0))
 
+    # Ensure the 'crossings' key points to a list.
     crossings_data_raw: Any = config.get("crossings", [])
     if not isinstance(crossings_data_raw, ABCSequence) or isinstance(crossings_data_raw, (str, bytes)):
         raise ValueError("'crossings' section must be a list of crossing definitions")
 
     crossings_data_sequence: ABCSequence[Any] = cast(ABCSequence[Any], crossings_data_raw)
     crossings_data_raw_list: list[Any] = list(crossings_data_sequence)
+    # Validate that each item in the crossings list is a dictionary.
     crossings_data_list: list[JSONMapping] = []
     for crossing_entry_raw in crossings_data_raw_list:
         crossing_entry: Any = crossing_entry_raw
@@ -65,6 +70,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
             raise ValueError("Each crossing definition must be an object.")
         crossings_data_list.append(cast(JSONMapping, crossing_entry))
 
+    # Parse each crossing dictionary and add it to the project.
     for crossing_entry in crossings_data_list:
         project.crossings.append(_parse_crossing(crossing_entry))
 
@@ -72,7 +78,16 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
 
 
 def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
-    """Convert a single crossing dictionary into a CulvertCrossing instance."""
+    """
+    Convert a single crossing dictionary into a CulvertCrossing instance.
+
+    Args:
+        entry: The dictionary representing a single crossing's configuration.
+
+    Returns:
+        A populated CulvertCrossing object.
+    """
+    # A name is required for each crossing.
     name: str = _require_str(entry=entry, key="name", context="crossing")
     crossing = CulvertCrossing(name=name)
     crossing.notes = str(entry.get("notes", ""))
@@ -94,6 +109,8 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
         if not isinstance(culvert_entry, Mapping):
             raise ValueError(f"Culvert entries in crossing '{name}' must be objects.")
         culvert_entries_list.append(cast(JSONMapping, culvert_entry))
+
+    # Parse each culvert dictionary and add it to the crossing.
     for culvert_entry in culvert_entries_list:
         crossing.culverts.append(_parse_culvert(culvert_entry, crossing_name=name))
 
@@ -101,7 +118,16 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
 
 
 def _parse_flow(entry: JSONMapping) -> FlowDefinition:
-    """Parse the flow block into a FlowDefinition with validation."""
+    """
+    Parse the flow block into a FlowDefinition with validation.
+
+    Args:
+        entry: The dictionary representing the flow configuration.
+
+    Returns:
+        A populated FlowDefinition object.
+    """
+    # Determine the flow method from the config, defaulting to USER_DEFINED.
     method_value = str(entry.get("method", FlowMethod.USER_DEFINED.value))
     try:
         method = FlowMethod(value=method_value)
@@ -112,6 +138,7 @@ def _parse_flow(entry: JSONMapping) -> FlowDefinition:
         raise ValueError("Flow method 'min-max-increment' is not supported by run-hy8.")
 
     flow = FlowDefinition(method=method)
+    # If user-defined flow values are present, parse them into a list of floats.
     if "user_values" in entry:
         values_raw: Any = entry.get("user_values", [])
         if not isinstance(values_raw, ABCSequence) or isinstance(values_raw, (str, bytes)):
@@ -119,6 +146,8 @@ def _parse_flow(entry: JSONMapping) -> FlowDefinition:
         values_sequence: ABCSequence[Any] = cast(ABCSequence[Any], values_raw)
         values_list: list[Any] = list(values_sequence)
         flow.user_values = [float(value) for value in values_list]
+
+    # If using min/design/max flows, parse those float values.
     if method is FlowMethod.MIN_DESIGN_MAX:
         flow.minimum = float(entry.get("minimum", flow.minimum))
         flow.design = float(entry.get("design", flow.design))
@@ -127,7 +156,18 @@ def _parse_flow(entry: JSONMapping) -> FlowDefinition:
 
 
 def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
-    """Interpret a tailwater configuration dictionary."""
+    """
+    Interpret a tailwater configuration dictionary.
+
+    Note: This application only supports a constant tailwater elevation. Other
+    types supported by the HY-8 GUI are explicitly disallowed.
+
+    Args:
+        entry: The dictionary representing the tailwater configuration.
+
+    Returns:
+        A populated TailwaterDefinition object.
+    """
     requested_type: Any = entry.get("type")
     if requested_type is not None:
         requested_enum: TailwaterType = _parse_tailwater_type(value=requested_type)
@@ -137,6 +177,7 @@ def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
                 "Configure a constant elevation or use the HY-8 GUI."
             )
 
+    # Disallow fields related to more complex tailwater calculations.
     unsupported_fields: set[str] = {
         "bottom_width",
         "channel_slope",
@@ -156,7 +197,15 @@ def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
 
 
 def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
-    """Convert the roadway section into a RoadwayProfile."""
+    """
+    Convert the roadway section from a dictionary into a RoadwayProfile object.
+
+    Args:
+        entry: The dictionary representing the roadway configuration.
+
+    Returns:
+        A populated RoadwayProfile object.
+    """
     roadway = RoadwayProfile()
     roadway.width = float(entry.get("width", roadway.width))
     roadway.shape = int(entry.get("shape", roadway.shape))
@@ -170,7 +219,17 @@ def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
 
 
 def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
-    """Create a CulvertBarrel from a serialized entry."""
+    """
+    Create a CulvertBarrel from a serialized dictionary entry.
+
+    Args:
+        entry: The dictionary representing a single culvert barrel's configuration.
+        crossing_name: The name of the parent crossing, for context in error messages.
+
+    Returns:
+        A populated CulvertBarrel object.
+    """
+    # A name is required for each culvert.
     name: str = _require_str(entry=entry, key="name", context=f"culvert in crossing '{crossing_name}'")
     culvert = CulvertBarrel(name=name)
     culvert.span = float(entry.get("span", culvert.span))
@@ -193,7 +252,18 @@ def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
 
 
 def _parse_unit_system(value: Any) -> UnitSystem:
-    """Coerce configuration unit strings into the UnitSystem enum."""
+    """
+    Coerce a configuration string into the corresponding UnitSystem enum member.
+
+    This function is flexible and accepts the enum name (e.g., "SI") or the
+    CLI flag (e.g., "EN"), ignoring case and whitespace.
+
+    Args:
+        value: The raw value from the configuration.
+
+    Returns:
+        The matching UnitSystem enum member.
+    """
     if isinstance(value, UnitSystem):
         return value
     normalized: str = str(value).strip().upper()
@@ -204,7 +274,18 @@ def _parse_unit_system(value: Any) -> UnitSystem:
 
 
 def _parse_surface(value: Any) -> RoadwaySurface:
-    """Convert roadway surface names or codes into RoadwaySurface enum values."""
+    """
+    Convert a roadway surface name from config into a RoadwaySurface enum member.
+
+    Normalizes the input string by making it uppercase and replacing hyphens
+    with underscores to match the enum member names (e.g., "user-defined" -> "USER_DEFINED").
+
+    Args:
+        value: The raw value from the configuration.
+
+    Returns:
+        The matching RoadwaySurface enum member.
+    """
     normalized: str = str(value).strip().upper().replace("-", "_")
     try:
         return RoadwaySurface[normalized]
@@ -213,7 +294,17 @@ def _parse_surface(value: Any) -> RoadwaySurface:
 
 
 def _parse_culvert_shape(value: Any) -> CulvertShape:
-    """Return the CulvertShape that matches the serialized value."""
+    """
+    Convert a culvert shape name from config into a CulvertShape enum member.
+
+    Normalizes the input string to uppercase to match enum member names.
+
+    Args:
+        value: The raw value from the configuration.
+
+    Returns:
+        The matching CulvertShape enum member.
+    """
     normalized: str = str(value).strip().upper()
     try:
         return CulvertShape[normalized]
@@ -222,7 +313,18 @@ def _parse_culvert_shape(value: Any) -> CulvertShape:
 
 
 def _parse_culvert_material(value: Any) -> CulvertMaterial:
-    """Return the CulvertMaterial that matches the serialized value."""
+    """
+    Convert a culvert material name from config into a CulvertMaterial enum member.
+
+    Normalizes the input string by making it uppercase and replacing spaces
+    with underscores to match enum member names (e.g., "CONCRETE" -> "CONCRETE").
+
+    Args:
+        value: The raw value from the configuration.
+
+    Returns:
+        The matching CulvertMaterial enum member.
+    """
     normalized: str = str(value).strip().upper().replace(" ", "_")
     try:
         return CulvertMaterial[normalized]
@@ -231,7 +333,18 @@ def _parse_culvert_material(value: Any) -> CulvertMaterial:
 
 
 def _parse_tailwater_type(value: Any) -> TailwaterType:
-    """Return the TailwaterType derived from configuration text."""
+    """
+    Convert a tailwater type name from config into a TailwaterType enum member.
+
+    Normalizes the input string by making it uppercase and replacing hyphens
+    with underscores to match enum member names (e.g., "rating-curve" -> "RATING_CURVE").
+
+    Args:
+        value: The raw value from the configuration.
+
+    Returns:
+        The matching TailwaterType enum member.
+    """
     normalized: str = str(value).strip().upper().replace("-", "_")
     try:
         return TailwaterType[normalized]

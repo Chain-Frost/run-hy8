@@ -41,6 +41,7 @@ class CulvertBarrel(Validatable):
     manning_n_bottom: float | None = None
 
     def describe(self) -> str:
+        """Return a short, human-readable description of the culvert barrel."""
         shape: str = self.shape.name
         return (
             f"CulvertBarrel(name={self.name or '<unnamed>'}, shape={shape}, "
@@ -54,6 +55,7 @@ class CulvertBarrel(Validatable):
         return self.describe()
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of the culvert barrel."""
         return {
             "name": self.name,
             "span": self.span,
@@ -78,6 +80,7 @@ class CulvertBarrel(Validatable):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "CulvertBarrel":
+        """Create a CulvertBarrel from a dictionary."""
         return cls(
             name=data.get("name", ""),
             span=float(data.get("span", 0.0)),
@@ -107,6 +110,7 @@ class CulvertBarrel(Validatable):
         )
 
     def validate(self, prefix: str = "") -> list[str]:
+        """Return a list of validation errors, or an empty list if the model is valid."""
         errors: list[str] = []
         if self.span <= 0:
             errors.append(f"{prefix}Culvert span must be greater than zero.")
@@ -119,6 +123,7 @@ class CulvertBarrel(Validatable):
         return errors
 
     def manning_values(self) -> tuple[float, float]:
+        """Return the top and bottom Manning's n values for the culvert material."""
         if self.material is CulvertMaterial.CORRUGATED_STEEL:
             return 0.024, 0.024
         return 0.012, 0.012

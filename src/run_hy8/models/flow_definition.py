@@ -31,6 +31,7 @@ class FlowDefinition(Validatable):
     user_value_labels: list[str] = field(default_factory=string_list)
 
     def describe(self) -> str:
+        """Return a short, human-readable description of the flow definition."""
         try:
             values: list[float] = self.sequence()
         except ValueError:
@@ -101,6 +102,7 @@ class FlowDefinition(Validatable):
         return values
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of the flow definition."""
         return {
             "method": self.method.name,
             "minimum": self.minimum,
@@ -112,6 +114,7 @@ class FlowDefinition(Validatable):
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "FlowDefinition":
+        """Create a FlowDefinition from a dictionary."""
         method_value = data.get("method", FlowMethod.USER_DEFINED.name)
         method: FlowMethod = coerce_enum(FlowMethod, method_value, default=FlowMethod.USER_DEFINED)
         user_values_raw = normalize_sequence(data.get("user_values"))
@@ -127,6 +130,7 @@ class FlowDefinition(Validatable):
         )
 
     def validate(self, prefix: str = "") -> list[str]:
+        """Return a list of validation errors, or an empty list if the model is valid."""
         errors: list[str] = []
         if self.method is FlowMethod.MIN_DESIGN_MAX:
             if self.user_values and len(self.user_values) != 3:

@@ -1,4 +1,4 @@
-"""Simple CLI entry point for run-hy8."""
+"Simple CLI entry point for run-hy8."
 
 from __future__ import annotations
 
