@@ -44,6 +44,8 @@ SEED_SCALE_FACTORS: tuple[float, ...] = (0.1, 0.25, 0.5, 1.0, 1.5, 2.0)
 STEP_FRACTION: float = 0.25
 BRACKET_SUBDIVISIONS: int = 5
 SEED_BATCH_SIZE: int = 6
+FLOW_SEARCH_MAX_RUNS: int = 20
+EXPANSION_FACTOR: float = 2.0
 
 
 @dataclass(slots=True)
@@ -82,6 +84,15 @@ class _FlowSample:
         return self.row.headwater_elevation
 
 
+class FlowSearchError(RuntimeError):
+    """Raised when the headwater search cannot converge on a discharge."""
+
+    def __init__(self, message: str, *, best_sample: _FlowSample | None = None, target_headwater: float | None = None):
+        self.best_sample = best_sample
+        self.target_headwater = target_headwater
+        super().__init__(message)
+
+
 def _flow_sample_list() -> list[_FlowSample]:
     """Return an empty list that pyright can treat as list[_FlowSample]."""
 
@@ -95,8 +106,8 @@ class _FlowSearch:
     target_headwater: float
     simple_flow: float
     q_hint: float | None = None
-    max_runs: int = 12
-    tolerance: float = 1e-4
+    max_runs: int = FLOW_SEARCH_MAX_RUNS
+    tolerance: float = 1e-2
     samples: list[_FlowSample] = field(default_factory=_flow_sample_list)
 
     def _baseline_flow(self) -> float:
@@ -200,13 +211,19 @@ class _FlowSearch:
             return (max(lows, key=lambda s: s.flow).flow + min(highs, key=lambda s: s.flow).flow) / 2
         if lows:
             base: float = max(lows, key=lambda s: s.flow).flow
-            step: float = max(base * STEP_FRACTION, self._baseline_flow() * STEP_FRACTION, MINIMUM_SEED_FLOW)
-            return base + step
+            return max(base + MINIMUM_SEED_FLOW, base * EXPANSION_FACTOR)
         if highs:
             base = min(highs, key=lambda s: s.flow).flow
-            step = max(base * STEP_FRACTION, self._baseline_flow() * STEP_FRACTION, MINIMUM_SEED_FLOW)
-            return max(MINIMUM_SEED_FLOW, base - step)
+            return max(MINIMUM_SEED_FLOW, base / EXPANSION_FACTOR)
         return self._baseline_flow()
+
+    def closest_sample(self) -> _FlowSample | None:
+        """Return the recorded sample whose headwater is nearest to the target."""
+
+        candidates = [sample for sample in self.samples if not math.isnan(sample.headwater)]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda sample: abs(self._delta(sample=sample)))
 
 
 def _resolve_hy8_executable(hy8: Hy8Executable | Path | str | None) -> Hy8Executable:
@@ -479,9 +496,9 @@ def crossing_q_from_hw(
             )
             definition = FlowDefinition(method=FlowMethod.USER_DEFINED)
             for flow_value in flows:
-                definition.add_user_flow(flow_value)
+                definition.add_user_flow(value=flow_value)
             scenario_crossing.flow = definition
-            results = _write_and_run(
+            results: Hy8Results = _write_and_run(
                 project=scenario_project,
                 crossing_name=scenario_crossing.name,
                 hy8_exec=hy8_exec,
@@ -491,8 +508,8 @@ def crossing_q_from_hw(
             )
             samples: list[_FlowSample] = []
             for flow_value in flows:
-                row = _select_row_by_flow(results=results, flow=flow_value)
-                sample = search.record(flow=flow_value, row=row)
+                row: Hy8ResultRow = _select_row_by_flow(results=results, flow=flow_value)
+                sample: _FlowSample = search.record(flow=flow_value, row=row)
                 logger.debug(
                     "{label} result for crossing {name}: flow {flow:.4f} => headwater {headwater:.4f}",
                     label=label,
@@ -568,7 +585,14 @@ def crossing_q_from_hw(
                 final_flow = exact.flow
                 break
         if final_row is None or final_flow is None:
-            raise ValueError("Unable to bracket the requested headwater.")
+            closest = search.closest_sample()
+            message = "Unable to bracket the requested headwater."
+            if closest:
+                message += (
+                    f" Closest sample flow {closest.flow:.4f} => HW {closest.headwater:.4f} "
+                    f"(target {hw:.4f})."
+                )
+            raise FlowSearchError(message, best_sample=closest, target_headwater=hw)
         logger.info(
             "Crossing {name}: HW {headwater:.4f} achieved at flow {flow:.4f}",
             name=crossing.name,

@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
-import csv
+# 3. Inside a script (last resort)
+# At the very top of your script, before any imports:
+# This suppresses writing .pyc for imports after that line. It does not prevent Python from using existing .pyc files if they are already present.
 import sys
+
+# sys.dont_write_bytecode = True
+
+import csv
 import math
 import shutil
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
-
+from typing import Any, LiteralString
 import pandas as pd
+from pandas import DataFrame
 
 # this is to run it from within the repo and not use installed library.
 ROOT_PATH: Path = Path(__file__).resolve().parent.parent
@@ -22,7 +28,7 @@ if src_str not in sys.path:
     sys.path.insert(0, src_str)
 
 from run_hy8.writer import Hy8FileWriter
-from run_hy8.hydraulics import HydraulicsResult
+from run_hy8.hydraulics import HydraulicsResult, FlowSearchError
 from run_hy8.classes_references import UnitSystem
 from run_hy8.models import (
     CulvertBarrel,
@@ -33,7 +39,7 @@ from run_hy8.models import (
 )
 from run_hy8.executor import Hy8Executable
 from run_hy8.hy8_path import resolve_hy8_path
-from run_hy8.results import Hy8ResultRow, Hy8Results, parse_rst, parse_rsql
+from run_hy8.results import FlowProfile, Hy8ResultRow, Hy8Results, Hy8Series, parse_rst, parse_rsql
 from run_hy8.type_helpers import (
     CulvertMaterial,
     CulvertShape,
@@ -41,6 +47,7 @@ from run_hy8.type_helpers import (
     InletType,
     FlowMethod,
 )
+
 
 DEFAULT_EXCEL: Path = Path(__file__).resolve().parent / "Rev A Report Culverts.xlsx"
 # Hard-coded configuration; edit these to suit each run.
@@ -56,6 +63,9 @@ DEFAULT_BARREL_LENGTH = 30.0
 DEFAULT_TAILWATER = 0.0
 HEADWALL_RATIO_MULTIPLIER = 1.5
 MAX_WORKERS = 10
+MINIMUM_SCENARIO_FLOW = 1e-4
+PROJECT_OUTPUT_DIR: Path = Path(__file__).resolve().parent / "hy8-projects"
+CROSSING_LIMIT = 10  # Set to >0 to process only the first N crossings
 
 RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results.csv"
 MINIMUM_SEED_FLOW = 1e-3
@@ -63,9 +73,9 @@ MINIMUM_SEED_FLOW = 1e-3
 FLOW_DS_TW_PREFIX = "Q @ DS_h TW"
 FLOW_ZERO_TW_PREFIX = "Q @ Invert TW"
 HW_DATA_PREFIX = "HW = US_h"
-HW_RATIO_PREFIX = f"HW:D = {HEADWALL_RATIO_MULTIPLIER:.2f}"
-HW_DATA_LABEL = f"{HW_DATA_PREFIX}, {FLOW_DS_TW_PREFIX}"
-HW_RATIO_LABEL = f"{HW_RATIO_PREFIX}, {FLOW_ZERO_TW_PREFIX}"
+HW_RATIO_PREFIX: str = f"HW:D = {HEADWALL_RATIO_MULTIPLIER:.2f}"
+HW_DATA_LABEL: LiteralString = f"{HW_DATA_PREFIX}, {FLOW_DS_TW_PREFIX}"
+HW_RATIO_LABEL: str = f"{HW_RATIO_PREFIX}, {FLOW_ZERO_TW_PREFIX}"
 
 RESULT_FIELDNAMES: list[str] = [
     "Crossing",
@@ -208,13 +218,22 @@ class CrossingOutcome:
     def _format(value: float | None) -> str:
         return "" if value is None else f"{value:.4f}"
 
+    @staticmethod
+    def _format_diameter(value: str | None) -> str:
+        if not value:
+            return ""
+        try:
+            return f"{float(value):.3f}"
+        except ValueError:
+            return value
+
     def to_row(self) -> dict[str, str]:
         row: dict[str, str] = {
             "Crossing": self.crossing,
             "AEP": self.aep,
             "Adopted Flow (m^3/s)": self.adopted_flow,
             "Barrels": self.barrels,
-            "Diameter (m)": self.diameter,
+            "Diameter (m)": self._format_diameter(self.diameter),
             "Barrel Shape": self.barrel_shape or "",
             "Barrel Material": self.barrel_material or "",
             "Inlet Type": self.inlet_type or "",
@@ -313,11 +332,13 @@ def load_rows(excel_path: Path) -> list[dict[str, Any]]:
     )
     df["Crossing"] = df["Crossing"].fillna("").astype(str).str.strip()  # pyright: ignore[reportUnknownMemberType]
     df["aep_text"] = df["aep_text"].fillna("").astype(str).str.strip()  # pyright: ignore[reportUnknownMemberType]
-    df = df[df["Crossing"].astype(bool)]
+    df: DataFrame = df[df["Crossing"].astype(bool)]
     df = df.sort_values(  # pyright: ignore[reportUnknownMemberType]
         ["Crossing", "aep_text", "Adopted Flow (m^3/s)"], ascending=[True, True, False]
     )
-    grouped = df.groupby(["Crossing", "aep_text"], as_index=False).first()  # pyright: ignore[reportUnknownMemberType]
+    grouped: DataFrame = df.groupby(  # pyright: ignore[reportUnknownMemberType]
+        ["Crossing", "aep_text"], as_index=False
+    ).first()
     grouped = grouped.where(pd.notna(grouped), None)  # pyright: ignore[reportUnknownMemberType]
     records: list[dict[str, Any]] = grouped.to_dict(  # pyright: ignore[reportAssignmentType, reportUnknownMemberType]
         orient="records"
@@ -385,15 +406,15 @@ def run_fixed_flow_scenarios(
 
     if not rows:
         return {}
-    crossing_name = normalize_field(rows[0], "Crossing")
+    crossing_name: str = normalize_field(rows[0], "Crossing")
     flows: list[FixedFlowScenario] = []
     for row in rows:
-        flow = _flow_value(row)
-        label = aep_flow_label(normalize_field(row, "aep_text"))
-        ds_tailwater = optional_float_value(row, "DS_h", DEFAULT_TAILWATER)
-        invert_tailwater = optional_float_value(row, "DS Invert", ds_tailwater)
-        ds_value = ds_tailwater if ds_tailwater is not None else DEFAULT_TAILWATER
-        zero_value = invert_tailwater if invert_tailwater is not None else ds_value
+        flow: float = _flow_value(row=row)
+        label: str = aep_flow_label(aep_text=normalize_field(row=row, key="aep_text"))
+        ds_tailwater: float | None = optional_float_value(row=row, key="DS_h", default=DEFAULT_TAILWATER)
+        invert_tailwater: float | None = optional_float_value(row=row, key="DS Invert", default=ds_tailwater)
+        ds_value: float = ds_tailwater if ds_tailwater is not None else DEFAULT_TAILWATER
+        zero_value: float = invert_tailwater if invert_tailwater is not None else ds_value
         flows.append(
             FixedFlowScenario(
                 flow=flow,
@@ -404,7 +425,7 @@ def run_fixed_flow_scenarios(
             )
         )
     flows.sort(key=lambda item: item.flow)
-    scenario_workspace: Path | None = workspace_for_scenario(workspace_root, "Fixed Flow Runs")
+    scenario_workspace: Path | None = workspace_for_scenario(root=workspace_root, scenario="Fixed Flow Runs")
     cleanup: bool = False
     if scenario_workspace is None:
         scenario_workspace = Path(tempfile.mkdtemp(prefix="hy8_fixed_flow_"))
@@ -412,7 +433,7 @@ def run_fixed_flow_scenarios(
 
     try:
         hy8_exec_path: Path = hy8_path or resolve_hy8_path()
-        hy8_exec = Hy8Executable(hy8_exec_path)
+        hy8_exec = Hy8Executable(exe_path=hy8_exec_path)
 
         def group_entries(attribute: str) -> list[tuple[float, list[FixedFlowScenario]]]:
             grouped: dict[float, list[FixedFlowScenario]] = {}
@@ -429,28 +450,28 @@ def run_fixed_flow_scenarios(
             if not groups:
                 return scenario_map
             for index, (tailwater_value, group_entries) in enumerate(groups, start=1):
-                suffix = scenario_label if len(groups) == 1 else f"{scenario_label} #{index}"
-                representative = group_entries[0]
-                inputs = inputs_from_row(representative.row, tailwater=tailwater_value)
+                suffix: str = scenario_label if len(groups) == 1 else f"{scenario_label} #{index}"
+                representative: FixedFlowScenario = group_entries[0]
+                inputs: CrossingInputs = inputs_from_row(representative.row, tailwater=tailwater_value)
                 project, base_crossing, diameter, _, _ = build_crossing(representative.row, inputs, representative.flow)
                 base_crossing.name = f"{crossing_name} [{suffix}]"
                 flow_def = FlowDefinition(method=FlowMethod.USER_DEFINED)
                 for entry in sorted(group_entries, key=lambda item: item.flow):
-                    flow_def.add_user_flow(entry.flow, entry.label)
+                    flow_def.add_user_flow(value=entry.flow, label=entry.label)
                 base_crossing.flow = flow_def
                 hy8_file: Path = scenario_workspace / f"{sanitize_workspace_name(base_crossing.name)}.hy8"
-                Hy8FileWriter(project).write(hy8_file, overwrite=True)
-                hy8_exec.open_run_save(hy8_file)
-                rst_map = parse_rst(hy8_file.with_suffix(".rst"))
-                rsql_map = parse_rsql(hy8_file.with_suffix(".rsql"))
-                series = rst_map.get(base_crossing.name)
+                Hy8FileWriter(project=project).write(output_path=hy8_file, overwrite=True)
+                hy8_exec.open_run_save(hy8_file=hy8_file)
+                rst_map: dict[str, Hy8Series] = parse_rst(hy8_file.with_suffix(".rst"))
+                rsql_map: dict[str, list[FlowProfile]] = parse_rsql(hy8_file.with_suffix(".rsql"))
+                series: Hy8Series | None = rst_map.get(base_crossing.name)
                 if not series:
                     raise ValueError(f"HY-8 results missing crossing '{base_crossing.name}'.")
                 results = Hy8Results(series, rsql_map.get(base_crossing.name, []))
                 for entry in group_entries:
-                    row = _select_result_row(results, entry.flow)
-                    headwater = row.headwater_elevation
-                    ratio = (headwater - inputs.inlet_invert) / diameter if diameter else None
+                    row: Hy8ResultRow = _select_result_row(results, entry.flow)
+                    headwater: float = row.headwater_elevation
+                    ratio: float | None = (headwater - inputs.inlet_invert) / diameter if diameter else None
                     scenario_map[entry.label] = ScenarioOutcome(
                         computed_flow=row.flow,
                         headwater=headwater,
@@ -462,8 +483,10 @@ def run_fixed_flow_scenarios(
                     )
             return scenario_map
 
-        ds_results = run_tailwater_groups(group_entries("ds_tailwater"), FLOW_DS_TW_PREFIX)
-        zero_results = run_tailwater_groups(group_entries("zero_tailwater"), FLOW_ZERO_TW_PREFIX)
+        ds_results: dict[str, ScenarioOutcome] = run_tailwater_groups(group_entries("ds_tailwater"), FLOW_DS_TW_PREFIX)
+        zero_results: dict[str, ScenarioOutcome] = run_tailwater_groups(
+            group_entries("zero_tailwater"), FLOW_ZERO_TW_PREFIX
+        )
 
         combined: dict[str, tuple[ScenarioOutcome, ScenarioOutcome]] = {}
         for entry in flows:
@@ -482,9 +505,9 @@ def run_fixed_flow_for_row(
     workspace_root: Path | None,
     keep_workspace: bool,
 ) -> tuple[ScenarioOutcome, ScenarioOutcome]:
-    label = aep_flow_label(normalize_field(row, "aep_text"))
-    outcomes = run_fixed_flow_scenarios(
-        [row],
+    label: str = aep_flow_label(aep_text=normalize_field(row=row, key="aep_text"))
+    outcomes: dict[str, tuple[ScenarioOutcome, ScenarioOutcome]] = run_fixed_flow_scenarios(
+        rows=[row],
         hy8_path=hy8_path,
         workspace_root=workspace_root,
         keep_workspace=keep_workspace,
@@ -510,6 +533,20 @@ def crossing_label(row: dict[str, Any]) -> str:
     crossing: str = normalize_field(row=row, key="Crossing")
     aep: str = normalize_field(row=row, key="aep_text")
     return f"{crossing} ({aep})" if aep else crossing
+
+
+def limit_crossings(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return rows
+    ordered_names: list[str] = []
+    for row in rows:
+        name = normalize_field(row, "Crossing")
+        if name not in ordered_names:
+            ordered_names.append(name)
+        if len(ordered_names) >= limit:
+            break
+    allowed: set[str] = set(ordered_names)
+    return [row for row in rows if normalize_field(row, "Crossing") in allowed]
 
 
 def _flow_value(row: dict[str, Any]) -> float:
@@ -541,12 +578,36 @@ def _flow_seed_hint(value: float, barrel: CulvertBarrel | None) -> float:
     return max(area, MINIMUM_SEED_FLOW)
 
 
+def _safe_flow(value: float | None) -> float | None:
+    """Clamp flow values used for output artifacts."""
+
+    if value is None:
+        return None
+    try:
+        flow = float(value)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(flow) or flow <= 0:
+        return None
+    return max(flow, MINIMUM_SCENARIO_FLOW)
+
+
 def optional_float_value(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     value = row.get(key, default)
     try:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def tailwater_values(row: dict[str, Any]) -> tuple[float, float]:
+    ds_invert = optional_float_value(row, "DS Invert", DEFAULT_OUTLET_INVERT)
+    ds_tailwater = optional_float_value(row, "DS_h")
+    tailwater_value = (
+        ds_tailwater if ds_tailwater is not None else (ds_invert if ds_invert is not None else DEFAULT_TAILWATER)
+    )
+    zero_tailwater = ds_invert if ds_invert is not None else tailwater_value
+    return tailwater_value, zero_tailwater
 
 
 def aep_flow_label(aep_text: str) -> str:
@@ -575,7 +636,7 @@ def build_crossing(
     crossing: CulvertCrossing = CulvertCrossing(name=crossing_name)
     project.crossings.append(crossing)
 
-    initial_flow = flow_value if flow_value > 0 else 0.0
+    initial_flow: float = flow_value if flow_value > 0 else 0.0
     flow_def = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[initial_flow])
     crossing.flow = flow_def
     crossing.tailwater.set_constant(elevation=inputs.tailwater_elevation, invert=inputs.tailwater_elevation)
@@ -610,6 +671,29 @@ def build_crossing(
     return project, crossing, diameter, barrels, barrel
 
 
+def create_project_crossing(
+    row: dict[str, Any],
+    *,
+    scenario_label: str,
+    tailwater: float,
+    flow: float | None,
+) -> CulvertCrossing | None:
+    """Build a standalone crossing for inclusion in the final HY-8 project."""
+
+    safe_flow: float | None = _safe_flow(value=flow)
+    if safe_flow is None:
+        return None
+    inputs: CrossingInputs = inputs_from_row(row, tailwater=tailwater)
+    _, crossing, _, _, _ = build_crossing(row, inputs, safe_flow)
+    crossing.name = f"{crossing_label(row)} - {scenario_label}"
+    flow_def = FlowDefinition(method=FlowMethod.USER_DEFINED)
+    label: str | None = normalize_field(row=row, key="aep_text") or None
+    flow_def.add_user_flow(value=safe_flow, label=label)
+    crossing.flow = flow_def
+    crossing.tailwater.set_constant(elevation=tailwater, invert=tailwater)
+    return crossing
+
+
 def hw_from_q(
     project: Hy8Project,
     crossing: CulvertCrossing,
@@ -641,8 +725,8 @@ def to_scenario_outcome(
     inlet_invert: float,
 ) -> ScenarioOutcome:
     hw_level, hw_ratio, velocity = compute_metrics(result=result, diameter=diameter, inlet_invert=inlet_invert)
-    hw_row = result.row
-    flow_type = hw_row.flow_type if hw_row else None
+    hw_row: Hy8ResultRow | None = result.row
+    flow_type: str | None = hw_row.flow_type if hw_row else None
     overtopping = bool(hw_row and hw_row.overtopping)
     return ScenarioOutcome(
         computed_flow=result.computed_flow,
@@ -685,6 +769,42 @@ def write_results(outcomes: list[CrossingOutcome], path: Path) -> None:
             writer.writerow(outcome.to_row())
 
 
+def write_final_hy8_project(
+    crossing_name: str,
+    rows: list[dict[str, Any]],
+    outcomes: list[CrossingOutcome],
+) -> Path | None:
+    """Create and save a consolidated HY-8 project for the crossing."""
+
+    project = Hy8Project(title=f"{crossing_name} Results", units=UnitSystem.SI, exit_loss_option=0)
+    for row, outcome in zip(rows, outcomes):
+        if not outcome:
+            continue
+        tailwater_value, zero_tailwater = tailwater_values(row)
+        scenario_entries: list[tuple[str, float, float | None]] = [
+            (FLOW_DS_TW_PREFIX, tailwater_value, outcome.q_tailwater.computed_flow),
+            (FLOW_ZERO_TW_PREFIX, zero_tailwater, outcome.q_zero_tailwater.computed_flow),
+            (HW_DATA_LABEL, tailwater_value, outcome.hw_data_tailwater.computed_flow),
+            (HW_RATIO_LABEL, zero_tailwater, outcome.hw_ratio_no_tailwater.computed_flow),
+        ]
+        for label, tailwater, flow in scenario_entries:
+            crossing: CulvertCrossing | None = create_project_crossing(
+                row=row,
+                scenario_label=label,
+                tailwater=tailwater,
+                flow=flow,
+            )
+            if crossing:
+                project.crossings.append(crossing)
+    if not project.crossings:
+        return None
+    PROJECT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    path: Path = PROJECT_OUTPUT_DIR / f"{sanitize_workspace_name(name=crossing_name)}.hy8"
+    Hy8FileWriter(project=project).write(output_path=path, overwrite=True)
+    print(f"Final HY-8 project saved: {path}")
+    return path
+
+
 def make_failure_outcome(row: dict[str, Any], error: Exception) -> CrossingOutcome:
     crossing_name: str = normalize_field(row, "Crossing") or "<unknown>"
     return CrossingOutcome(
@@ -723,9 +843,10 @@ def run_crossing(
     workspace_root: Path | None,
     fixed_flow_overrides: tuple[ScenarioOutcome, ScenarioOutcome] | None = None,
 ) -> CrossingOutcome:
-    crossing_name = crossing_label(row)
-    aep_text = normalize_field(row, "aep_text")
-    flow_value = _flow_value(row)
+    base_crossing_name: str = normalize_field(row=row, key="Crossing") or "<unknown>"
+    crossing_name: str = crossing_label(row=row)
+    aep_text: str = normalize_field(row=row, key="aep_text")
+    flow_value: float = _flow_value(row=row)
 
     def optional_float(key: str, default: float | None = None) -> float | None:
         value = row.get(key, default)
@@ -749,6 +870,8 @@ def run_crossing(
     barrel_length = max(0.0, primary_barrel.outlet_invert_station - primary_barrel.inlet_invert_station)
     roadway_width = crossing.roadway.width
     roadway_elevation = crossing.roadway.elevations[0] if crossing.roadway.elevations else None
+    status = "Success"
+    error_messages: list[str] = []
 
     print(f"Crossing: {crossing.name}")
     if aep_text:
@@ -757,7 +880,7 @@ def run_crossing(
     if flow_value <= 0:
         print("  Warning: Adopted flow is non-positive; using {:.4f} m^3/s to seed headwater solves.".format(flow_hint))
 
-    scenario_workspaces = {
+    scenario_workspaces: dict[str, Path | None] = {
         HW_DATA_LABEL: workspace_for_scenario(workspace, HW_DATA_LABEL),
         HW_RATIO_LABEL: workspace_for_scenario(workspace, HW_RATIO_LABEL),
     }
@@ -771,41 +894,55 @@ def run_crossing(
             workspace_root=workspace,
             keep_workspace=keep_workspace,
         )
-    describe_scenario(FLOW_DS_TW_PREFIX, q_tailwater)
-    describe_scenario(FLOW_ZERO_TW_PREFIX, q_zero_tailwater)
+    describe_scenario(label=FLOW_DS_TW_PREFIX, outcome=q_tailwater)
+    describe_scenario(label=FLOW_ZERO_TW_PREFIX, outcome=q_zero_tailwater)
 
     if us_headwater is None:
         raise ValueError(f"Crossing '{crossing_name}' is missing a US headwater level.")
-    set_tailwater(crossing, tailwater_value)
-    hw_data_result: HydraulicsResult = crossing.q_from_hw(
-        hw=us_headwater,
-        q_hint=flow_hint,
-        hy8=hy8_path,
-        project=project,
-        keep_files=keep_workspace,
-        workspace=scenario_workspaces[HW_DATA_LABEL],
-    )
-    hw_data_tailwater = to_scenario_outcome(result=hw_data_result, diameter=diameter, inlet_invert=inputs.inlet_invert)
+    set_tailwater(crossing=crossing, elevation=tailwater_value)
+    hw_data_tailwater: ScenarioOutcome = ScenarioOutcome()
+    try:
+        hw_data_result: HydraulicsResult = crossing.q_from_hw(
+            hw=us_headwater,
+            q_hint=flow_hint,
+            hy8=hy8_path,
+            project=project,
+            keep_files=keep_workspace,
+            workspace=scenario_workspaces[HW_DATA_LABEL],
+        )
+        hw_data_tailwater = to_scenario_outcome(
+            result=hw_data_result, diameter=diameter, inlet_invert=inputs.inlet_invert
+        )
+    except FlowSearchError as exc:
+        status = "Failed"
+        error_messages.append(f"{HW_DATA_LABEL} search failed: {exc}")
     describe_scenario(HW_DATA_LABEL, hw_data_tailwater)
 
     ratio_headwater = inputs.inlet_invert + (HEADWALL_RATIO_MULTIPLIER * diameter)
     set_tailwater(crossing, zero_tailwater)
-    hw_ratio_result: HydraulicsResult = crossing.q_from_hw(
-        hw=ratio_headwater,
-        q_hint=flow_hint,
-        hy8=hy8_path,
-        project=project,
-        keep_files=keep_workspace,
-        workspace=scenario_workspaces[HW_RATIO_LABEL],
-    )
-    hw_ratio_no_tailwater = to_scenario_outcome(
-        result=hw_ratio_result, diameter=diameter, inlet_invert=inputs.inlet_invert
-    )
+    hw_ratio_no_tailwater: ScenarioOutcome = ScenarioOutcome()
+    try:
+        hw_ratio_result: HydraulicsResult = crossing.q_from_hw(
+            hw=ratio_headwater,
+            q_hint=flow_hint,
+            hy8=hy8_path,
+            project=project,
+            keep_files=keep_workspace,
+            workspace=scenario_workspaces[HW_RATIO_LABEL],
+        )
+        hw_ratio_no_tailwater = to_scenario_outcome(
+            result=hw_ratio_result, diameter=diameter, inlet_invert=inputs.inlet_invert
+        )
+    except FlowSearchError as exc:
+        status = "Failed"
+        error_messages.append(f"{HW_RATIO_LABEL} search failed: {exc}")
     describe_scenario(HW_RATIO_LABEL, hw_ratio_no_tailwater)
     print()
 
+    error_message: str | None = "; ".join(error_messages) if error_messages else None
+
     return CrossingOutcome(
-        crossing=crossing.name,
+        crossing=base_crossing_name,
         aep=aep_text,
         adopted_flow=normalize_field(row, "Adopted Flow (m^3/s)"),
         barrels=normalize_field(row, "Barrels"),
@@ -823,8 +960,8 @@ def run_crossing(
         roadway_elevation=roadway_elevation,
         tailwater_elevation=tailwater_value,
         us_headwater=us_headwater,
-        status="Success",
-        error_message=None,
+        status=status,
+        error_message=error_message,
         q_tailwater=q_tailwater,
         q_zero_tailwater=q_zero_tailwater,
         hw_data_tailwater=hw_data_tailwater,
@@ -879,6 +1016,8 @@ def run_crossing_group(
             fixed_flow_overrides=fixed_outcomes,
         )
         outcomes.append(outcome)
+    crossing_name = normalize_field(rows[0], "Crossing") or "crossing"
+    write_final_hy8_project(crossing_name, rows, outcomes)
     return outcomes
 
 
@@ -887,6 +1026,7 @@ def main() -> None:
     hy8_path: Path | None = Path(HY8_EXE) if HY8_EXE else None
 
     rows_to_run: list[dict[str, Any]] = select_rows(rows=rows, name=CROSSING_NAME)
+    rows_to_run = limit_crossings(rows_to_run, CROSSING_LIMIT)
     workspace_root: Path | None = WORKSPACE_PATH if KEEP_WORKSPACE else None
     if workspace_root:
         workspace_root.mkdir(parents=True, exist_ok=True)
