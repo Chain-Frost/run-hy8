@@ -46,7 +46,13 @@ ROADWAY_WIDTH = 10.0
 TAILWATER = 0.0
 
 HEADWALL_RATIO_MULTIPLIER = 1.5
-VELOCITY_RATIO_FIELD: str = f"Outlet Velocity (HW:D {HEADWALL_RATIO_MULTIPLIER:.2f}) (m/s)"
+INCLUDE_HEADWALL_RATIO_VELOCITY = False
+HEADWALL_RATIO_VELOCITY_ENABLED = INCLUDE_HEADWALL_RATIO_VELOCITY and HEADWALL_RATIO_MULTIPLIER > 0
+VELOCITY_RATIO_FIELD: str | None = (
+    f"Outlet Velocity (HW:D {HEADWALL_RATIO_MULTIPLIER:.2f}) (m/s)"
+    if HEADWALL_RATIO_VELOCITY_ENABLED
+    else None
+)
 
 RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results.csv"
 RESULT_FIELDNAMES: list[str] = [
@@ -72,7 +78,6 @@ RESULT_FIELDNAMES: list[str] = [
     "Headwater Elevation (m)",
     "HW:D ratio",
     "Outlet Velocity (m/s)",
-    VELOCITY_RATIO_FIELD,
     "Flow Type",
     "Overtopping",
     "q_from_hw (m^3/s)",
@@ -80,6 +85,9 @@ RESULT_FIELDNAMES: list[str] = [
     "hw_from_q Workspace",
     "q_from_hw Workspace",
 ]
+if VELOCITY_RATIO_FIELD:
+    flow_type_index = RESULT_FIELDNAMES.index("Flow Type")
+    RESULT_FIELDNAMES.insert(flow_type_index, VELOCITY_RATIO_FIELD)
 
 
 @dataclass(slots=True)
@@ -131,7 +139,7 @@ class CrossingOutcome:
         return "" if value is None else f"{value:.4f}"
 
     def to_row(self) -> dict[str, str]:
-        return {
+        row: dict[str, str] = {
             "Crossing": self.crossing,
             "Adopted Flow (m^3/s)": self.adopted_flow,
             "Barrels": self.barrels,
@@ -154,7 +162,6 @@ class CrossingOutcome:
             "Headwater Elevation (m)": self._format(self.headwater),
             "HW:D ratio": self._format(self.headwater_ratio),
             "Outlet Velocity (m/s)": self._format(self.velocity),
-            VELOCITY_RATIO_FIELD: self._format(self.velocity_at_ratio),
             "Flow Type": self.flow_type or "",
             "Overtopping": ("Yes" if self.overtopping else ("No" if self.overtopping is not None else "")),
             "q_from_hw (m^3/s)": self._format(self.backcheck_flow),
@@ -162,6 +169,9 @@ class CrossingOutcome:
             "hw_from_q Workspace": str(self.hw_workspace) if self.hw_workspace else "",
             "q_from_hw Workspace": str(self.q_workspace) if self.q_workspace else "",
         }
+        if VELOCITY_RATIO_FIELD:
+            row[VELOCITY_RATIO_FIELD] = self._format(self.velocity_at_ratio)
+        return row
 
 
 def load_rows(csv_path: Path) -> list[dict[str, str]]:
@@ -472,23 +482,25 @@ def run_crossing(
     hw_level, hw_ratio, velocity = compute_metrics(
         result=hw_result, diameter=diameter, inlet_invert=inputs.inlet_invert
     )
-    ratio_velocity = velocity_at_hw_ratio(
-        crossing=crossing,
-        project=project,
-        ratio=HEADWALL_RATIO_MULTIPLIER,
-        diameter=diameter,
-        inlet_invert=inputs.inlet_invert,
-        q_hint=flow_value,
-        hy8=hy8_path,
-        keep_files=keep_workspace,
-        workspace=workspace,
-    )
+    ratio_velocity: float | None = None
+    if HEADWALL_RATIO_VELOCITY_ENABLED:
+        ratio_velocity = velocity_at_hw_ratio(
+            crossing=crossing,
+            project=project,
+            ratio=HEADWALL_RATIO_MULTIPLIER,
+            diameter=diameter,
+            inlet_invert=inputs.inlet_invert,
+            q_hint=flow_value,
+            hy8=hy8_path,
+            keep_files=keep_workspace,
+            workspace=workspace,
+        )
     describe(
         result=hw_result,
         hw_ratio=hw_ratio,
         velocity=velocity,
         ratio_velocity=ratio_velocity,
-        ratio_label=HEADWALL_RATIO_MULTIPLIER,
+        ratio_label=HEADWALL_RATIO_MULTIPLIER if HEADWALL_RATIO_VELOCITY_ENABLED else None,
     )
 
     backcheck: HydraulicsResult = crossing.q_from_hw(

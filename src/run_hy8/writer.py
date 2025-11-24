@@ -27,7 +27,7 @@ from .units import cms_to_cfs, metres_to_feet
 class Hy8FileWriter:
     """Writes HY-8 project files (.hy8) from the object model."""
 
-    def __init__(self, project: Hy8Project, *, version: float = 80.0) -> None:
+    def __init__(self, project: Hy8Project, *, version: float = 78.0) -> None:
         self.project: Hy8Project = project
         self.version: float = version
 
