@@ -39,7 +39,7 @@ from .type_helpers import CulvertShape, FlowMethod
 from .results import Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
 from .writer import Hy8FileWriter
 
-MINIMUM_SEED_FLOW: float = 1e-3
+MINIMUM_SEED_FLOW: float = 0.05
 SEED_SCALE_FACTORS: tuple[float, ...] = (0.1, 0.25, 0.5, 1.0, 1.5, 2.0)
 STEP_FRACTION: float = 0.25
 BRACKET_SUBDIVISIONS: int = 5
@@ -182,23 +182,26 @@ class _FlowSearch:
     def bracket(self) -> tuple[_FlowSample, _FlowSample] | None:
         """Return the low/high samples that straddle the target headwater."""
 
-        lows: list[_FlowSample] = []
-        highs: list[_FlowSample] = []
-        for sample in self.samples:
-            if math.isnan(sample.headwater):
+        ordered: list[_FlowSample] = sorted(
+            (sample for sample in self.samples if not math.isnan(sample.headwater)),
+            key=lambda sample: sample.flow,
+        )
+        best_pair: tuple[_FlowSample, _FlowSample] | None = None
+        best_span: float = float("inf")
+        for low, high in zip(ordered, ordered[1:]):
+            low_delta: float = self._delta(sample=low)
+            high_delta: float = self._delta(sample=high)
+            if abs(low_delta) <= self.tolerance or abs(high_delta) <= self.tolerance:
                 continue
-            delta: float = self._delta(sample=sample)
-            if delta <= 0:
-                lows.append(sample)
-            if delta >= 0:
-                highs.append(sample)
-        if not lows or not highs:
-            return None
-        low: _FlowSample = max(lows, key=lambda s: s.flow)
-        high: _FlowSample = min(highs, key=lambda s: s.flow)
-        if low.flow == high.flow and abs(self._delta(sample=low)) > self.tolerance:
-            return None
-        return low, high
+            if low_delta == 0 or high_delta == 0 or low_delta * high_delta > 0:
+                continue
+            span: float = high.flow - low.flow
+            if span <= 0:
+                continue
+            if span < best_span:
+                best_span = span
+                best_pair = (low, high)
+        return best_pair
 
     def next_guess(self) -> float | None:
         """Return the next flow to evaluate when no bracket exists yet."""
@@ -570,9 +573,16 @@ def crossing_q_from_hw(
                     guess = low.flow + ((hw - low.headwater) / slope) * (high.flow - low.flow)
                 samples: list[_FlowSample] = run_flow_batch(flows=[guess], label="Interpolation")
                 if samples:
-                    final_row = samples[0].row
-                    final_flow = samples[0].flow
-                break
+                    matched = False
+                    for sample in samples:
+                        if finalize_if_close(sample=sample):
+                            matched = True
+                            break
+                    if matched:
+                        break
+                if len(search.samples) >= search.max_runs:
+                    break
+                continue
             next_guess: float | None = search.next_guess()
             if next_guess is None:
                 break

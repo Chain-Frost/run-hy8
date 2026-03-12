@@ -218,3 +218,8 @@ hy8_benchmark_summary_tmp.csv
 scripts/Rev A Report Culverts.xlsx
 **/tmp_*.py
 scripts/hy8-projects/*.hy8
+scripts/hy8-projects-meta/*.hy8
+scripts/working/*
+scripts/culvert-results-1dnwk.csv
+inspect_excel.py
+show_lines.py
