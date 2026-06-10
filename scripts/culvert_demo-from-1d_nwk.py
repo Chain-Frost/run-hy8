@@ -18,14 +18,14 @@ from run_hy8.models import CulvertBarrel, CulvertCrossing, FlowDefinition, Hy8Pr
 from run_hy8.type_helpers import CulvertMaterial, CulvertShape, FlowMethod, InletEdgeType, InletType
 
 INPUT_GIS_FILE = Path(
-    r"\\bge-resources.com\WA\BGER\PER\RP20181.541 MLYA RAR UPGRADE - RTIO\4 ENGINEERING\9 GIS\RAR_Selected_Culverts_TUFLOW.gpkg"
+    r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\model\gis\GD02\1d_nwk_GD02_001_L.gpkg"
 )
 INPUT_LAYER: str | None = None
 CROSSING_NAME: str | None = None
 HY8_EXE: str | None = None
 KEEP_WORKSPACE: bool = True
 WORKSPACE_PATH: Path = Path("C:/Temp/hy8")
-RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results-1dnwk.csv"
+RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results-GD2-1dnwk.csv"
 MAX_WORKERS = 10
 CROSSING_LIMIT = 0
 ROADWAY_WIDTH = 10.0
@@ -41,7 +41,7 @@ LENGTH_FIELD = "Len_or_ANA"
 MANNING_FIELD = "n_nF_Cd"
 US_INVERT_FIELD = "US_Invert"
 DS_INVERT_FIELD = "DS_Invert"
-DIAMETER_FIELDS: tuple[str, ...] = ("Width_or_D", "Width_or_Diameter")
+DIAMETER_FIELDS: tuple[str, ...] = ("Width_or_D", "Width_or_Diameter", "Width_or_Dia")
 BARRELS_FIELDS: tuple[str, ...] = ("Number_of", "num_barrels", "Barrels")
 
 RESULT_FIELDNAMES: list[str] = [
