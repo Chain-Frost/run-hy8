@@ -5,16 +5,18 @@ from __future__ import annotations
 import csv
 import math
 import sys
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+from pandas import DataFrame
 from run_hy8.classes_references import UnitSystem
 from run_hy8.hydraulics import FlowSearchError, HydraulicsResult
 from run_hy8.hy8_path import resolve_hy8_path
 from run_hy8.models import CulvertBarrel, CulvertCrossing, FlowDefinition, Hy8Project, RoadwayProfile
+from run_hy8.results import Hy8ResultRow
 from run_hy8.type_helpers import CulvertMaterial, CulvertShape, FlowMethod, InletEdgeType, InletType
 
 INPUT_GIS_FILE = Path(
@@ -25,7 +27,7 @@ CROSSING_NAME: str | None = None
 HY8_EXE: str | None = None
 KEEP_WORKSPACE: bool = True
 WORKSPACE_PATH: Path = Path("C:/Temp/hy8")
-RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results-GD2-1dnwk.csv"
+RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results-1dnwk-GD2-Brenda.csv"
 MAX_WORKERS = 10
 CROSSING_LIMIT = 0
 ROADWAY_WIDTH = 10.0
@@ -186,18 +188,18 @@ def read_gis_records(path: Path, *, layer: str | None = None) -> list[dict[str, 
     kwargs: dict[str, Any] = {}
     if layer:
         kwargs["layer"] = layer
-    gdf = gpd.read_file(path, **kwargs)
+    gdf: DataFrame = gpd.read_file(path, **kwargs) # pyright: ignore[reportUnknownMemberType]
     if gdf.empty:
         raise ValueError(f"No features found in GIS file: {path}")
     gdf = gdf.where(gdf.notna(), None)
-    records: list[dict[str, Any]] = gdf.to_dict(orient="records")
+    records: list[dict[str, Any]] = gdf.to_dict(orient="records") # pyright: ignore[reportAssignmentType]
     return records
 
 
 def normalize_text(value: Any) -> str:
     if value is None:
         return ""
-    text = str(value).strip()
+    text: str = str(value).strip()
     return "" if text.lower() == "none" else text
 
 
@@ -224,37 +226,37 @@ def first_present_value(row: dict[str, Any], field_names: tuple[str, ...]) -> tu
     for field_name in field_names:
         if field_name in row and row.get(field_name) not in (None, ""):
             return field_name, row.get(field_name)
-    joined = ", ".join(field_names)
+    joined: str = ", ".join(field_names)
     raise ValueError(f"Missing required field. Expected one of: {joined}.")
 
 
 def crossing_name_from_row(row: dict[str, Any], source_row: int) -> str:
-    name = normalize_text(row.get(NAME_FIELD))
+    name: str = normalize_text(row.get(NAME_FIELD))
     return name or f"culvert_{source_row:04d}"
 
 
 def row_to_record(row: dict[str, Any], source_row: int) -> CrossingRecord:
-    source_type = normalize_text(row.get(TYPE_FIELD)).upper()
+    source_type: str = normalize_text(row.get(TYPE_FIELD)).upper()
     if source_type != "C":
         raise ValueError(f"Unsupported culvert type '{source_type or '<blank>'}'. Only 'C' is supported.")
 
-    _, diameter_raw = first_present_value(row, DIAMETER_FIELDS)
-    diameter = optional_float(diameter_raw)
+    _, diameter_raw = first_present_value(row=row, field_names=DIAMETER_FIELDS)
+    diameter: float | None = optional_float(value=diameter_raw)
     if diameter is None or diameter <= 0:
         raise ValueError("Missing or invalid diameter field.")
 
-    length = require_float(row, LENGTH_FIELD)
+    length: float = require_float(row=row, field_name=LENGTH_FIELD)
     if length <= 0:
         raise ValueError(f"'{LENGTH_FIELD}' must be greater than zero.")
 
-    inlet_invert = require_float(row, US_INVERT_FIELD)
-    outlet_invert = require_float(row, DS_INVERT_FIELD)
+    inlet_invert: float = require_float(row=row, field_name=US_INVERT_FIELD)
+    outlet_invert: float = require_float(row=row, field_name=DS_INVERT_FIELD)
 
-    manning_n = optional_float(row.get(MANNING_FIELD), default=DEFAULT_MANNING_N)
+    manning_n: float | None = optional_float(value=row.get(MANNING_FIELD), default=DEFAULT_MANNING_N)
     if manning_n is None or manning_n <= 0:
         raise ValueError(f"Missing or invalid '{MANNING_FIELD}'.")
 
-    barrels = DEFAULT_BARRELS
+    barrels:int = DEFAULT_BARRELS
     try:
         _, barrels_raw = first_present_value(row, BARRELS_FIELDS)
     except ValueError:
@@ -285,9 +287,9 @@ def load_records(path: Path, *, layer: str | None = None) -> list[CrossingRecord
     records: list[CrossingRecord] = []
     for source_row, row in enumerate(raw_rows, start=1):
         try:
-            record = row_to_record(row, source_row)
+            record: CrossingRecord = row_to_record(row, source_row)
         except ValueError as exc:
-            name = crossing_name_from_row(row, source_row)
+            name: str = crossing_name_from_row(row, source_row)
             record = CrossingRecord(
                 source_row=source_row,
                 crossing=name,
@@ -305,7 +307,7 @@ def load_records(path: Path, *, layer: str | None = None) -> list[CrossingRecord
 
 def select_records(records: list[CrossingRecord], name: str | None) -> list[CrossingRecord]:
     if name:
-        filtered = [record for record in records if record.crossing == name]
+        filtered: list[CrossingRecord] = [record for record in records if record.crossing == name]
         if not filtered:
             raise ValueError(f"Crossing '{name}' not found in GIS input.")
         return filtered
@@ -340,7 +342,7 @@ def build_crossing(record: CrossingRecord) -> tuple[Hy8Project, CulvertCrossing]
     roadway: RoadwayProfile = crossing.roadway
     roadway.width = ROADWAY_WIDTH
     roadway.stations = [0.0, ROADWAY_WIDTH]
-    roadway_elevation = record.inlet_invert + ROADWAY_FREEBOARD
+    roadway_elevation: float = record.inlet_invert + ROADWAY_FREEBOARD
     roadway.elevations = [roadway_elevation, roadway_elevation]
 
     barrel = CulvertBarrel(
@@ -362,19 +364,19 @@ def build_crossing(record: CrossingRecord) -> tuple[Hy8Project, CulvertCrossing]
     crossing.culverts.clear()
     crossing.culverts.append(barrel)
 
-    errors = crossing.validate()
+    errors: list[str] = crossing.validate()
     if errors:
         raise ValueError("; ".join(errors))
     return project, crossing
 
 
 def seed_flow_hint(record: CrossingRecord) -> float:
-    area = math.pi * (record.diameter**2) / 4.0
+    area: float = math.pi * (record.diameter**2) / 4.0
     return max(area * max(record.barrels, 1), MINIMUM_SEED_FLOW)
 
 
 def to_scenario_outcome(result: HydraulicsResult, record: CrossingRecord) -> ScenarioOutcome:
-    row = result.row
+    row: Hy8ResultRow | None = result.row
     if row is None:
         return ScenarioOutcome(
             headwater=result.computed_headwater,
@@ -443,9 +445,9 @@ def run_crossing(
     if record.precheck_error:
         return make_failure_outcome(record, ValueError(record.precheck_error))
 
-    project, crossing = build_crossing(record)
-    q_hint = seed_flow_hint(record)
-    crossing_workspace = workspace_for_crossing(workspace_root, record.source_row, record.crossing)
+    project, crossing = build_crossing(record=record)
+    q_hint: float = seed_flow_hint(record=record)
+    crossing_workspace: Path | None = workspace_for_crossing(root=workspace_root, source_row=record.source_row, name=record.crossing)
 
     print(f"Crossing: {record.crossing}")
     print(f"  Source row: {record.source_row}")
@@ -459,11 +461,11 @@ def run_crossing(
     status = "Success"
 
     for ratio in HEADWATER_RATIOS:
-        label = f"HW:D = {ratio:.2f}"
-        scenario_workspace = workspace_for_scenario(crossing_workspace, label)
-        target_headwater = record.inlet_invert + (ratio * record.diameter)
+        label: str = f"HW:D = {ratio:.2f}"
+        scenario_workspace: Path | None = workspace_for_scenario(root=crossing_workspace, scenario=label)
+        target_headwater: float = record.inlet_invert + (ratio * record.diameter)
         try:
-            result = crossing.q_from_hw(
+            result: HydraulicsResult = crossing.q_from_hw(
                 hw=target_headwater,
                 q_hint=q_hint,
                 hy8=hy8_path,
@@ -471,7 +473,7 @@ def run_crossing(
                 keep_files=keep_workspace,
                 workspace=scenario_workspace,
             )
-            outcome = to_scenario_outcome(result=result, record=record)
+            outcome: ScenarioOutcome = to_scenario_outcome(result=result, record=record)
             outcomes[ratio] = outcome
         except FlowSearchError as exc:
             status = "Failed"
@@ -514,8 +516,8 @@ def _crossing_worker(
     payload: tuple[CrossingRecord, str | None, bool, str | None],
 ) -> CrossingOutcome:
     record, hy8_str, keep_workspace, workspace_str = payload
-    hy8_path = Path(hy8_str) if hy8_str else None
-    workspace_root = Path(workspace_str) if workspace_str else None
+    hy8_path: Path | None = Path(hy8_str) if hy8_str else None
+    workspace_root: Path | None = Path(workspace_str) if workspace_str else None
     try:
         return run_crossing(
             record=record,
@@ -524,32 +526,32 @@ def _crossing_worker(
             workspace_root=workspace_root,
         )
     except Exception as exc:  # pragma: no cover - worker best effort
-        return make_failure_outcome(record, exc)
+        return make_failure_outcome(record=record, error=exc)
 
 
 def main() -> None:
-    hy8_path = Path(HY8_EXE) if HY8_EXE else resolve_hy8_path()
+    hy8_path: Path = Path(HY8_EXE) if HY8_EXE else resolve_hy8_path()
     workspace_root: Path | None = WORKSPACE_PATH if KEEP_WORKSPACE else None
     if workspace_root:
         workspace_root.mkdir(parents=True, exist_ok=True)
 
-    records = load_records(path=INPUT_GIS_FILE, layer=INPUT_LAYER)
-    records_to_run = select_records(records=records, name=CROSSING_NAME)
-    records_to_run = limit_crossings(records_to_run, CROSSING_LIMIT)
+    records: list[CrossingRecord] = load_records(path=INPUT_GIS_FILE, layer=INPUT_LAYER)
+    records_to_run: list[CrossingRecord] = select_records(records=records, name=CROSSING_NAME)
+    records_to_run = limit_crossings(records=records_to_run, limit=CROSSING_LIMIT)
 
-    hy8_str = str(hy8_path) if hy8_path else None
-    workspace_str = str(workspace_root) if workspace_root else None
-    payloads = [(record, hy8_str, KEEP_WORKSPACE, workspace_str) for record in records_to_run]
+    hy8_str: str | None = str(hy8_path) if hy8_path else None
+    workspace_str: str | None = str(workspace_root) if workspace_root else None
+    payloads: list[tuple[CrossingRecord, str | None, bool, str | None]] = [(record, hy8_str, KEEP_WORKSPACE, workspace_str) for record in records_to_run]
 
     results: list[CrossingOutcome | None] = [None] * len(payloads)
     had_errors = False
     if payloads:
-        max_workers = min(MAX_WORKERS, len(payloads)) or 1
+        max_workers: int = min(MAX_WORKERS, len(payloads)) or 1
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(_crossing_worker, payload): index for index, payload in enumerate(payloads)}
+            futures: dict[Future[CrossingOutcome], int] = {executor.submit(_crossing_worker, payload): index for index, payload in enumerate(payloads)}
             for future in as_completed(futures):
-                index = futures[future]
-                outcome = future.result()
+                index: int = futures[future]
+                outcome: CrossingOutcome = future.result()
                 results[index] = outcome
                 if outcome.status != "Success":
                     print(
@@ -558,9 +560,9 @@ def main() -> None:
                     )
                     had_errors = True
 
-    completed = [result for result in results if result]
+    completed: list[CrossingOutcome] = [result for result in results if result]
     if completed:
-        write_results(completed, RESULTS_OUTPUT)
+        write_results(outcomes=completed, path=RESULTS_OUTPUT)
         print(f"Results saved to: {RESULTS_OUTPUT}")
     else:
         print("No results were generated.")

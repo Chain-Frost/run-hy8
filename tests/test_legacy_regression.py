@@ -34,6 +34,8 @@ PROJECT_BUILDERS: list[tuple[str, Callable[[], Hy8Project]]] = [
     ("user_defined", build_user_defined_project),
 ]
 
+pytestmark = pytest.mark.legacy_parity
+
 
 @pytest.mark.parametrize(("name", "builder"), PROJECT_BUILDERS, ids=[name for name, _ in PROJECT_BUILDERS])
 def test_generated_file_matches_legacy(tmp_path: Path, name: str, builder: Callable[[], Hy8Project]) -> None:

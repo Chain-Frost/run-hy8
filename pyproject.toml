@@ -13,6 +13,7 @@ authors = [{name = "Codex scaffolding"}]
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
+    "loguru>=0.7",
     "pandas>=2.0",
 ]
 classifiers = [
@@ -24,7 +25,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["build", "pyright", "ruff", "pytest", "pytest-cov", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
+dev = ["build", "pandas-stubs", "pyright", "ruff", "pytest", "pytest-cov", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -33,8 +34,17 @@ where = ["src"]
 line-length = 120
 
 [tool.pyright]
-pythonVersion = "3.13"
+include = ["src/run_hy8"]
+exclude = ["build", "dist", "disttest", "scripts", "tests", "**/__pycache__", "**/node_modules", "**/.*"]
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider -m \"not legacy_parity\""
+norecursedirs = [".git", ".pytest_cache", "build", "dist", "disttest", "pytest-cache-files-*"]
+markers = [
+    "legacy_parity: compares run-hy8 output against the older Hy8Runner implementation; not part of default package correctness checks",
+]
 
 [tool.black]
 line-length = 120

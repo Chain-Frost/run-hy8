@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts.sample_crossing_compare import (
     build_builtin_scenarios,
     _normalized_lines,
@@ -11,6 +13,8 @@ from scripts.sample_crossing_compare import (
     write_with_hy8runner,
     write_with_run_hy8,
 )
+
+pytestmark = pytest.mark.legacy_parity
 
 
 def test_sample_scenario_files_match(tmp_path: Path) -> None:
