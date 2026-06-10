@@ -15,7 +15,7 @@ if not exist "%LOCAL_DIST_DIR%" (
     echo Failed to prepare local dist directory at %LOCAL_DIST_DIR%.
     exit /b 1
 )
-python -c "import os, shutil; src=os.environ['PROJECT_ROOT']; dst=os.environ['LOCAL_STAGE_DIR']; ignore=shutil.ignore_patterns('.git','dist','build','disttest','__pycache__'); shutil.copytree(src, dst, dirs_exist_ok=True, ignore=ignore)"
+python -c "import os, shutil; src=os.environ['PROJECT_ROOT']; dst=os.environ['LOCAL_STAGE_DIR']; ignore=shutil.ignore_patterns('.git','dist','build','disttest','__pycache__','.pytest_cache','pytest-cache-files-*'); shutil.copytree(src, dst, dirs_exist_ok=True, ignore=ignore)"
 if errorlevel 1 (
     echo Failed to copy project into the local staging area.
     exit /b 1

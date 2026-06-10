@@ -9,7 +9,6 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
-dist/
 disttest/
 pytest-cache-files-*/
 develop-eggs/
