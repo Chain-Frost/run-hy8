@@ -6,7 +6,7 @@ requires = ["setuptools", "wheel"]
 name = "hy8Runner"
 description = "Run HY-8 with commandline arguments"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dynamic = ["version"]
 
 dependencies = []
@@ -45,6 +45,6 @@ exclude = '''
 '''
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 exclude = [".venv", "build", ".mypy_cache"]

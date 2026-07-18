@@ -1,63 +1,75 @@
 # Development and Contribution Guidelines
 
-This document outlines the development process and coding standards for the `run-hy8` project. It is intended for the primary author and authorized AI agents who perform modifications to the codebase.
+This project targets Windows and Python 3.14. The coding conventions in
+[`agents.md`](agents.md) apply to human and automated contributors.
 
-The goal is to maintain a high level of code quality, consistency, and automation. All contributions, whether from a human or an agent, must adhere to these guidelines.
+## Development setup
 
-## Core Principles
+Create and activate a Python 3.14 virtual environment from the repository root.
 
-The foundational conventions for all code changes are defined in `docs/agents.md`. This file is the source of truth for coding standards. Key principles include:
+For PowerShell:
 
-*   **Strict Type Hinting**: All code must be `pyright`-clean in strict mode. No exceptions.
-*   **Automated Tooling**: Code is formatted with `ruff format` and linted with `ruff check`. All changes must pass these checks.
-*   **Testing**: New features require corresponding tests. Bug fixes should include a regression test to prevent recurrence.
-*   **Clarity and Simplicity**: Code should be clear, well-commented, and easy for both human and AI agents to understand and modify.
+```powershell
+py -3.14 -m venv .venv
+.venv\Scripts\Activate.ps1
+```
 
-## Development Environment Setup
+For Command Prompt:
 
-To get your development environment set up, please follow these steps:
+```cmd
+py -3.14 -m venv .venv
+.venv\Scripts\activate.bat
+```
 
-1.  Ensure you are in the root directory of the repository.
-2.  Create and activate a virtual environment. This is the recommended approach to ensure dependency isolation. This project requires Python 3.13+.
+Install the package and development tools:
 
-    For **PowerShell**:
-    ```powershell
-    python -m venv .venv
-    .venv\Scripts\Activate.ps1
-    ```
-    For **Command Prompt** (`cmd.exe`):
-    ```cmd
-    python -m venv .venv
-    .venv\Scripts\activate.bat
-    ```
-3.  Install the project in editable mode with all development dependencies:
-    ```powershell
-    pip install -e .[dev]
-    ```
+```powershell
+python -m pip install -e .[dev]
+```
 
-## Development Workflow
+## Required checks
 
-All changes, whether for new features, bug fixes, or refactoring, should follow this process:
+Run these checks before committing:
 
-1.  Create a new feature branch from `main`:
-    ```powershell
-    git checkout -b name-of-your-change
-    ```
-2.  Make the necessary code modifications.
-3.  Apply formatting and linting:
-    ```powershell
-    ruff format .
-    ruff check . --fix
-    ```
-4.  Verify correctness with the type checker and test suite:
-    ```powershell
-    pyright src/run_hy8
-    python -m pytest
-    ```
-5.  Commit the changes with a clear and descriptive commit message.
-6.  Once work is complete and verified, merge the changes back into the `main` branch.
-    ```powershell
-    git checkout main
-    git merge name-of-your-change
-    git branch -d name-of-your-change
-    ```
+```powershell
+ruff format .
+ruff check . --fix
+pyright src/run_hy8
+python -m pytest
+```
+
+GitHub Actions runs the non-HY-8 checks for pushes to `main` and for pull
+requests. Tests marked `requires_hy8` are skipped when the HY-8 executable is
+not installed.
+
+## Git workflow
+
+The repository uses two contribution paths:
+
+- The maintainer and authorized local Codex sessions may commit directly to
+  `main` after the required checks pass.
+- External contributors must work on a branch or fork and open a pull request.
+  Their changes are merged only after review and successful CI checks.
+
+External contributors can start a branch with:
+
+```powershell
+git switch -c descriptive-change-name
+```
+
+Keep commits focused and use messages that describe the outcome of the change.
+Do not force-push or delete `main`.
+
+## Line endings
+
+The checked-in `.gitattributes` file stores text as LF while keeping Windows
+batch files as CRLF. Let Git perform this conversion; do not commit bulk
+line-ending-only changes.
+
+## Build artifacts
+
+The current wheel in `dist/` is intentionally committed so a known working
+build can be shared directly from the repository. Keep only the current build,
+replace it when the project version changes, and commit it with the source and
+version update that produced it. These small wheels belong in ordinary Git and
+must not be moved to Git LFS.

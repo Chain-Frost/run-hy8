@@ -48,6 +48,7 @@ def test_loads_example_crossings(tmp_path: Path) -> None:
     assert any(line.startswith("ENDCROSSING") and '"Two culverts one crossing"' in line for line in lines)
 
 
+@pytest.mark.requires_hy8
 def test_example_crossings_results_match(tmp_path: Path) -> None:
     hy8_path: Path = Hy8Executable.default_path()
     if not hy8_path.exists():

@@ -1,8 +1,9 @@
 # run-hy8
+
 run hy8 and parse outputs via python
 
 Utilities for assembling HY-8 project files and running the HY-8 executable from Python. The focus is on a
-pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.13 as the only
+pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.14 as the only
 supported runtime.
 
 ## Highlights
@@ -14,29 +15,29 @@ supported runtime.
   library intentionally supports a *subset* of HY-8 features (constant tailwater elevation, paved/gravel/user
   roadway surfaces, circle/box culverts). When a configuration requires more advanced HY-8 options we surface a
   clear error that instructs the caller to finish the edit in the HY-8 GUI.
-- Small CLI scaffold (`python -m run_hy8`) that can emit a demo file or build projects from 
+- Small CLI scaffold (`python -m run_hy8`) that can emit a demo file or build projects from
   JSON configs, and a `validate-only` mode to lint configs without writing any files.
 
 ## Project Structure
 
 The `run-hy8` project is organized into the following modules:
 
--   **`run_hy8.models`**: Contains the core data classes that represent the HY-8 project structure, including `Hy8Project`, `CulvertCrossing`, `CulvertBarrel`, `FlowDefinition`, `TailwaterDefinition`, and `RoadwayProfile`.
--   **`run_hy8.reader`**: Handles the parsing of existing HY-8 project files (`.hy8`) into the object model.
--   **`run_hy8.writer`**: Serializes the object model back into HY-8 project files.
--   **`run_hy8.executor`**: Provides a wrapper around the HY-8 command-line executable for running simulations.
--   **`run_hy8.hydraulics`**: Contains helper functions for running hydraulic scenarios and parsing the results.
--   **`run_hy8.results`**: Parses the HY-8 output files (`.rst` and `.rsql`) into a more usable format.
--   **`run_hy8.cli`**: Implements the command-line interface for the `run-hy8` package.
--   **`run_hy8.config`**: Handles the loading of project configurations from JSON files.
--   **`run_hy8.classes_references`**: Contains core data classes and references for `run-hy8`.
--   **`run_hy8.type_helpers`**: Contains enums and enum helpers shared between HY-8 domain models.
--   **`run_hy8.units`**: Contains unit conversion helpers shared across the `run-hy8` domain.
+- **`run_hy8.models`**: Contains the core data classes that represent the HY-8 project structure, including `Hy8Project`, `CulvertCrossing`, `CulvertBarrel`, `FlowDefinition`, `TailwaterDefinition`, and `RoadwayProfile`.
+- **`run_hy8.reader`**: Handles the parsing of existing HY-8 project files (`.hy8`) into the object model.
+- **`run_hy8.writer`**: Serializes the object model back into HY-8 project files.
+- **`run_hy8.executor`**: Provides a wrapper around the HY-8 command-line executable for running simulations.
+- **`run_hy8.hydraulics`**: Contains helper functions for running hydraulic scenarios and parsing the results.
+- **`run_hy8.results`**: Parses the HY-8 output files (`.rst` and `.rsql`) into a more usable format.
+- **`run_hy8.cli`**: Implements the command-line interface for the `run-hy8` package.
+- **`run_hy8.config`**: Handles the loading of project configurations from JSON files.
+- **`run_hy8.classes_references`**: Contains core data classes and references for `run-hy8`.
+- **`run_hy8.type_helpers`**: Contains enums and enum helpers shared between HY-8 domain models.
+- **`run_hy8.units`**: Contains unit conversion helpers shared across the `run-hy8` domain.
 
 ## Quick Start
 
 ```powershell
-py -3.13 -m venv .venv
+py -3.14 -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e .
 ```

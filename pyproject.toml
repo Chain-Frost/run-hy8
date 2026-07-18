@@ -8,7 +8,7 @@ version = "2026.06.10.1"
 description = "Windows-only utilities for generating and executing HY-8 projects"
 readme = "README.md"
 keywords = ["hydraulics", "culvert", "HY-8", "engineering"]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 authors = [{name = "Codex scaffolding"}]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -17,7 +17,7 @@ dependencies = [
     "pandas>=2.0",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: Microsoft :: Windows",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
@@ -32,6 +32,10 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# Repository scripts adjust sys.path before importing the local package.
+"scripts/*.py" = ["E402"]
 
 [tool.pyright]
 include = ["src/run_hy8"]

@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+# Windows command scripts need CRLF when executed by cmd.exe.
+*.bat text eol=crlf
+
+# Build and test fixtures are binary and must never be line-normalized.
+*.whl binary -eol
+*.xlsx binary -eol

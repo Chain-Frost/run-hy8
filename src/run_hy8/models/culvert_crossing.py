@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, TYPE_CHECKING, cast
-from _collections_abc import Mapping
 from loguru import logger
 from .base import Validatable, normalize_mapping, normalize_sequence
 from ..classes_references import UnitSystem

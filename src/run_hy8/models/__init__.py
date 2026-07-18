@@ -16,13 +16,11 @@ from .roadway_profile import RoadwayProfile
 from .culvert_barrel import CulvertBarrel
 from .culvert_crossing import CulvertCrossing
 from .project import Hy8Project
-from ..type_helpers import FlowMethod
 
 __all__: list[str] = [
     "FlowMethod",
     "Validatable",
     "FlowDefinition",
-    "FlowMethod",
     "TailwaterDefinition",
     "RoadwayProfile",
     "CulvertBarrel",

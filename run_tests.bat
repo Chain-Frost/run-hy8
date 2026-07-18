@@ -8,7 +8,7 @@ if "%~1"=="" (
     set "PYTEST_ARGS=%*"
 )
 
-py -3.13 -m pytest %PYTEST_ARGS%
+py -3.14 -m pytest %PYTEST_ARGS%
 set "EXIT_CODE=%ERRORLEVEL%"
 
 popd

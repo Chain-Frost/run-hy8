@@ -1,4 +1,4 @@
-## Agent & Contributor Notes
+# Agent & Contributor Notes
 
 These utilities are edited frequently by automated agents in the Codex CLI. Keep these conventions in mind so strict
 type checking and future automation continue to work smoothly.
