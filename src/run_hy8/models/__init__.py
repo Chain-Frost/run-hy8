@@ -8,6 +8,7 @@ in-memory representation that can be serialized to or from HY-8 files.
 
 from __future__ import annotations
 
+from ..type_helpers import FlowMethod
 from .base import Validatable
 from .flow_definition import FlowDefinition
 from .tailwater_definition import TailwaterDefinition
@@ -17,6 +18,7 @@ from .culvert_crossing import CulvertCrossing
 from .project import Hy8Project
 
 __all__: list[str] = [
+    "FlowMethod",
     "Validatable",
     "FlowDefinition",
     "TailwaterDefinition",

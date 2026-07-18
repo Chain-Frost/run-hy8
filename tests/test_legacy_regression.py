@@ -35,6 +35,7 @@ PROJECT_BUILDERS: list[tuple[str, Callable[[], Hy8Project]]] = [
 ]
 
 
+@pytest.mark.requires_hy8
 @pytest.mark.parametrize(("name", "builder"), PROJECT_BUILDERS, ids=[name for name, _ in PROJECT_BUILDERS])
 def test_generated_file_matches_legacy(tmp_path: Path, name: str, builder: Callable[[], Hy8Project]) -> None:
     project: Hy8Project = builder()

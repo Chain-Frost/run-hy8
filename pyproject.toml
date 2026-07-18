@@ -34,5 +34,10 @@ line-length = 120
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
 
+[tool.pytest.ini_options]
+markers = [
+    "requires_hy8: marks tests that require the HY-8 executable (deselect with '-m \"not requires_hy8\"')",
+]
+
 [tool.black]
 line-length = 120

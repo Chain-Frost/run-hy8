@@ -14,7 +14,7 @@ from .sample_data import build_sample_project
 
 def test_tailwater_must_be_constant(tmp_path: Path) -> None:
     project: Hy8Project = build_sample_project()
-    project.crossings[0].tailwater.type = TailwaterType.RECTANGULAR
+    project.crossings[0].tailwater.tw_type = TailwaterType.RECTANGULAR
 
     errors: list[str] = project.crossings[0].validate("Sample Crossing: ")
     assert any("not supported" in message for message in errors)
@@ -36,10 +36,10 @@ def test_user_defined_flows_must_increase() -> None:
     assert any("increasing" in message for message in errors)
 
 
-def test_user_defined_flows_require_two_values() -> None:
-    flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[10.0])
+def test_user_defined_flows_require_one_value() -> None:
+    flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[])
     errors: list[str] = flow.validate("Flow: ")
-    assert any("at least two" in message for message in errors)
+    assert any("at least one" in message for message in errors)
 
 
 def test_min_design_max_requires_three_flows() -> None:

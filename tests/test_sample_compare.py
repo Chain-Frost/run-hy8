@@ -13,6 +13,9 @@ from scripts.sample_crossing_compare import (
 )
 
 
+import pytest
+
+@pytest.mark.requires_hy8
 def test_sample_scenario_files_match(tmp_path: Path) -> None:
     """Write sample scenarios with both implementations and compare the hy8 output."""
 
