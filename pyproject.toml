@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "run-hy8"
-version = "2025.11.21.1"
+version = "2026.06.10.1"
 description = "Windows-only utilities for generating and executing HY-8 projects"
 readme = "README.md"
 keywords = ["hydraulics", "culvert", "HY-8", "engineering"]
@@ -12,7 +12,10 @@ requires-python = ">=3.13"
 authors = [{name = "Codex scaffolding"}]
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = []
+dependencies = [
+    "loguru>=0.7",
+    "pandas>=2.0",
+]
 classifiers = [
     "Programming Language :: Python :: 3.13",
     "Operating System :: Microsoft :: Windows",
@@ -22,7 +25,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["build", "pyright", "ruff", "pytest", "pytest-cov", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
+dev = ["build", "pandas-stubs", "pyright", "ruff", "pytest", "pytest-cov", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -31,13 +34,19 @@ where = ["src"]
 line-length = 120
 
 [tool.pyright]
-pythonVersion = "3.13"
+include = ["src/run_hy8"]
+exclude = ["build", "dist", "disttest", "scripts", "tests", "**/__pycache__", "**/node_modules", "**/.*"]
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
+addopts = "-p no:cacheprovider -m \"not legacy_parity\""
+norecursedirs = [".git", ".pytest_cache", "build", "dist", "disttest", "pytest-cache-files-*"]
 markers = [
-    "requires_hy8: marks tests that require the HY-8 executable (deselect with '-m \"not requires_hy8\"')",
+    "legacy_parity: compares run-hy8 output against the older Hy8Runner implementation; not part of default package correctness checks",
+"requires_hy8: marks tests that require the HY-8 executable (deselect with '-m \"not requires_hy8\"')",
 ]
+
 
 [tool.black]
 line-length = 120

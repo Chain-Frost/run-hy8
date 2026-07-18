@@ -9,6 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+disttest/
+pytest-cache-files-*/
 develop-eggs/
 downloads/
 eggs/
@@ -215,3 +217,11 @@ hy8_benchmark_batches_tmp.csv
 hy8_benchmark_batches.csv
 hy8_benchmark_summary.csv
 hy8_benchmark_summary_tmp.csv
+scripts/Rev A Report Culverts.xlsx
+**/tmp_*.py
+scripts/hy8-projects/*.hy8
+scripts/hy8-projects-meta/*.hy8
+scripts/working/*
+scripts/culvert-results-1dnwk.csv
+inspect_excel.py
+show_lines.py

@@ -25,6 +25,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from run_hy8.results import FlowProfile, Hy8Series
+
 from .classes_references import UnitSystem
 from .executor import Hy8Executable
 from .models import (
@@ -36,6 +38,14 @@ from .models import (
 from .type_helpers import CulvertShape, FlowMethod
 from .results import Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
 from .writer import Hy8FileWriter
+
+MINIMUM_SEED_FLOW: float = 0.05
+SEED_SCALE_FACTORS: tuple[float, ...] = (0.1, 0.25, 0.5, 1.0, 1.5, 2.0)
+STEP_FRACTION: float = 0.25
+BRACKET_SUBDIVISIONS: int = 5
+SEED_BATCH_SIZE: int = 6
+FLOW_SEARCH_MAX_RUNS: int = 20
+EXPANSION_FACTOR: float = 2.0
 
 
 @dataclass(slots=True)
@@ -74,6 +84,15 @@ class _FlowSample:
         return self.row.headwater_elevation
 
 
+class FlowSearchError(RuntimeError):
+    """Raised when the headwater search cannot converge on a discharge."""
+
+    def __init__(self, message: str, *, best_sample: _FlowSample | None = None, target_headwater: float | None = None):
+        self.best_sample = best_sample
+        self.target_headwater = target_headwater
+        super().__init__(message)
+
+
 def _flow_sample_list() -> list[_FlowSample]:
     """Return an empty list that pyright can treat as list[_FlowSample]."""
 
@@ -87,33 +106,57 @@ class _FlowSearch:
     target_headwater: float
     simple_flow: float
     q_hint: float | None = None
-    max_runs: int = 12
-    tolerance: float = 1e-4
+    max_runs: int = FLOW_SEARCH_MAX_RUNS
+    tolerance: float = 1e-2
     samples: list[_FlowSample] = field(default_factory=_flow_sample_list)
+
+    def _baseline_flow(self) -> float:
+        """Return the most reasonable flow estimate available."""
+
+        if self.q_hint and self.q_hint > 0:
+            return self.q_hint
+        if self.simple_flow and self.simple_flow > 0:
+            return self.simple_flow
+        return 1.0
+
+    def _normalize_seed(self, value: float) -> float:
+        return max(MINIMUM_SEED_FLOW, value)
 
     def initial_candidates(self) -> list[float]:
         """Return the list of seed flows evaluated before adaptive bracketing."""
 
-        base: list[float]
+        seeds: set[float] = {MINIMUM_SEED_FLOW}
+        baseline: float = self._baseline_flow()
+        for factor in SEED_SCALE_FACTORS:
+            seeds.add(self._normalize_seed(value=baseline * factor))
+        if self.simple_flow and self.simple_flow > 0:
+            for factor in (0.5, 1.0):
+                seeds.add(self._normalize_seed(value=self.simple_flow * factor))
         if self.q_hint and self.q_hint > 0:
-            base = [
-                0.0,
-                max(0.0, 0.9 * self.q_hint),
-                max(0.0, self.q_hint),
-                max(0.0, 1.1 * self.q_hint),
-                max(0.0, self.simple_flow),
-            ]
-        else:
-            half: float = self.simple_flow / 2 if self.simple_flow > 0 else 0.0
-            base = [0.0, max(0.0, half), max(0.0, self.simple_flow)]
-        seen: set[float] = set()
+            seeds.add(self._normalize_seed(value=self.q_hint))
+        return sorted(seeds)
+
+    def _has_flow(self, candidate: float, *, epsilon: float = 1e-8) -> bool:
+        return any(abs(sample.flow - candidate) <= epsilon for sample in self.samples)
+
+    def subdivision_candidates(self, low: _FlowSample, high: _FlowSample) -> list[float]:
+        """Return interior flows for evaluating an existing bracket."""
+
+        if BRACKET_SUBDIVISIONS <= 1:
+            return []
+        span: float = high.flow - low.flow
+        if span <= 0:
+            return []
+        step: float = span / BRACKET_SUBDIVISIONS
         candidates: list[float] = []
-        for value in base:
-            key: float = round(value, 6)
-            if key in seen:
-                continue
-            seen.add(key)
-            candidates.append(value)
+        for index in range(1, BRACKET_SUBDIVISIONS):
+            guess: float = self._normalize_seed(value=low.flow + step * index)
+            if not self._has_flow(candidate=guess):
+                candidates.append(guess)
+        if not candidates:
+            midpoint: float = self._normalize_seed(value=(low.flow + high.flow) / 2)
+            if not self._has_flow(candidate=midpoint):
+                candidates.append(midpoint)
         return candidates
 
     def record(self, flow: float, row: Hy8ResultRow) -> _FlowSample:
@@ -132,30 +175,33 @@ class _FlowSearch:
         for sample in self.samples:
             if math.isnan(sample.headwater):
                 continue
-            if abs(self._delta(sample)) <= self.tolerance:
+            if abs(self._delta(sample=sample)) <= self.tolerance:
                 return sample
         return None
 
     def bracket(self) -> tuple[_FlowSample, _FlowSample] | None:
         """Return the low/high samples that straddle the target headwater."""
 
-        lows: list[_FlowSample] = []
-        highs: list[_FlowSample] = []
-        for sample in self.samples:
-            if math.isnan(sample.headwater):
+        ordered: list[_FlowSample] = sorted(
+            (sample for sample in self.samples if not math.isnan(sample.headwater)),
+            key=lambda sample: sample.flow,
+        )
+        best_pair: tuple[_FlowSample, _FlowSample] | None = None
+        best_span: float = float("inf")
+        for low, high in zip(ordered, ordered[1:]):
+            low_delta: float = self._delta(sample=low)
+            high_delta: float = self._delta(sample=high)
+            if abs(low_delta) <= self.tolerance or abs(high_delta) <= self.tolerance:
                 continue
-            delta = self._delta(sample)
-            if delta <= 0:
-                lows.append(sample)
-            if delta >= 0:
-                highs.append(sample)
-        if not lows or not highs:
-            return None
-        low: _FlowSample = max(lows, key=lambda s: s.flow)
-        high: _FlowSample = min(highs, key=lambda s: s.flow)
-        if low.flow == high.flow and abs(self._delta(low)) > self.tolerance:
-            return None
-        return low, high
+            if low_delta == 0 or high_delta == 0 or low_delta * high_delta > 0:
+                continue
+            span: float = high.flow - low.flow
+            if span <= 0:
+                continue
+            if span < best_span:
+                best_span = span
+                best_pair = (low, high)
+        return best_pair
 
     def next_guess(self) -> float | None:
         """Return the next flow to evaluate when no bracket exists yet."""
@@ -167,12 +213,20 @@ class _FlowSearch:
         if lows and highs:
             return (max(lows, key=lambda s: s.flow).flow + min(highs, key=lambda s: s.flow).flow) / 2
         if lows:
-            base = max(lows, key=lambda s: s.flow).flow
-            return base * 2 if base > 0 else self.simple_flow or 1.0
+            base: float = max(lows, key=lambda s: s.flow).flow
+            return max(base + MINIMUM_SEED_FLOW, base * EXPANSION_FACTOR)
         if highs:
             base = min(highs, key=lambda s: s.flow).flow
-            return base / 2
-        return self.simple_flow or (self.q_hint or 1.0)
+            return max(MINIMUM_SEED_FLOW, base / EXPANSION_FACTOR)
+        return self._baseline_flow()
+
+    def closest_sample(self) -> _FlowSample | None:
+        """Return the recorded sample whose headwater is nearest to the target."""
+
+        candidates = [sample for sample in self.samples if not math.isnan(sample.headwater)]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda sample: abs(self._delta(sample=sample)))
 
 
 def _resolve_hy8_executable(hy8: Hy8Executable | Path | str | None) -> Hy8Executable:
@@ -182,7 +236,7 @@ def _resolve_hy8_executable(hy8: Hy8Executable | Path | str | None) -> Hy8Execut
         return hy8
     if hy8 is None:
         return Hy8Executable()
-    return Hy8Executable(Path(hy8))
+    return Hy8Executable(exe_path=Path(hy8))
 
 
 def _prepare_workspace(base: Path | None, *, keep_files: bool) -> tuple[Path, bool]:
@@ -249,27 +303,27 @@ def _write_and_run(
 ) -> Hy8Results:
     """Write the temporary project to disk, run HY-8, and parse the outputs."""
 
-    scenario_suffix = f"_{scenario}" if scenario else ""
+    scenario_suffix: str = f"_{scenario}" if scenario else ""
     hy8_file: Path = workspace / f"{crossing_name}{scenario_suffix}_run_{run_index:03d}.hy8"
     logger.info(
         "Writing HY-8 project {file} (iteration {iteration})",
         file=hy8_file,
         iteration=run_index,
     )
-    Hy8FileWriter(project).write(hy8_file, overwrite=True)
+    Hy8FileWriter(project=project).write(output_path=hy8_file, overwrite=True)
     logger.info(
         "Running HY-8 for crossing {crossing} (iteration {iteration})",
         crossing=crossing_name,
         iteration=run_index,
     )
-    hy8_exec.open_run_save(hy8_file)
-    rst_path = hy8_file.with_suffix(".rst")
-    rsql_path = hy8_file.with_suffix(".rsql")
-    series = parse_rst(rst_path).get(crossing_name)
+    hy8_exec.open_run_save(hy8_file=hy8_file)
+    rst_path: Path = hy8_file.with_suffix(suffix=".rst")
+    rsql_path: Path = hy8_file.with_suffix(suffix=".rsql")
+    series: Hy8Series | None = parse_rst(path=rst_path).get(crossing_name)
     if not series:
         raise ValueError(f"HY-8 results did not contain crossing '{crossing_name}'.")
-    profiles = parse_rsql(rsql_path).get(crossing_name, [])
-    return Hy8Results(series, profiles)
+    profiles: list[FlowProfile] = parse_rsql(path=rsql_path).get(crossing_name, [])
+    return Hy8Results(entry=series, profiles=profiles)
 
 
 def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
@@ -346,7 +400,7 @@ def crossing_hw_from_q(
     """Run HY-8 once for a single discharge and return the resulting headwater."""
 
     logger.info("Computing headwater for crossing {name} at flow {flow:.4f}", name=crossing.name, flow=q)
-    hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8)
+    hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8=hy8)
     scenario_project, scenario_crossing = _clone_project_with_crossing(
         crossing=crossing, project=project, units=units, exit_loss_option=exit_loss_option
     )
@@ -392,7 +446,15 @@ def crossing_q_from_hw(
     workspace: Path | None = None,
     keep_files: bool = False,
 ) -> HydraulicsResult:
-    """Iteratively run HY-8 until the requested headwater is bracketed and interpolated."""
+    """Solve for the discharge that produces the requested headwater using adaptive HY-8 runs.
+
+    Strategy:
+    1. Evaluate a curated list of seed flows (near hints/geometry) to quickly span the solution space.
+    2. As soon as a bracket (sample below HW and sample above HW) exists, subdivide that bracket so that
+       several HY-8 runs are issued per iteration. Sampling the bracket densely is cheaper than bouncing
+       between Python and HY-8 many times.
+    3. Fall back to linear interpolation within the latest bracket once it has been densely sampled.
+    """
 
     if math.isnan(hw):
         raise ValueError("Target headwater cannot be NaN.")
@@ -401,92 +463,44 @@ def crossing_q_from_hw(
         headwater=hw,
         name=crossing.name,
     )
-    hy8_exec = _resolve_hy8_executable(hy8)
-    scenario_project, scenario_crossing = _clone_project_with_crossing(crossing, project, units, exit_loss_option)
-    workspace_path, should_cleanup = _prepare_workspace(workspace, keep_files=keep_files)
+    hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8=hy8)
+    scenario_project, scenario_crossing = _clone_project_with_crossing(
+        crossing=crossing, project=project, units=units, exit_loss_option=exit_loss_option
+    )
+    workspace_path, should_cleanup = _prepare_workspace(base=workspace, keep_files=keep_files)
     try:
-        simple_flow = _simple_flow_estimate(scenario_crossing)
+        simple_flow: float = _simple_flow_estimate(crossing=scenario_crossing)
         search = _FlowSearch(target_headwater=hw, simple_flow=simple_flow, q_hint=q_hint)
         run_count = 0
         final_row: Hy8ResultRow | None = None
         final_flow: float | None = None
-        seeds = search.initial_candidates()
-        for candidate in seeds:
+
+        def finalize_if_close(sample: _FlowSample | None) -> bool:
+            nonlocal final_row, final_flow
+            if sample is None:
+                return False
+            if abs(sample.headwater - hw) <= search.tolerance:
+                final_row = sample.row
+                final_flow = sample.flow
+                return True
+            return False
+
+        def run_flow_batch(flows: list[float], *, label: str) -> list[_FlowSample]:
+            nonlocal run_count
+            if not flows:
+                return []
             run_count += 1
             logger.debug(
-                "Seed flow {flow:.4f} for crossing {name} (iteration {iteration})",
-                flow=candidate,
+                "{label} batch [{flows}] for crossing {name} (iteration {iteration})",
+                label=label,
+                flows=", ".join(f"{value:.4f}" for value in flows),
                 name=crossing.name,
                 iteration=run_count,
             )
-            scenario_crossing.flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[candidate])
-            results = _write_and_run(
-                scenario_project,
-                scenario_crossing.name,
-                hy8_exec,
-                workspace=workspace_path,
-                run_index=run_count,
-                scenario="q_from_hw",
-            )
-            row = _select_row_by_flow(results, candidate)
-            search.record(candidate, row)
-            logger.debug(
-                "Seed result for crossing {name}: flow {flow:.4f} => headwater {headwater:.4f}",
-                name=crossing.name,
-                flow=candidate,
-                headwater=row.headwater_elevation,
-            )
-            exact = search.exact_match()
-            if exact:
-                final_row = exact.row
-                final_flow = exact.flow
-                break
-        while final_row is None:
-            bracket = search.bracket()
-            if bracket:
-                low, high = bracket
-                logger.debug(
-                    "Bracket for crossing {name}: low {low_flow:.4f} (HW {low_hw:.4f}) high {high_flow:.4f} (HW {high_hw:.4f})",
-                    name=crossing.name,
-                    low_flow=low.flow,
-                    low_hw=low.headwater,
-                    high_flow=high.flow,
-                    high_hw=high.headwater,
-                )
-                if abs(low.headwater - hw) <= search.tolerance:
-                    final_row = low.row
-                    final_flow = low.flow
-                    break
-                if abs(high.headwater - hw) <= search.tolerance:
-                    final_row = high.row
-                    final_flow = high.flow
-                    break
-                slope: float = high.headwater - low.headwater
-                if slope == 0:
-                    guess: float = (low.flow + high.flow) / 2
-                else:
-                    guess = low.flow + ((hw - low.headwater) / slope) * (high.flow - low.flow)
-                run_count += 1
-                logger.debug("Interpolated guess {flow:.4f} for crossing {name}", flow=guess, name=crossing.name)
-                scenario_crossing.flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[guess])
-                results = _write_and_run(
-                    project=scenario_project,
-                    crossing_name=scenario_crossing.name,
-                    hy8_exec=hy8_exec,
-                    workspace=workspace_path,
-                    run_index=run_count,
-                    scenario="q_from_hw",
-                )
-                row = _select_row_by_flow(results=results, flow=guess)
-                final_row = row
-                final_flow = row.flow
-                break
-            next_guess: float | None = search.next_guess()
-            if next_guess is None:
-                break
-            run_count += 1
-            logger.debug("Bisected guess {flow:.4f} for crossing {name}", flow=next_guess, name=crossing.name)
-            scenario_crossing.flow = FlowDefinition(method=FlowMethod.USER_DEFINED, user_values=[next_guess])
+            definition = FlowDefinition(method=FlowMethod.USER_DEFINED)
+            for flow_value in flows:
+                definition.add_user_flow(value=flow_value)
+            scenario_crossing.flow = definition
             results: Hy8Results = _write_and_run(
                 project=scenario_project,
                 crossing_name=scenario_crossing.name,
@@ -495,15 +509,100 @@ def crossing_q_from_hw(
                 run_index=run_count,
                 scenario="q_from_hw",
             )
-            row: Hy8ResultRow = _select_row_by_flow(results=results, flow=next_guess)
-            search.record(flow=next_guess, row=row)
+            samples: list[_FlowSample] = []
+            for flow_value in flows:
+                row: Hy8ResultRow = _select_row_by_flow(results=results, flow=flow_value)
+                sample: _FlowSample = search.record(flow=flow_value, row=row)
+                logger.debug(
+                    "{label} result for crossing {name}: flow {flow:.4f} => headwater {headwater:.4f}",
+                    label=label,
+                    name=crossing.name,
+                    flow=sample.flow,
+                    headwater=sample.headwater,
+                )
+                samples.append(sample)
+            return samples
+
+        seeds: list[float] = search.initial_candidates()
+        for offset in range(0, len(seeds), SEED_BATCH_SIZE):
+            seed_batch: list[float] = seeds[offset : offset + SEED_BATCH_SIZE]
+            samples = run_flow_batch(flows=seed_batch, label="Seed")
+            for sample in samples:
+                if finalize_if_close(sample=sample):
+                    break
+            if final_row:
+                break
+            if search.bracket():
+                break
+        while final_row is None:
+            bracket: tuple[_FlowSample, _FlowSample] | None = search.bracket()
+            if bracket:
+                low, high = bracket
+                if finalize_if_close(sample=low) or finalize_if_close(sample=high):
+                    break
+                logger.debug(
+                    "Bracket for crossing {name}: low {low_flow:.4f} (HW {low_hw:.4f}) high {high_flow:.4f} (HW {high_hw:.4f})",
+                    name=crossing.name,
+                    low_flow=low.flow,
+                    low_hw=low.headwater,
+                    high_flow=high.flow,
+                    high_hw=high.headwater,
+                )
+                subdivision_flows: list[float] = search.subdivision_candidates(low=low, high=high)
+                if subdivision_flows:
+                    samples = run_flow_batch(flows=subdivision_flows, label="Subdivision")
+                    matched = False
+                    for sample in samples:
+                        if finalize_if_close(sample=sample):
+                            matched = True
+                            break
+                    if matched:
+                        break
+                if final_row:
+                    break
+                bracket = search.bracket()
+                if not bracket:
+                    continue
+                low, high = bracket
+                if finalize_if_close(sample=low) or finalize_if_close(sample=high):
+                    break
+                slope: float = high.headwater - low.headwater
+                if slope == 0:
+                    guess: float = (low.flow + high.flow) / 2
+                else:
+                    guess = low.flow + ((hw - low.headwater) / slope) * (high.flow - low.flow)
+                samples: list[_FlowSample] = run_flow_batch(flows=[guess], label="Interpolation")
+                if samples:
+                    matched = False
+                    for sample in samples:
+                        if finalize_if_close(sample=sample):
+                            matched = True
+                            break
+                    if matched:
+                        break
+                if len(search.samples) >= search.max_runs:
+                    break
+                continue
+            next_guess: float | None = search.next_guess()
+            if next_guess is None:
+                break
+            samples = run_flow_batch(flows=[next_guess], label="Bisection")
+            if not samples:
+                break
             exact: _FlowSample | None = search.exact_match()
             if exact:
                 final_row = exact.row
                 final_flow = exact.flow
                 break
         if final_row is None or final_flow is None:
-            raise ValueError("Unable to bracket the requested headwater.")
+            closest = search.closest_sample()
+            message = "Unable to bracket the requested headwater."
+            if closest:
+                message += (
+                    f" Closest sample flow {closest.flow:.4f} => HW {closest.headwater:.4f} "
+                    f"(target {hw:.4f})."
+                )
+            raise FlowSearchError(message, best_sample=closest, target_headwater=hw)
         logger.info(
             "Crossing {name}: HW {headwater:.4f} achieved at flow {flow:.4f}",
             name=crossing.name,
@@ -519,7 +618,7 @@ def crossing_q_from_hw(
             workspace=workspace_path if keep_files else None,
         )
     finally:
-        _cleanup_workspace(workspace_path, should_cleanup=should_cleanup and not keep_files and workspace is None)
+        _cleanup_workspace(path=workspace_path, should_cleanup=should_cleanup and not keep_files and workspace is None)
 
 
 def crossing_q_for_hwd(
@@ -537,7 +636,7 @@ def crossing_q_for_hwd(
     """Run HY-8 to find the discharge that produces the requested HW/D ratio."""
     if hw_d_ratio < 0:
         raise ValueError("Headwater-to-diameter ratio must be non-negative.")
-    diameter: float = _characteristic_diameter(crossing)
+    diameter: float = _characteristic_diameter(crossing=crossing)
     inlet_elevation: float = crossing.culverts[0].inlet_invert_elevation
     target_headwater: float = inlet_elevation + hw_d_ratio * diameter
     logger.info(
@@ -586,7 +685,7 @@ def project_hw_from_q(
     name_counts: dict[str, int] = {}
     try:
         for index, crossing in enumerate(project.crossings, start=1):
-            crossing_workspace = base_workspace / f"crossing_{index:03d}"
+            crossing_workspace: Path = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
             logger.debug("Project hw_from_q processing crossing {name} (#{index})", name=crossing.name, index=index)
             result: HydraulicsResult = crossing.hw_from_q(
@@ -614,13 +713,13 @@ def project_q_from_hw(
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute discharges for each project crossing that reach the target headwater."""
     logger.info("Running project-level discharge search for HW={headwater:.4f}", headwater=hw)
-    hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8)
-    base_workspace, should_cleanup = _prepare_workspace(workspace, keep_files=keep_files)
+    hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8=hy8)
+    base_workspace, should_cleanup = _prepare_workspace(base=workspace, keep_files=keep_files)
     results: OrderedDict[str, HydraulicsResult] = OrderedDict()
     name_counts: dict[str, int] = {}
     try:
         for index, crossing in enumerate(project.crossings, start=1):
-            crossing_workspace = base_workspace / f"crossing_{index:03d}"
+            crossing_workspace: Path = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
             logger.debug("Project q_from_hw processing crossing {name} (#{index})", name=crossing.name, index=index)
             result: HydraulicsResult = crossing.q_from_hw(
@@ -649,13 +748,13 @@ def project_q_for_hwd(
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute discharges for each project crossing that satisfy the HW/D ratio."""
     logger.info("Running project-level discharge search for HW/D ratio {ratio:.3f}", ratio=hw_d_ratio)
-    hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8)
-    base_workspace, should_cleanup = _prepare_workspace(workspace, keep_files=keep_files)
+    hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8=hy8)
+    base_workspace, should_cleanup = _prepare_workspace(base=workspace, keep_files=keep_files)
     results: OrderedDict[str, HydraulicsResult] = OrderedDict()
     name_counts: dict[str, int] = {}
     try:
         for index, crossing in enumerate(project.crossings, start=1):
-            crossing_workspace = base_workspace / f"crossing_{index:03d}"
+            crossing_workspace: Path = base_workspace / f"crossing_{index:03d}"
             crossing_workspace.mkdir(parents=True, exist_ok=True)
             logger.debug("Project q_for_hwd processing crossing {name} (#{index})", name=crossing.name, index=index)
             result: HydraulicsResult = crossing.q_for_hwd(

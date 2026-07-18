@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence, TYPE_CHECKING, cast
-from _collections_abc import Mapping as ABCMapping
 
 from loguru import logger
 

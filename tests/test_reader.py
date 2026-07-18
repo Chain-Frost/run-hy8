@@ -13,6 +13,7 @@ from run_hy8.executor import Hy8Executable
 from run_hy8.models import CulvertBarrel, CulvertCrossing, Hy8Project
 from run_hy8.reader import load_project_from_hy8
 from run_hy8.results import FlowProfile, Hy8Series, parse_rsql, parse_rst
+from run_hy8.units import cfs_to_cms
 from run_hy8.writer import Hy8FileWriter
 
 EXAMPLE_FILE: Path = Path(__file__).resolve().parent / "example_crossings.hy8"
@@ -26,7 +27,7 @@ def test_loads_example_crossings(tmp_path: Path) -> None:
     first: CulvertCrossing = project.crossings[0]
     assert first.name == "HDPE 900x11"
     assert first.flow.sequence() == pytest.approx(  # pyright: ignore[reportUnknownMemberType]
-        expected=[282.517334, 317.832, 353.146667]
+        expected=[cfs_to_cms(282.517334), cfs_to_cms(317.832), cfs_to_cms(353.146667)]
     )
     assert first.flow.user_value_labels == ["q", "w", "e"]
     first_culvert: CulvertBarrel = first.culverts[0]

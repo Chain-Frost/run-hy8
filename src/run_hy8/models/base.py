@@ -28,7 +28,7 @@ class Validatable:
         Args:
             prefix: An optional string to prepend to each validation error message.
         """
-        errors: str = str(self.validate(prefix=prefix))
+        errors: list[str] = self.validate(prefix=prefix)
         if errors:
             logger.debug("Validation failed for {model}: {errors}", model=self.__class__.__name__, errors=errors)
             raise ValidationError(errors)

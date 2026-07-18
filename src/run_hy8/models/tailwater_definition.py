@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 from _collections_abc import Mapping, Sequence as ABCSequence
 
 from loguru import logger
@@ -76,7 +76,8 @@ class TailwaterDefinition(Validatable):
         for entry in normalize_sequence(data.get("rating_curve")):
             if not (isinstance(entry, ABCSequence) and not isinstance(entry, (str, bytes))):
                 continue
-            entry_tuple = tuple(entry)
+            entry_values = list(cast(ABCSequence[Any], entry))
+            entry_tuple: tuple[Any, ...] = tuple(entry_values)
             if len(entry_tuple) < 3:
                 continue
             a, b, c = entry_tuple[:3]
