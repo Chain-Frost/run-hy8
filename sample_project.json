@@ -29,6 +29,7 @@
           "name": "Barrel 1",
           "shape": "circle",
           "material": "concrete",
+          "inlet_configuration": "square-edge-with-headwall",
           "span": 4.0,
           "rise": 4.0,
           "inlet_invert_elevation": 98.5,

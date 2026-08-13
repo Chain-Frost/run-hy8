@@ -22,7 +22,7 @@ from run_hy8 import (  # noqa: E402
     FlowDefinition,
     FlowMethod,
     Hy8Project,
-    InletEdgeType,
+    CircularHdpeInlet,
     InletType,
     ImprovedInletEdgeType,
     RoadwaySurface,
@@ -105,7 +105,7 @@ def build_manual_crossing() -> tuple[Hy8Project, CulvertCrossing]:
         outlet_invert_station=82.020997,
         outlet_invert_elevation=0.0,
         inlet_type=InletType.STRAIGHT,
-        inlet_edge_type=InletEdgeType.THIN_EDGE_PROJECTING,
+        inlet_configuration=CircularHdpeInlet.SQUARE_EDGE_WITH_HEADWALL,
         improved_inlet_edge_type=ImprovedInletEdgeType.TYPE_1,
     )
     crossing.culverts.append(barrel)
@@ -135,7 +135,7 @@ def show_crossing_summary(title: str, crossing: CulvertCrossing) -> None:
             f"{barrel.outlet_invert_elevation:.6f}"
         )
         print(
-            f"  Inlet geometry: {barrel.inlet_type.name}, edge {barrel.inlet_edge_type.name}, "
+            f"  Inlet geometry: {barrel.inlet_type.name}, configuration {barrel.inlet_configuration.value}, "
             f"improved {barrel.improved_inlet_edge_type.name}"
         )
 
@@ -168,7 +168,7 @@ def ensure_manual_matches(reference: CulvertCrossing, manual: CulvertCrossing) -
                 ("Inlet invert", almost_equal(ref_barrel.inlet_invert_elevation, manual_barrel.inlet_invert_elevation)),
                 ("Outlet invert", almost_equal(ref_barrel.outlet_invert_elevation, manual_barrel.outlet_invert_elevation)),
                 ("Inlet type", ref_barrel.inlet_type is manual_barrel.inlet_type),
-                ("Inlet edge type", ref_barrel.inlet_edge_type is manual_barrel.inlet_edge_type),
+                ("Inlet configuration", ref_barrel.inlet_configuration is manual_barrel.inlet_configuration),
                 (
                     "Improved inlet edge",
                     ref_barrel.improved_inlet_edge_type is manual_barrel.improved_inlet_edge_type,

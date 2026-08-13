@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import warnings
 from collections.abc import Mapping, Sequence as ABCSequence
 from pathlib import Path
 from typing import Any, cast
 
-import json
-
 from .classes_references import UnitSystem
+from .inlet_configurations import default_inlet_configuration, parse_inlet_configuration
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -17,12 +18,16 @@ from .models import (
     RoadwayProfile,
     TailwaterDefinition,
 )
+from .models.culvert_barrel import LegacyInletConfigurationWarning
 from .type_helpers import (
     CulvertMaterial,
     CulvertShape,
     FlowMethod,
+    InletEdgeType,
+    InletEdgeType71,
     RoadwaySurface,
     TailwaterType,
+    coerce_enum,
 )
 
 JSONMapping = Mapping[str, Any]
@@ -236,6 +241,41 @@ def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
     culvert.rise = float(entry.get("rise", culvert.rise))
     culvert.shape = _parse_culvert_shape(entry.get("shape", culvert.shape.name))
     culvert.material = _parse_culvert_material(entry.get("material", culvert.material.name))
+    raw_inlet_configuration: Any = entry.get("inlet_configuration")
+    legacy_keys: set[str] = {"inlet_edge_type", "inlet_edge_type71"} & entry.keys()
+    if legacy_keys:
+        if raw_inlet_configuration is not None:
+            warnings.warn(
+                message="JSON fields inlet_edge_type and inlet_edge_type71 are deprecated. "
+                "Use inlet_configuration with a HY-8 v8 semantic slug.",
+                category=LegacyInletConfigurationWarning,
+                stacklevel=3,
+            )
+            raise ValueError("Do not combine inlet_configuration with deprecated inlet edge fields.")
+        if "inlet_edge_type" in entry:
+            culvert.inlet_edge_type = coerce_enum(
+                enum_cls=InletEdgeType,
+                value=entry["inlet_edge_type"],
+                default=InletEdgeType.THIN_EDGE_PROJECTING,
+            )
+        if "inlet_edge_type71" in entry:
+            culvert.inlet_edge_type71 = coerce_enum(
+                enum_cls=InletEdgeType71,
+                value=entry["inlet_edge_type71"],
+                default=InletEdgeType71.CODE_0,
+            )
+        culvert.inlet_configuration = culvert.resolved_inlet_configuration()
+    elif raw_inlet_configuration is None:
+        culvert.inlet_configuration = default_inlet_configuration(
+            shape=culvert.shape,
+            material=culvert.material,
+        )
+    else:
+        culvert.inlet_configuration = parse_inlet_configuration(
+            value=raw_inlet_configuration,
+            shape=culvert.shape,
+            material=culvert.material,
+        )
     culvert.number_of_barrels = int(entry.get("number_of_barrels", culvert.number_of_barrels))
     culvert.inlet_invert_station = float(entry.get("inlet_invert_station", culvert.inlet_invert_station))
     culvert.inlet_invert_elevation = float(entry.get("inlet_invert_elevation", culvert.inlet_invert_elevation))

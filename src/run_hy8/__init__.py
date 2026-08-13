@@ -5,11 +5,19 @@ from .config import load_project_from_json, project_from_mapping
 from .executor import Hy8Executable
 from .hydraulics import HydraulicsResult
 from .hy8_path import read_hy8_path_file, resolve_hy8_path, save_hy8_path
+from .inlet_configurations import (
+    CircularConcreteInlet,
+    CircularCorrugatedSteelInlet,
+    CircularHdpeInlet,
+    ConcreteBoxInlet,
+    SupportedInletConfiguration,
+)
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
     FlowDefinition,
     Hy8Project,
+    LegacyInletConfigurationWarning,
     RoadwayProfile,
     TailwaterDefinition,
 )
@@ -34,6 +42,10 @@ __all__: list[str] = [
     "CulvertCrossing",
     "CulvertMaterial",
     "CulvertShape",
+    "CircularConcreteInlet",
+    "CircularCorrugatedSteelInlet",
+    "CircularHdpeInlet",
+    "ConcreteBoxInlet",
     "FlowDefinition",
     "FlowMethod",
     "ImprovedInletEdgeType",
@@ -43,8 +55,10 @@ __all__: list[str] = [
     "InletEdgeType",
     "InletEdgeType71",
     "InletType",
+    "LegacyInletConfigurationWarning",
     "RoadwayProfile",
     "RoadwaySurface",
+    "SupportedInletConfiguration",
     "TailwaterDefinition",
     "TailwaterType",
     "UnitSystem",

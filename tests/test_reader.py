@@ -8,7 +8,7 @@ from subprocess import CompletedProcess
 
 import pytest
 
-from run_hy8 import CulvertMaterial, UnitSystem
+from run_hy8 import CircularHdpeInlet, CulvertMaterial, UnitSystem
 from run_hy8.executor import Hy8Executable
 from run_hy8.models import CulvertBarrel, CulvertCrossing, Hy8Project
 from run_hy8.reader import load_project_from_hy8
@@ -32,8 +32,9 @@ def test_loads_example_crossings(tmp_path: Path) -> None:
     assert first.flow.user_value_labels == ["q", "w", "e"]
     first_culvert: CulvertBarrel = first.culverts[0]
     assert first_culvert.inlet_type == 1
-    assert first_culvert.inlet_edge_type == 0
-    assert first_culvert.inlet_edge_type71 == 0
+    assert first_culvert.inlet_configuration is CircularHdpeInlet.SQUARE_EDGE_WITH_HEADWALL
+    assert first_culvert.inlet_edge_type is None
+    assert first_culvert.inlet_edge_type71 is None
     assert first_culvert.improved_inlet_edge_type == 1
     last: CulvertCrossing = project.crossings[-1]
     assert last.name == "Two culverts one crossing"

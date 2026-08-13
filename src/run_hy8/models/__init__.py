@@ -13,7 +13,7 @@ from .base import Validatable
 from .flow_definition import FlowDefinition
 from .tailwater_definition import TailwaterDefinition
 from .roadway_profile import RoadwayProfile
-from .culvert_barrel import CulvertBarrel
+from .culvert_barrel import CulvertBarrel, LegacyInletConfigurationWarning
 from .culvert_crossing import CulvertCrossing
 from .project import Hy8Project
 
@@ -24,6 +24,7 @@ __all__: list[str] = [
     "TailwaterDefinition",
     "RoadwayProfile",
     "CulvertBarrel",
+    "LegacyInletConfigurationWarning",
     "CulvertCrossing",
     "Hy8Project",
 ]

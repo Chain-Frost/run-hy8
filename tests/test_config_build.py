@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from run_hy8 import CircularCorrugatedSteelInlet, LegacyInletConfigurationWarning
 from run_hy8.config import load_project_from_json
 from run_hy8.models import Hy8Project
 from run_hy8.writer import Hy8FileWriter
@@ -37,3 +38,19 @@ def test_config_rejects_min_max_increment(tmp_path: Path) -> None:
 
     with pytest.raises(expected_exception=ValueError, match="not supported"):
         load_project_from_json(path=config_path)
+
+
+def test_legacy_inlet_config_warns(tmp_path: Path) -> None:
+    config: dict[str, Any] = json.loads(CONFIG_JSON)
+    culvert = config["crossings"][0]["culverts"][0]
+    culvert["shape"] = "circle"
+    culvert["material"] = "corrugated steel"
+    culvert.pop("inlet_configuration")
+    culvert["inlet_edge_type"] = "THIN_EDGE_PROJECTING"
+    config_path = tmp_path / "legacy-inlet.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    with pytest.warns(LegacyInletConfigurationWarning):
+        project = load_project_from_json(config_path)
+
+    assert project.crossings[0].culverts[0].inlet_configuration is CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING

@@ -78,7 +78,12 @@ class InletType(_DescribedIntEnum):
 
 
 class InletEdgeType(_DescribedIntEnum):
-    """HY-8 inlet edge types for current releases."""
+    """Deprecated context-free inlet codes retained for migration warnings.
+
+    HY-8 v8 resolves inlet configurations by shape/material-specific list
+    indices, so these labels are not reliable across culvert contexts. New
+    callers must use the enums in :mod:`run_hy8.inlet_configurations`.
+    """
 
     THIN_EDGE_PROJECTING = 0, "Thin edge projecting"
     GROOVED_END_PROJECTING = 1, "Grooved end projecting"
@@ -90,7 +95,12 @@ class InletEdgeType(_DescribedIntEnum):
 
 
 class InletEdgeType71(_DescribedIntEnum):
-    """Legacy HY-8 7.1 inlet edge numbering."""
+    """Deprecated raw contextual indices retained for migration warnings.
+
+    Despite the card name ``INLETEDGETYPE71``, this index remains authoritative
+    in HY-8 v8 files. It is now derived from a semantic inlet configuration and
+    is not part of the supported public modelling API.
+    """
 
     CODE_0 = 0, "Legacy edge code 0"
     CODE_1 = 1, "Legacy edge code 1"

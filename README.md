@@ -65,6 +65,30 @@ hy8_file = writer.write(Path("output/sample.hy8"))
 print(f"Wrote {hy8_file}")
 ```
 
+`CulvertBarrel` defaults to a circular corrugated-steel pipe with a thin-edge-projecting inlet. For other
+shape/material combinations, select a semantic HY-8 version 8 inlet configuration explicitly:
+
+```python
+from run_hy8 import ConcreteBoxInlet, CulvertBarrel, CulvertMaterial, CulvertShape
+
+box = CulvertBarrel(
+    name="Box 1",
+    shape=CulvertShape.BOX,
+    material=CulvertMaterial.CONCRETE,
+    span=2.4,
+    rise=1.2,
+    inlet_configuration=ConcreteBoxInlet.SQUARE_EDGE_30_TO_75_DEG_WINGWALL,
+)
+```
+
+Inlet configurations are separated by HY-8 shape and material: `CircularConcreteInlet`,
+`CircularCorrugatedSteelInlet`, `CircularHdpeInlet`, and `ConcreteBoxInlet`. The package supports HY-8 version 8
+project files only. The older context-free `InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
+`LegacyInletConfigurationWarning` when translated.
+
+The empirical file-format findings and extension guidance are recorded in
+[`docs/hy8_v8_inlet_configurations.md`](docs/hy8_v8_inlet_configurations.md).
+
 Once an `.hy8` file exists you can run HY-8 with `run_hy8.executor.Hy8Executable`. Each high-level action returns
 a `CompletedProcess` so scripting layers can inspect stdout/stderr or retry with different parameters.
 
@@ -157,6 +181,7 @@ by the checked-in `sample_project.json`:
           "name": "Barrel 1",
           "shape": "circle",
           "material": "concrete",
+          "inlet_configuration": "square-edge-with-headwall",
           "span": 4.0,
           "rise": 4.0
         }
@@ -190,7 +215,7 @@ python -m pytest tests
 
 The repository includes Windows batch helpers so packaging can happen without remembering long commands.
 
-1. `build_package.bat` installs/updates the [`build`](https://pypi.org/project/build/) backend and then runs `python -m build`, placing the wheel and source distribution under `dist\`.
+1. `build_package.bat` installs/updates the [`build`](https://pypi.org/project/build/) backend and then runs `python -m build --wheel`, replacing the current wheel under `dist\`.
 2. `install_package.bat` installs the most recently built artifact (wheel if present, otherwise the source distribution) via `pip install --force-reinstall`.
 3. `run_tests.bat` runs `python -m pytest`. Pass any additional pytest arguments after the script name (for example `run_tests.bat -k culvert`).
 

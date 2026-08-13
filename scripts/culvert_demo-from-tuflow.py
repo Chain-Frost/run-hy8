@@ -121,10 +121,10 @@ from run_hy8.results import FlowProfile, Hy8ResultRow, Hy8Results, Hy8Series, pa
 from run_hy8.type_helpers import (
     CulvertMaterial,
     CulvertShape,
-    InletEdgeType,
     InletType,
     FlowMethod,
 )
+from run_hy8.inlet_configurations import CircularCorrugatedSteelInlet
 
 
 @dataclass(slots=True)
@@ -655,7 +655,7 @@ def build_crossing(
         outlet_invert_station=inputs.length,
         outlet_invert_elevation=inputs.outlet_invert,
         inlet_type=InletType.STRAIGHT,
-        inlet_edge_type=InletEdgeType.THIN_EDGE_PROJECTING,
+        inlet_configuration=CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING,
     )
     barrel.manning_n_top = 0.024
     barrel.manning_n_bottom = 0.024
@@ -948,7 +948,7 @@ def run_crossing(
         barrel_shape=enum_label(primary_barrel.shape),
         barrel_material=enum_label(primary_barrel.material),
         inlet_type=enum_label(primary_barrel.inlet_type),
-        inlet_edge_type=enum_label(primary_barrel.inlet_edge_type),
+        inlet_edge_type=enum_label(primary_barrel.inlet_configuration),
         span=primary_barrel.span,
         rise=primary_barrel.rise,
         barrel_length=barrel_length,

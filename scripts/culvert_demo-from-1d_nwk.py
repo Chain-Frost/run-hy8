@@ -17,7 +17,8 @@ from run_hy8.hydraulics import FlowSearchError, HydraulicsResult
 from run_hy8.hy8_path import resolve_hy8_path
 from run_hy8.models import CulvertBarrel, CulvertCrossing, FlowDefinition, Hy8Project, RoadwayProfile
 from run_hy8.results import Hy8ResultRow
-from run_hy8.type_helpers import CulvertMaterial, CulvertShape, FlowMethod, InletEdgeType, InletType
+from run_hy8.inlet_configurations import CircularConcreteInlet
+from run_hy8.type_helpers import CulvertMaterial, CulvertShape, FlowMethod, InletType
 
 INPUT_GIS_FILE = Path(
     r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\model\gis\GD02\1d_nwk_GD02_001_L.gpkg"
@@ -357,7 +358,7 @@ def build_crossing(record: CrossingRecord) -> tuple[Hy8Project, CulvertCrossing]
         outlet_invert_station=record.length,
         outlet_invert_elevation=record.outlet_invert,
         inlet_type=InletType.STRAIGHT,
-        inlet_edge_type=InletEdgeType.THIN_EDGE_PROJECTING,
+        inlet_configuration=CircularConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
     )
     barrel.manning_n_top = record.manning_n
     barrel.manning_n_bottom = record.manning_n

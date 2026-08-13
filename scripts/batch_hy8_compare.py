@@ -19,6 +19,7 @@ from run_hy8 import (
     CulvertCrossing,
     CulvertMaterial,
     CulvertShape,
+    CircularConcreteInlet,
     FlowDefinition,
     FlowMethod,
     Hy8Executable,
@@ -199,6 +200,7 @@ def build_crossing(scenario: Scenario) -> CulvertCrossing:
     barrel = CulvertBarrel(name="Barrel 1")
     barrel.shape = CulvertShape.CIRCLE
     barrel.material = CulvertMaterial.CONCRETE
+    barrel.inlet_configuration = CircularConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
     barrel.span = diameter_m
     barrel.rise = diameter_m
     barrel.number_of_barrels = scenario.barrels

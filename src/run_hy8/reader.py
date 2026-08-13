@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from _collections_abc import Iterable
 
+from pandas.core.frame import DataFrame
+
 from .classes_references import UnitSystem
+from .inlet_configurations import resolve_v8_inlet_configuration
 from .models import FlowDefinition, TailwaterDefinition
 from .units import cfs_to_cms, feet_to_metres
 
@@ -22,8 +25,6 @@ from .type_helpers import (
     CulvertShape,
     FlowMethod,
     ImprovedInletEdgeType,
-    InletEdgeType,
-    InletEdgeType71,
     InletType,
     RoadwaySurface,
     TailwaterType,
@@ -168,6 +169,12 @@ class _Hy8Parser:
             raise ValueError("HY-8 file is empty.") from exc
         if card.key != "HY8PROJECTFILE":
             raise ValueError(f"Expected HY8PROJECTFILE header, found '{card.key}'.")
+        try:
+            version = float(card.value)
+        except ValueError as exc:
+            raise ValueError(f"Invalid HY-8 project version '{card.value}'.") from exc
+        if version != 80.0:
+            raise ValueError(f"Unsupported HY-8 project version {card.value}; run-hy8 supports version 8 only.")
 
     def _apply_project_card(self, project: Hy8Project, card: _Hy8Card) -> None:
         """Apply a card's value to the top-level Hy8Project object."""
@@ -266,11 +273,20 @@ class _Hy8Parser:
     def _parse_culvert(self, name: str) -> CulvertBarrel:
         """Parse a block of cards between STARTCULVERT and ENDCULVERT."""
         culvert = CulvertBarrel(name=name)
+        v8_inlet_index: int | None = None
         while True:
             card: _Hy8Card = self._stream.next_card()
             key: str = card.key
             value: str = card.value
             if key == "ENDCULVERT":
+                if v8_inlet_index is None:
+                    raise ValueError(f"Culvert '{name}' is missing the HY-8 v8 INLETEDGETYPE71 card.")
+                culvert.inlet_configuration = resolve_v8_inlet_configuration(
+                    shape=culvert.shape,
+                    material=culvert.material,
+                    inlet_type=culvert.inlet_type,
+                    v8_index=v8_inlet_index,
+                )
                 return culvert
             if key == "CULVERTSHAPE":
                 culvert.shape = self._culvert_shape(value=value)
@@ -279,9 +295,12 @@ class _Hy8Parser:
             elif key == "INLETTYPE":
                 culvert.inlet_type = self._inlet_type(value=value)
             elif key == "INLETEDGETYPE":
-                culvert.inlet_edge_type = self._inlet_edge_type(value=value)
+                # Required by the v8 file grammar but obsolete for selecting
+                # current shape/material-specific inlet configurations.
+                # See docs/hy8_v8_inlet_configurations.md for probe evidence.
+                continue
             elif key == "INLETEDGETYPE71":
-                culvert.inlet_edge_type71 = self._inlet_edge_type71(value=value)
+                v8_inlet_index = self._as_int(value=value)
             elif key == "IMPINLETEDGETYPE":
                 culvert.improved_inlet_edge_type = self._improved_inlet_edge_type(value=value)
             elif key == "BARRELDATA":
@@ -432,49 +451,35 @@ class _Hy8Parser:
 
     @staticmethod
     def _culvert_shape(value: str) -> CulvertShape:
+        index: int = _Hy8Parser._as_int(value=value)
         try:
-            return CulvertShape(value=_Hy8Parser._as_int(value=value))
-        except ValueError:
-            return CulvertShape.CIRCLE
+            return CulvertShape(value=index)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported HY-8 v8 culvert shape code {index}.") from exc
 
     @staticmethod
     def _culvert_material(value: str) -> CulvertMaterial:
+        index: int = _Hy8Parser._as_int(value=value)
         try:
-            return CulvertMaterial(value=_Hy8Parser._as_int(value=value, default=1))
-        except ValueError:
-            return CulvertMaterial.CONCRETE
+            return CulvertMaterial(value=index)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported HY-8 v8 culvert material code {index}.") from exc
 
     @staticmethod
     def _inlet_type(value: str) -> InletType:
         index: int = _Hy8Parser._as_int(value=value, default=InletType.NOT_SET.value)
         try:
-            return InletType(index)
-        except ValueError:
-            return InletType.NOT_SET
-
-    @staticmethod
-    def _inlet_edge_type(value: str) -> InletEdgeType:
-        index: int = _Hy8Parser._as_int(value=value, default=InletEdgeType.THIN_EDGE_PROJECTING.value)
-        try:
-            return InletEdgeType(index)
-        except ValueError:
-            return InletEdgeType.THIN_EDGE_PROJECTING
-
-    @staticmethod
-    def _inlet_edge_type71(value: str) -> InletEdgeType71:
-        index: int = _Hy8Parser._as_int(value=value, default=InletEdgeType71.CODE_0.value)
-        try:
-            return InletEdgeType71(index)
-        except ValueError:
-            return InletEdgeType71.CODE_0
+            return InletType(value=index)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported HY-8 v8 inlet type code {index}.") from exc
 
     @staticmethod
     def _improved_inlet_edge_type(value: str) -> ImprovedInletEdgeType:
         index: int = _Hy8Parser._as_int(value=value, default=ImprovedInletEdgeType.NONE.value)
         try:
-            return ImprovedInletEdgeType(index)
-        except ValueError:
-            return ImprovedInletEdgeType.NONE
+            return ImprovedInletEdgeType(value=index)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported HY-8 v8 improved inlet edge code {index}.") from exc
 
 
 def culvert_dataframe(project: Hy8Project) -> "pd.DataFrame":
@@ -485,10 +490,16 @@ def culvert_dataframe(project: Hy8Project) -> "pd.DataFrame":
         project: The Hy8Project to convert.
     """
     # This function requires pandas, which is an optional dependency.
+    # in python 3.15, add this as lazy loading?
     import pandas as pd
 
     rows: list[dict[str, object]] = []
-    barrel_fields = [field for field in fields(CulvertBarrel) if field.name != "name"]
+    excluded_fields: set[str] = {"name", "inlet_edge_type", "inlet_edge_type71"}
+    barrel_fields = [
+        field
+        for field in fields(class_or_instance=CulvertBarrel)
+        if field.name not in excluded_fields and not field.name.startswith("_")
+    ]
     for crossing in project.crossings:
         for culvert in crossing.culverts:
             row: dict[str, object] = {"crossing": crossing.name, "culvert": culvert.name}
@@ -503,5 +514,5 @@ def culvert_dataframe(project: Hy8Project) -> "pd.DataFrame":
             rows.append(row)
     df = pd.DataFrame(rows)
     if not df.empty:
-        df = df.set_index(["crossing", "culvert"]).sort_index()
+        df: DataFrame = df.set_index(["crossing", "culvert"]).sort_index()
     return df

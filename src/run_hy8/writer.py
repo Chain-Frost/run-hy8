@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TextIO
 
 from .classes_references import UnitSystem
+from .inlet_configurations import resolve_v8_inlet_spec
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -41,6 +42,8 @@ class Hy8FileWriter:
             project: The `Hy8Project` instance to be written.
             version: The HY-8 version number to write in the file header.
         """
+        if version != 80.0:
+            raise ValueError(f"Unsupported HY-8 project version {version}; run-hy8 supports version 8 only.")
         self.project: Hy8Project = project
         self.version: float = version
 
@@ -222,14 +225,15 @@ class Hy8FileWriter:
             culvert_material = CulvertMaterial.CONCRETE.value
         self._write_card(handle, "CULVERTSHAPE", culvert_shape)
         self._write_card(handle, "CULVERTMATERIAL", culvert_material)
-        if culvert.manning_n_top is not None and culvert.manning_n_bottom is not None:
-            n_top: float = culvert.manning_n_top
-            n_bottom: float = culvert.manning_n_bottom
-        else:
-            n_top, n_bottom = culvert.manning_values()
+        n_top, n_bottom = culvert.resolved_manning_values()
         self._write_card(handle, "INLETTYPE", culvert.inlet_type)
-        self._write_card(handle, "INLETEDGETYPE", culvert.inlet_edge_type)
-        self._write_card(handle, "INLETEDGETYPE71", culvert.inlet_edge_type71)
+        inlet_spec = resolve_v8_inlet_spec(culvert.resolved_inlet_configuration())
+        # HY-8 v8 still requires the pre-7.1 compatibility card, but current
+        # hydraulics are selected by the contextual INLETEDGETYPE71 index.
+        # A neutral legacy value avoids exposing the obsolete code system.
+        # Evidence and reproduction notes: docs/hy8_v8_inlet_configurations.md
+        self._write_card(handle, "INLETEDGETYPE", 0)
+        self._write_card(handle, "INLETEDGETYPE71", inlet_spec.v8_index)
         self._write_card(handle, "IMPINLETEDGETYPE", culvert.improved_inlet_edge_type)
         self._write_card(
             handle,

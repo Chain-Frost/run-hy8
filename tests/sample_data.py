@@ -9,6 +9,8 @@ from run_hy8 import (
     CulvertCrossing,
     CulvertMaterial,
     CulvertShape,
+    CircularConcreteInlet,
+    ConcreteBoxInlet,
     FlowDefinition,
     FlowMethod,
     Hy8Project,
@@ -43,6 +45,7 @@ CONFIG_MAPPING: dict[str, object] = {
                     "name": "Barrel 1",
                     "shape": "circle",
                     "material": "concrete",
+                    "inlet_configuration": "square-edge-with-headwall",
                     "span": 4.0,
                     "rise": 4.0,
                     "inlet_invert_elevation": 98.5,
@@ -82,6 +85,7 @@ def build_sample_project() -> Hy8Project:
             rise=4.0,
             material=CulvertMaterial.CONCRETE,
             shape=CulvertShape.CIRCLE,
+            inlet_configuration=CircularConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
             inlet_invert_elevation=98.5,
             outlet_invert_elevation=98.0,
         )
@@ -113,6 +117,7 @@ def build_two_crossing_project() -> Hy8Project:
             rise=5.0,
             shape=CulvertShape.BOX,
             material=CulvertMaterial.CONCRETE,
+            inlet_configuration=ConcreteBoxInlet.SQUARE_EDGE_90_DEG_HEADWALL,
             inlet_invert_elevation=149.0,
             outlet_invert_elevation=148.8,
         )
@@ -162,6 +167,7 @@ def build_user_defined_project() -> Hy8Project:
             rise=3.0,
             shape=CulvertShape.BOX,
             material=CulvertMaterial.CONCRETE,
+            inlet_configuration=ConcreteBoxInlet.SQUARE_EDGE_90_DEG_HEADWALL,
             inlet_invert_elevation=198.8,
             outlet_invert_elevation=198.2,
         )

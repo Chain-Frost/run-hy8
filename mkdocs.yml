@@ -13,5 +13,6 @@ nav:
   - Home: index.md
   - API Reference: api.md
   - Headwater and Flow Helpers: headwater_helpers.md
+  - HY-8 v8 Inlet Configurations: hy8_v8_inlet_configurations.md
   - Development: CONTRIBUTING.md
   - Agent Notes: agents.md
