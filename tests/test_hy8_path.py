@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import run_hy8.hy8_path as hy8_path
+from run_hy8 import hy8_path
 from run_hy8.executor import Hy8Executable
 
 

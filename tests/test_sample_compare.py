@@ -9,8 +9,8 @@ import pytest
 from run_hy8.models.project import Hy8Project
 from scripts.batch_hy8_compare import Scenario
 from scripts.sample_crossing_compare import (
-    build_builtin_scenarios,
     _normalized_lines,
+    build_builtin_scenarios,
     build_project,
     write_with_hy8runner,
     write_with_run_hy8,

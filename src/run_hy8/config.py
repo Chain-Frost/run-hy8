@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import warnings
-from collections.abc import Mapping, Sequence as ABCSequence
+from collections.abc import Mapping
+from collections.abc import Sequence as ABCSequence
 from pathlib import Path
 from typing import Any, cast
 
@@ -38,7 +39,7 @@ def load_project_from_json(path: Path) -> Hy8Project:
 
     raw_data: Any = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw_data, Mapping):
-        raise ValueError("Top-level JSON document must be an object.")
+        raise TypeError("Top-level JSON document must be an object.")
     data: JSONMapping = cast(JSONMapping, raw_data)
     return project_from_mapping(data)
 
@@ -48,7 +49,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     # Ensure the top-level 'project' key points to a dictionary.
     project_section_raw: Any = config.get("project", {})
     if not isinstance(project_section_raw, Mapping):
-        raise ValueError("Project section must be an object.")
+        raise TypeError("Project section must be an object.")
     project_section: JSONMapping = cast(JSONMapping, project_section_raw)
 
     # Initialize the project and populate top-level metadata.
@@ -63,7 +64,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     # Ensure the 'crossings' key points to a list.
     crossings_data_raw: Any = config.get("crossings", [])
     if not isinstance(crossings_data_raw, ABCSequence) or isinstance(crossings_data_raw, (str, bytes)):
-        raise ValueError("'crossings' section must be a list of crossing definitions")
+        raise TypeError("'crossings' section must be a list of crossing definitions")
 
     crossings_data_sequence: ABCSequence[Any] = cast(ABCSequence[Any], crossings_data_raw)
     crossings_data_raw_list: list[Any] = list(crossings_data_sequence)
@@ -72,7 +73,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     for crossing_entry_raw in crossings_data_raw_list:
         crossing_entry: Any = crossing_entry_raw
         if not isinstance(crossing_entry, Mapping):
-            raise ValueError("Each crossing definition must be an object.")
+            raise TypeError("Each crossing definition must be an object.")
         crossings_data_list.append(cast(JSONMapping, crossing_entry))
 
     # Parse each crossing dictionary and add it to the project.
@@ -105,14 +106,14 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
 
     culvert_entries_raw: Any = entry.get("culverts", [])
     if not isinstance(culvert_entries_raw, ABCSequence) or isinstance(culvert_entries_raw, (str, bytes)):
-        raise ValueError(f"Crossing '{name}' culverts must be a list")
+        raise TypeError(f"Crossing '{name}' culverts must be a list")
     culvert_entries_sequence: ABCSequence[Any] = cast(ABCSequence[Any], culvert_entries_raw)
     culvert_entries_raw_list: list[Any] = list(culvert_entries_sequence)
     culvert_entries_list: list[JSONMapping] = []
     for culvert_entry_raw in culvert_entries_raw_list:
         culvert_entry: Any = culvert_entry_raw
         if not isinstance(culvert_entry, Mapping):
-            raise ValueError(f"Culvert entries in crossing '{name}' must be objects.")
+            raise TypeError(f"Culvert entries in crossing '{name}' must be objects.")
         culvert_entries_list.append(cast(JSONMapping, culvert_entry))
 
     # Parse each culvert dictionary and add it to the crossing.
@@ -393,10 +394,10 @@ def _parse_tailwater_type(value: Any) -> TailwaterType:
 
 
 def _require_str(entry: JSONMapping, key: str, context: str) -> str:
-    """Fetch a mandatory string field or raise a ValueError with context."""
+    """Fetch a mandatory string field or raise a contextual exception."""
     if key not in entry:
         raise ValueError(f"Missing required field '{key}' in {context}")
     value = entry[key]
     if not isinstance(value, str):
-        raise ValueError(f"Field '{key}' in {context} must be a string")
+        raise TypeError(f"Field '{key}' in {context} must be a string")
     return value

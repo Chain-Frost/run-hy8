@@ -287,7 +287,7 @@ class Hy8FileWriter:
         BASE_LENGTH: int = 8
         FIELD_WIDTH: int = 11
 
-        def fmt_numeric(value: float | int) -> str:
+        def fmt_numeric(value: float) -> str:
             if isinstance(value, int):
                 return str(value)
             return f"{float(value):.6f}"

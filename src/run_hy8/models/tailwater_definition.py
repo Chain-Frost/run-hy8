@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+from _collections_abc import Mapping
+from _collections_abc import Sequence as ABCSequence
 from dataclasses import dataclass, field
 from typing import Any, cast
-from _collections_abc import Mapping, Sequence as ABCSequence
 
 from loguru import logger
 
+from ..type_helpers import TailwaterRatingPoint, TailwaterType, coerce_enum
 from .base import Validatable, normalize_sequence, rating_curve_list
-from ..type_helpers import TailwaterType, coerce_enum, TailwaterRatingPoint
 
 
 @dataclass(slots=True)
@@ -41,7 +42,7 @@ class TailwaterDefinition(Validatable):
     def __repr__(self) -> str:
         return self.describe()
 
-    def set_constant(self, *, elevation: float, invert: float | None = None) -> "TailwaterDefinition":
+    def set_constant(self, *, elevation: float, invert: float | None = None) -> TailwaterDefinition:
         """Fluent helper to configure a constant tailwater elevation."""
 
         self.tw_type = TailwaterType.CONSTANT
@@ -70,7 +71,7 @@ class TailwaterDefinition(Validatable):
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "TailwaterDefinition":
+    def from_dict(cls, data: Mapping[str, Any]) -> TailwaterDefinition:
         """Create a TailwaterDefinition from a dictionary."""
         rating_curve_data: list[tuple[float, float, float]] = []
         for entry in normalize_sequence(data.get("rating_curve")):

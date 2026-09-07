@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from _collections_abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
-from _collections_abc import Mapping
 
 from loguru import logger
 
-from .base import Validatable, float_list, string_list, normalize_sequence
 from ..type_helpers import FlowMethod, coerce_enum
+from .base import Validatable, float_list, normalize_sequence, string_list
 
 
 @dataclass(slots=True)
@@ -55,7 +55,7 @@ class FlowDefinition(Validatable):
             return list(self.user_values)
         raise ValueError(f"Flow method '{self.method}' is not supported.")
 
-    def add_user_flow(self, value: float, label: str | None = None) -> "FlowDefinition":
+    def add_user_flow(self, value: float, label: str | None = None) -> FlowDefinition:
         """Append a user-defined flow (and optional label) while maintaining invariants."""
 
         self.method = FlowMethod.USER_DEFINED
@@ -74,7 +74,7 @@ class FlowDefinition(Validatable):
         )
         return self
 
-    def set_min_design_max(self, minimum: float, design: float, maximum: float) -> "FlowDefinition":
+    def set_min_design_max(self, minimum: float, design: float, maximum: float) -> FlowDefinition:
         """Flip this definition into the min/design/max mode."""
 
         self.method = FlowMethod.MIN_DESIGN_MAX
@@ -113,7 +113,7 @@ class FlowDefinition(Validatable):
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "FlowDefinition":
+    def from_dict(cls, data: Mapping[str, Any]) -> FlowDefinition:
         """Create a FlowDefinition from a dictionary."""
         method_value = data.get("method", FlowMethod.USER_DEFINED.name)
         method: FlowMethod = coerce_enum(FlowMethod, method_value, default=FlowMethod.USER_DEFINED)

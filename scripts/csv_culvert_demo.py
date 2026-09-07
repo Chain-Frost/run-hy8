@@ -14,8 +14,9 @@ src_str: str = str(SRC_PATH)
 if src_str not in sys.path:
     sys.path.insert(0, src_str)
 
-from run_hy8.hydraulics import HydraulicsResult
 from run_hy8.classes_references import UnitSystem
+from run_hy8.hydraulics import HydraulicsResult
+from run_hy8.inlet_configurations import CircularCorrugatedSteelInlet
 from run_hy8.models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -26,10 +27,9 @@ from run_hy8.models import (
 from run_hy8.type_helpers import (
     CulvertMaterial,
     CulvertShape,
-    InletType,
     FlowMethod,
+    InletType,
 )
-from run_hy8.inlet_configurations import CircularCorrugatedSteelInlet
 
 DEFAULT_CSV: Path = Path(__file__).resolve().parent / "culvert-list.csv"
 # Hard-coded configuration; edit these to suit each run.
@@ -586,7 +586,7 @@ def main() -> None:
                 workspace_root=workspace_root,
             )
             results.append(outcome)
-        except Exception as exc:  # pragma: no cover - best effort across rows
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - isolate row failures
             crossing_name: str = row.get("Crossing", "<unknown>").strip()
             print(f"Skipping '{crossing_name}': {exc}", file=sys.stderr)
             results.append(make_failure_outcome(row, exc))

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import IO
 
-from .hy8_runner_flow import Hy8RunnerFlow
 from .hy8_runner_culvert import Hy8RunnerCulvertBarrel
+from .hy8_runner_flow import Hy8RunnerFlow
 
 __copyright__ = "(C) Copyright Aquaveo 2024"
 __license__ = "All rights reserved"

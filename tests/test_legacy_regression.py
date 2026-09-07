@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import pytest
-
-from tests.hy8runner.hy8_runner_crossing import Hy8RunnerCulvertCrossing
-
-from .hy8runner.hy8_runner import Hy8Runner
 
 from run_hy8 import (
     CulvertBarrel,
@@ -21,7 +17,9 @@ from run_hy8 import (
     UnitSystem,
 )
 from run_hy8.writer import Hy8FileWriter
+from tests.hy8runner.hy8_runner_crossing import Hy8RunnerCulvertCrossing
 
+from .hy8runner.hy8_runner import Hy8Runner
 from .sample_data import (
     build_sample_project,
     build_two_crossing_project,

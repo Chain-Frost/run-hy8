@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import math
 import os
 import re
@@ -10,16 +11,15 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-import concurrent.futures
 import pandas as pd
 from pandas import DataFrame
 
 from run_hy8 import (
+    CircularConcreteInlet,
     CulvertBarrel,
     CulvertCrossing,
     CulvertMaterial,
     CulvertShape,
-    CircularConcreteInlet,
     FlowDefinition,
     FlowMethod,
     Hy8Executable,
@@ -28,7 +28,7 @@ from run_hy8 import (
     RoadwaySurface,
     UnitSystem,
 )
-from run_hy8.results import Hy8Results, parse_rst, parse_rsql
+from run_hy8.results import Hy8Results, parse_rsql, parse_rst
 
 
 @dataclass(slots=True)
@@ -165,7 +165,7 @@ def load_scenarios(path: Path, *, skip_zero_flow: bool = True) -> tuple[list[Sce
                 us_invert=float(row.get("US Invert", row["DS_h"])),
                 ds_invert=float(row.get("DS Invert", row["DS_h"])),
                 height_m=float(row["Height"]),
-                barrels=max(1, int(round(row.get("number_interp", 1.0) or 1.0))),
+                barrels=max(1, round(row.get("number_interp", 1.0) or 1.0)),
                 roadway_crest=roadway_crest,
             )
         )
@@ -385,10 +385,9 @@ def build_record(
 def main() -> None:
     args = parse_args()
     scenarios, skipped_zero_flow = load_scenarios(args.input, skip_zero_flow=True)
-    if args.max_scenarios:
-        if len(scenarios) > args.max_scenarios:
-            print(f"Limiting to first {args.max_scenarios} scenarios (from {len(scenarios)}).")
-            scenarios = scenarios[: args.max_scenarios]
+    if args.max_scenarios and len(scenarios) > args.max_scenarios:
+        print(f"Limiting to first {args.max_scenarios} scenarios (from {len(scenarios)}).")
+        scenarios = scenarios[: args.max_scenarios]
     print(f"Loaded {len(scenarios)} scenarios (skipped {skipped_zero_flow} zero-flow rows).")
     batches = partition_batches(scenarios, args.batch_size)
     if args.max_batches:

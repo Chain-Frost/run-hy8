@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
-from .base import Validatable, crossing_list, normalize_sequence
 from ..classes_references import UnitSystem
 from ..type_helpers import coerce_enum
+from .base import Validatable, crossing_list, normalize_sequence
 from .culvert_crossing import CulvertCrossing
 
 if TYPE_CHECKING:
@@ -37,7 +38,7 @@ class Hy8Project(Validatable):
     def project_timestamp_hours() -> float:
         """HY-8 expects the project date as hours since epoch."""
 
-        return datetime.now().timestamp() / 3600.0
+        return datetime.now(tz=UTC).timestamp() / 3600.0
 
     def describe(self) -> str:
         """Return a short, human-readable description of the project."""
@@ -79,17 +80,17 @@ class Hy8Project(Validatable):
         self,
         q: float,
         *,
-        hy8: "Hy8Executable | Path | None" = None,
+        hy8: Hy8Executable | Path | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
-    ) -> "OrderedDict[str, HydraulicsResult]":
+    ) -> OrderedDict[str, HydraulicsResult]:
         """Return per-crossing headwater elevations by running HY-8 for the specified discharge."""
         from ..hydraulics import project_hw_from_q
 
         logger.info(
             "Project {project} running hw_from_q for flow {flow:.4f}", project=self.title or "<untitled>", flow=q
         )
-        results: OrderedDict[str, "HydraulicsResult"] = project_hw_from_q(
+        results: OrderedDict[str, HydraulicsResult] = project_hw_from_q(
             project=self,
             q=q,
             hy8=hy8,
@@ -108,10 +109,10 @@ class Hy8Project(Validatable):
         hw: float,
         *,
         q_hint: float | None = None,
-        hy8: "Hy8Executable | Path | None" = None,
+        hy8: Hy8Executable | Path | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
-    ) -> "OrderedDict[str, HydraulicsResult]":
+    ) -> OrderedDict[str, HydraulicsResult]:
         """Return per-crossing discharges for a requested headwater."""
         from ..hydraulics import project_q_from_hw
 
@@ -120,7 +121,7 @@ class Hy8Project(Validatable):
             project=self.title or "<untitled>",
             headwater=hw,
         )
-        results: OrderedDict[str, "HydraulicsResult"] = project_q_from_hw(
+        results: OrderedDict[str, HydraulicsResult] = project_q_from_hw(
             project=self,
             hw=hw,
             q_hint=q_hint,
@@ -140,10 +141,10 @@ class Hy8Project(Validatable):
         hw_d_ratio: float,
         *,
         q_hint: float | None = None,
-        hy8: "Hy8Executable | Path | None" = None,
+        hy8: Hy8Executable | Path | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
-    ) -> "OrderedDict[str, HydraulicsResult]":
+    ) -> OrderedDict[str, HydraulicsResult]:
         """Return per-crossing discharges for a headwater-to-diameter ratio (optionally seeded by q_hint)."""
         from ..hydraulics import project_q_for_hwd
 
@@ -152,7 +153,7 @@ class Hy8Project(Validatable):
             project=self.title or "<untitled>",
             ratio=hw_d_ratio,
         )
-        results: OrderedDict[str, "HydraulicsResult"] = project_q_for_hwd(
+        results: OrderedDict[str, HydraulicsResult] = project_q_for_hwd(
             project=self,
             hw_d_ratio=hw_d_ratio,
             q_hint=q_hint,
@@ -179,7 +180,7 @@ class Hy8Project(Validatable):
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "Hy8Project":
+    def from_dict(cls, data: Mapping[str, Any]) -> Hy8Project:
         """Create a Hy8Project from a dictionary."""
         return cls(
             title=data.get("title", ""),

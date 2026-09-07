@@ -9,9 +9,7 @@ import subprocess
 from _collections_abc import Sequence
 
 # 2. Third party modules
-
 # 3. Aquaveo modules
-
 # 4. Local modules
 from .hy8_runner_crossing import Hy8RunnerCulvertCrossing
 from .hy8_runner_culvert import Hy8RunnerCulvertBarrel
@@ -604,7 +602,7 @@ class Hy8Runner:
             hy8_file.write(f"PROJTITLE  {self.project_title}\n")
             hy8_file.write(f"PROJDESIGNER  {self.designer_name}\n")
             hy8_file.write(f"STARTPROJNOTES  {self.project_notes}\nENDPROJNOTES\n")
-            hy8_file.write(f"PROJDATE  {datetime.datetime.now().timestamp() / 3600}\n")
+            hy8_file.write(f"PROJDATE  {datetime.datetime.now(tz=datetime.UTC).timestamp() / 3600}\n")
             hy8_file.write(f"NUMCROSSINGS  {len(self.crossings)}\n")
 
             for crossing in self.crossings:
@@ -625,7 +623,7 @@ class Hy8Runner:
         command: list[str] = [hy8_exe]
         command.extend(commandline_arguments)
         command.append(self.hy8_file)
-        completed_process = subprocess.run(command)
+        completed_process = subprocess.run(command, check=False)
         if completed_process.returncode != 0:
             print(f"Command '{command}' failed with return code {completed_process.returncode}")
 

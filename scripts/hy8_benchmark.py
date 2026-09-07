@@ -3,23 +3,23 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures._base import Future
 import csv
 import math
 import shutil
+from collections.abc import Iterable, Sequence
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures._base import Future
 from dataclasses import dataclass
 from pathlib import Path
 from subprocess import CompletedProcess
 from time import perf_counter
-from typing import Iterable, Sequence
 
 from run_hy8 import (
+    CircularConcreteInlet,
     CulvertBarrel,
     CulvertCrossing,
     CulvertMaterial,
     CulvertShape,
-    CircularConcreteInlet,
     FlowDefinition,
     FlowMethod,
     Hy8Executable,

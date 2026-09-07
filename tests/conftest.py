@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import sys
-import pytest
 from pathlib import Path
+
+import pytest
+
 from run_hy8.executor import Hy8Executable
 
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[1]
@@ -23,5 +25,5 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         # Check if the executable is configured/available
         try:
             Hy8Executable()
-        except Exception:
+        except (FileNotFoundError, OSError):
             pytest.skip("HY-8 executable not found or not configured")

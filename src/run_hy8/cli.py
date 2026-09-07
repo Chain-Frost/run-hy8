@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from _collections_abc import Sequence
 from pathlib import Path
 from subprocess import CompletedProcess
-from _collections_abc import Sequence
 
 from .config import load_project_from_json
 from .executor import Hy8Executable

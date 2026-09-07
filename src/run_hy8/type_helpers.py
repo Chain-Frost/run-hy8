@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from enum import Enum, IntEnum
-from typing import Any, TypeVar
-
-TEnum = TypeVar("TEnum", bound=Enum)
+from typing import Any, Self
 
 
-def coerce_enum(enum_cls: type[TEnum], value: Any, *, default: TEnum) -> TEnum:
+def coerce_enum[TEnum: Enum](enum_cls: type[TEnum], value: Any, *, default: TEnum) -> TEnum:
     """Return enum member from the provided value, accepting names/values."""
 
     if value is None:
@@ -55,8 +53,8 @@ class _DescribedIntEnum(IntEnum):
 
     _label_: str
 
-    def __new__(cls, value: int, label: str) -> "_DescribedIntEnum":
-        obj: _DescribedIntEnum = int.__new__(cls, value)
+    def __new__(cls, value: int, label: str) -> Self:
+        obj = int.__new__(cls, value)
         obj._value_ = value
         obj._label_ = label
         return obj

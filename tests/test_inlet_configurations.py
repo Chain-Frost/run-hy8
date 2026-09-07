@@ -14,18 +14,18 @@ from run_hy8 import (
     CulvertBarrel,
     CulvertMaterial,
     CulvertShape,
-    Hy8FileWriter,
     Hy8Executable,
+    Hy8FileWriter,
     InletEdgeType,
     LegacyInletConfigurationWarning,
     culvert_dataframe,
 )
+from run_hy8.hydraulic_defaults import HY8_V8_OBSERVED_MANNING_N
 from run_hy8.inlet_configurations import (
     HY8_V8_INLET_SPECS,
     resolve_v8_inlet_configuration,
     resolve_v8_inlet_spec,
 )
-from run_hy8.hydraulic_defaults import HY8_V8_OBSERVED_MANNING_N
 from run_hy8.reader import load_project_from_hy8
 from run_hy8.results import parse_rsql, parse_rst
 

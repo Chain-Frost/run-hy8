@@ -21,6 +21,7 @@ import shutil
 import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from itertools import pairwise
 from pathlib import Path
 
 from loguru import logger
@@ -35,8 +36,8 @@ from .models import (
     FlowDefinition,
     Hy8Project,
 )
-from .type_helpers import CulvertShape, FlowMethod
 from .results import Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
+from .type_helpers import CulvertShape, FlowMethod
 from .writer import Hy8FileWriter
 
 MINIMUM_SEED_FLOW: float = 0.05
@@ -188,7 +189,7 @@ class _FlowSearch:
         )
         best_pair: tuple[_FlowSample, _FlowSample] | None = None
         best_span: float = float("inf")
-        for low, high in zip(ordered, ordered[1:]):
+        for low, high in pairwise(ordered):
             low_delta: float = self._delta(sample=low)
             high_delta: float = self._delta(sample=high)
             if abs(low_delta) <= self.tolerance or abs(high_delta) <= self.tolerance:

@@ -1,12 +1,13 @@
 """Targeted validation coverage for the run_hy8 domain model."""
 
 from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
 
-from run_hy8.classes_references import ValidationError
 from run_hy8 import TailwaterType
+from run_hy8.classes_references import ValidationError
 from run_hy8.models import FlowDefinition, FlowMethod, Hy8Project
 from run_hy8.writer import Hy8FileWriter
 

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from run_hy8 import Hy8Project
-from run_hy8 import cli
+from run_hy8 import Hy8Project, cli
 from run_hy8.config import load_project_from_json
 
 from .sample_data import CONFIG_JSON

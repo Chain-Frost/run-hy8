@@ -12,12 +12,13 @@ from typing import Any
 
 import geopandas as gpd
 from pandas import DataFrame
+
 from run_hy8.classes_references import UnitSystem
-from run_hy8.hydraulics import FlowSearchError, HydraulicsResult
 from run_hy8.hy8_path import resolve_hy8_path
+from run_hy8.hydraulics import FlowSearchError, HydraulicsResult
+from run_hy8.inlet_configurations import CircularConcreteInlet
 from run_hy8.models import CulvertBarrel, CulvertCrossing, FlowDefinition, Hy8Project, RoadwayProfile
 from run_hy8.results import Hy8ResultRow
-from run_hy8.inlet_configurations import CircularConcreteInlet
 from run_hy8.type_helpers import CulvertMaterial, CulvertShape, FlowMethod, InletType
 
 INPUT_GIS_FILE = Path(
@@ -120,7 +121,7 @@ class CrossingOutcome:
     hw_2p0: ScenarioOutcome
 
     @staticmethod
-    def _format(value: float | int | None, places: int = 4) -> str:
+    def _format(value: float | None, places: int = 4) -> str:
         if value is None:
             return ""
         if isinstance(value, int):
@@ -526,7 +527,7 @@ def _crossing_worker(
             keep_workspace=keep_workspace,
             workspace_root=workspace_root,
         )
-    except Exception as exc:  # pragma: no cover - worker best effort
+    except Exception as exc:  # noqa: BLE001  # pragma: no cover - isolate worker failures
         return make_failure_outcome(record=record, error=exc)
 
 

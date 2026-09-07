@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 SCRIPT_DIR: Path = Path(__file__).resolve().parent
 REPO_ROOT: Path = SCRIPT_DIR.parent

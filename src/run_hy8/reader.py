@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
+from _collections_abc import Iterable
 from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
-from _collections_abc import Iterable
 
 from pandas.core.frame import DataFrame
 
 from .classes_references import UnitSystem
 from .inlet_configurations import resolve_v8_inlet_configuration
-from .models import FlowDefinition, TailwaterDefinition
-from .units import cfs_to_cms, feet_to_metres
-
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
+    FlowDefinition,
     Hy8Project,
+    TailwaterDefinition,
 )
 from .type_helpers import (
     CulvertMaterial,
@@ -29,6 +28,7 @@ from .type_helpers import (
     RoadwaySurface,
     TailwaterType,
 )
+from .units import cfs_to_cms, feet_to_metres
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -136,7 +136,7 @@ class _Hy8Parser:
         self._source: Path | None = source
 
     @classmethod
-    def from_path(cls, path: Path) -> "_Hy8Parser":
+    def from_path(cls, path: Path) -> _Hy8Parser:
         """Create a parser instance from a file path."""
         text: str = path.read_text(encoding="utf-8", errors="ignore")
         return cls(text.splitlines(), source=path)
@@ -482,7 +482,7 @@ class _Hy8Parser:
             raise ValueError(f"Unsupported HY-8 v8 improved inlet edge code {index}.") from exc
 
 
-def culvert_dataframe(project: Hy8Project) -> "pd.DataFrame":
+def culvert_dataframe(project: Hy8Project) -> pd.DataFrame:
     """
     Return a pandas DataFrame describing every culvert barrel in a project.
 

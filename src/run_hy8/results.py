@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypedDict
 
-
 ValueKey = Literal["flow", "headwater", "velocity"]
 SummaryKey = Literal["roadway", "iterations"]
 
@@ -327,6 +326,6 @@ __all__: list[str] = [
     "FlowProfile",
     "Hy8ResultRow",
     "Hy8Results",
-    "parse_rst",
     "parse_rsql",
+    "parse_rst",
 ]

@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, TYPE_CHECKING, cast
-from loguru import logger
-from .base import Validatable, normalize_mapping, normalize_sequence
-from ..classes_references import UnitSystem
-from .flow_definition import FlowDefinition
-from .tailwater_definition import TailwaterDefinition
-from .roadway_profile import RoadwayProfile
-from .culvert_barrel import CulvertBarrel
+from typing import TYPE_CHECKING, Any, cast
 
+from loguru import logger
+
+from ..classes_references import UnitSystem
+from .base import Validatable, normalize_mapping, normalize_sequence
+from .culvert_barrel import CulvertBarrel
+from .flow_definition import FlowDefinition
+from .roadway_profile import RoadwayProfile
+from .tailwater_definition import TailwaterDefinition
 
 if TYPE_CHECKING:
     from ..executor import Hy8Executable
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
     from .project import Hy8Project
 
 
-def _culvert_list() -> list["CulvertBarrel"]:
+def _culvert_list() -> list[CulvertBarrel]:
     """Return a fresh list of CulvertBarrel objects for defaults."""
 
     return []
@@ -97,13 +99,13 @@ class CulvertCrossing(Validatable):
         self,
         q: float,
         *,
-        hy8: "Hy8Executable | Path | None" = None,
-        project: "Hy8Project | None" = None,
+        hy8: Hy8Executable | Path | None = None,
+        project: Hy8Project | None = None,
         units: UnitSystem | None = None,
         exit_loss_option: int | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
-    ) -> "HydraulicsResult":
+    ) -> HydraulicsResult:
         """Run HY-8 for a specific discharge and return the resulting headwater."""
         from ..hydraulics import crossing_hw_from_q
 
@@ -131,13 +133,13 @@ class CulvertCrossing(Validatable):
         hw: float,
         *,
         q_hint: float | None = None,
-        hy8: "Hy8Executable | Path | None" = None,
-        project: "Hy8Project | None" = None,
+        hy8: Hy8Executable | Path | None = None,
+        project: Hy8Project | None = None,
         units: UnitSystem | None = None,
         exit_loss_option: int | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
-    ) -> "HydraulicsResult":
+    ) -> HydraulicsResult:
         """Iteratively run HY-8 to find the discharge that produces the requested headwater."""
         from ..hydraulics import crossing_q_from_hw
 
@@ -166,13 +168,13 @@ class CulvertCrossing(Validatable):
         hw_d_ratio: float,
         *,
         q_hint: float | None = None,
-        hy8: "Hy8Executable | Path | None" = None,
-        project: "Hy8Project | None" = None,
+        hy8: Hy8Executable | Path | None = None,
+        project: Hy8Project | None = None,
         units: UnitSystem | None = None,
         exit_loss_option: int | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
-    ) -> "HydraulicsResult":
+    ) -> HydraulicsResult:
         """Run HY-8 to find the discharge that satisfies a headwater-to-diameter ratio (optionally seeding with q_hint)."""
         from ..hydraulics import crossing_q_for_hwd
 
@@ -209,7 +211,7 @@ class CulvertCrossing(Validatable):
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "CulvertCrossing":
+    def from_dict(cls, data: Mapping[str, Any]) -> CulvertCrossing:
         """Create a CulvertCrossing from a dictionary."""
         flow_data: FlowDefinition = FlowDefinition.from_dict(normalize_mapping(data.get("flow")))
         tailwater_data: TailwaterDefinition = TailwaterDefinition.from_dict(normalize_mapping(data.get("tailwater")))

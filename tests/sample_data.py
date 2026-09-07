@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 
 from run_hy8 import (
+    CircularConcreteInlet,
+    ConcreteBoxInlet,
     CulvertBarrel,
     CulvertCrossing,
     CulvertMaterial,
     CulvertShape,
-    CircularConcreteInlet,
-    ConcreteBoxInlet,
     FlowDefinition,
     FlowMethod,
     Hy8Project,

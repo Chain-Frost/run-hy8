@@ -1,10 +1,15 @@
 """Shared base helpers for HY-8 model dataclasses."""
 
 from __future__ import annotations
+
+from _collections_abc import Mapping as ABCMapping
+from _collections_abc import Sequence as ABCSequence
 from abc import abstractmethod
-from typing import Any, Mapping, Sequence, TYPE_CHECKING, cast
-from _collections_abc import Mapping as ABCMapping, Sequence as ABCSequence
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, cast
+
 from loguru import logger
+
 from ..classes_references import ValidationError
 from ..type_helpers import TailwaterRatingPoint
 
@@ -44,7 +49,6 @@ class Validatable:
         Args:
             prefix: A string to prepend to each validation error message for context.
         """
-        pass
 
 
 def float_list() -> list[float]:
@@ -80,7 +84,7 @@ def rating_curve_list() -> list[TailwaterRatingPoint]:
     return []
 
 
-def crossing_list() -> list["CulvertCrossing"]:
+def crossing_list() -> list[CulvertCrossing]:
     """
     Return a new list of `CulvertCrossing` objects.
 

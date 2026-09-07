@@ -101,13 +101,16 @@ import shutil
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
-
 from typing import Any, LiteralString
+
 import pandas as pd
 from pandas import DataFrame
-from run_hy8.writer import Hy8FileWriter
-from run_hy8.hydraulics import HydraulicsResult, FlowSearchError
+
 from run_hy8.classes_references import UnitSystem
+from run_hy8.executor import Hy8Executable
+from run_hy8.hy8_path import resolve_hy8_path
+from run_hy8.hydraulics import FlowSearchError, HydraulicsResult
+from run_hy8.inlet_configurations import CircularCorrugatedSteelInlet
 from run_hy8.models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -115,16 +118,14 @@ from run_hy8.models import (
     Hy8Project,
     RoadwayProfile,
 )
-from run_hy8.executor import Hy8Executable
-from run_hy8.hy8_path import resolve_hy8_path
-from run_hy8.results import FlowProfile, Hy8ResultRow, Hy8Results, Hy8Series, parse_rst, parse_rsql
+from run_hy8.results import FlowProfile, Hy8ResultRow, Hy8Results, Hy8Series, parse_rsql, parse_rst
 from run_hy8.type_helpers import (
     CulvertMaterial,
     CulvertShape,
-    InletType,
     FlowMethod,
+    InletType,
 )
-from run_hy8.inlet_configurations import CircularCorrugatedSteelInlet
+from run_hy8.writer import Hy8FileWriter
 
 
 @dataclass(slots=True)
@@ -353,9 +354,8 @@ def select_rows(rows: list[dict[str, Any]], name: str | None) -> list[dict[str, 
     filtered: list[dict[str, Any]] = []
     if name:
         for row in rows:
-            if matches(row, name):
-                if _flow_value(row) > 0:
-                    filtered.append(row)
+            if matches(row, name) and _flow_value(row) > 0:
+                filtered.append(row)
         if not filtered:
             raise ValueError(f"Crossing '{name}' not found in Excel input.")
         return filtered
@@ -876,7 +876,7 @@ def run_crossing(
         print(f"  AEP: {aep_text}")
     print(f"  Adopted flow (m^3/s): {flow_value:.4f}")
     if flow_value <= 0:
-        print("  Warning: Adopted flow is non-positive; using {:.4f} m^3/s to seed headwater solves.".format(flow_hint))
+        print(f"  Warning: Adopted flow is non-positive; using {flow_hint:.4f} m^3/s to seed headwater solves.")
 
     scenario_workspaces: dict[str, Path | None] = {
         HW_DATA_LABEL: workspace_for_scenario(workspace, HW_DATA_LABEL),
@@ -981,7 +981,7 @@ def _crossing_worker(
             workspace_root=workspace_root,
         )
         return indices, outcomes, None
-    except Exception as exc:  # pragma: no cover - worker best effort
+    except Exception as exc:  # noqa: BLE001  # pragma: no cover - isolate worker failures
         failures = [make_failure_outcome(row, exc) for row in rows]
         return indices, failures, str(exc)
 

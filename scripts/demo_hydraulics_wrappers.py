@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import math
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_ROOT = ROOT / "src"
@@ -14,7 +14,8 @@ for path in (ROOT, SRC_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from run_hy8 import (  # noqa: E402
+from run_hy8 import (
+    CircularHdpeInlet,
     CulvertBarrel,
     CulvertCrossing,
     CulvertMaterial,
@@ -22,14 +23,13 @@ from run_hy8 import (  # noqa: E402
     FlowDefinition,
     FlowMethod,
     Hy8Project,
-    CircularHdpeInlet,
-    InletType,
     ImprovedInletEdgeType,
+    InletType,
     RoadwaySurface,
     UnitSystem,
     load_project_from_hy8,
 )
-from run_hy8.hydraulics import crossing_hw_from_q  # noqa: E402
+from run_hy8.hydraulics import crossing_hw_from_q
 
 EXAMPLE_FILE: Path = ROOT / "tests" / "example_crossings.hy8"
 REFERENCE_NAME = "HDPE 900x11"

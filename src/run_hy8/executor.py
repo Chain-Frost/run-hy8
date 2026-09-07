@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import os
 import subprocess
-from pathlib import Path
 from _collections_abc import Sequence
+from pathlib import Path
 
-from .hy8_path import resolve_hy8_path, save_hy8_path
 from .classes_references import UnitSystem
+from .hy8_path import resolve_hy8_path, save_hy8_path
 
 
 class Hy8Executable:

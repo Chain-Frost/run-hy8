@@ -20,10 +20,10 @@ from ..inlet_configurations import (
 from ..type_helpers import (
     CulvertMaterial,
     CulvertShape,
+    ImprovedInletEdgeType,
     InletEdgeType,
     InletEdgeType71,
     InletType,
-    ImprovedInletEdgeType,
     coerce_enum,
 )
 from .base import Validatable
@@ -134,7 +134,7 @@ class CulvertBarrel(Validatable):
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "CulvertBarrel":
+    def from_dict(cls, data: Mapping[str, Any]) -> CulvertBarrel:
         """Create a CulvertBarrel from a dictionary."""
         legacy_keys: set[str] = {"inlet_edge_type", "inlet_edge_type71"} & data.keys()
         if legacy_keys and "inlet_configuration" in data:

@@ -9,10 +9,11 @@ import json
 import math
 import re
 import shutil
-from subprocess import CompletedProcess
 import sys
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from subprocess import CompletedProcess
+from typing import Any
 
 from run_hy8.models import FlowDefinition
 from tests.hy8runner.hy8_runner_crossing import Hy8RunnerCulvertCrossing
@@ -24,7 +25,7 @@ for path in (ROOT, SRC_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from run_hy8 import (  # noqa: E402
+from run_hy8 import (
     CulvertBarrel,
     CulvertCrossing,
     CulvertMaterial,
@@ -36,9 +37,9 @@ from run_hy8 import (  # noqa: E402
     RoadwaySurface,
     UnitSystem,
 )
-from run_hy8.results import FlowProfile, Hy8Series, parse_rsql, parse_rst  # noqa: E402
-from scripts.batch_hy8_compare import Scenario, build_crossing, load_scenarios  # noqa: E402
-from tests.hy8runner.hy8_runner import Hy8Runner  # noqa: E402
+from run_hy8.results import FlowProfile, Hy8Series, parse_rsql, parse_rst
+from scripts.batch_hy8_compare import Scenario, build_crossing, load_scenarios
+from tests.hy8runner.hy8_runner import Hy8Runner
 
 DEFAULT_SCENARIO_DATA: list[dict[str, float | int | str]] = [
     {
@@ -575,7 +576,7 @@ def load_scenarios_from_json(path: Path, *, skip_zero_flow: bool) -> tuple[list[
         elif "data" in data:
             data = data["data"]
     if not isinstance(data, list):
-        raise ValueError(f"JSON scenario file {path} must contain a list of scenario mappings.")
+        raise TypeError(f"JSON scenario file {path} must contain a list of scenario mappings.")
     return records_to_scenarios(data, skip_zero_flow=skip_zero_flow)
 
 

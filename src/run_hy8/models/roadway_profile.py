@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from _collections_abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
-from _collections_abc import Mapping
 
 from loguru import logger
 
-from .base import Validatable, float_list, normalize_sequence
 from ..type_helpers import RoadwaySurface, coerce_enum
+from .base import Validatable, float_list, normalize_sequence
 
 
 @dataclass(slots=True)
@@ -37,7 +37,7 @@ class RoadwayProfile(Validatable):
         """Return a list of (station, elevation) tuples."""
         return list(zip(self.stations, self.elevations))
 
-    def add_point(self, station: float, elevation: float) -> "RoadwayProfile":
+    def add_point(self, station: float, elevation: float) -> RoadwayProfile:
         """Append a station/elevation pair while keeping arrays aligned."""
 
         self.stations.append(station)
@@ -77,7 +77,7 @@ class RoadwayProfile(Validatable):
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "RoadwayProfile":
+    def from_dict(cls, data: Mapping[str, Any]) -> RoadwayProfile:
         """Create a RoadwayProfile from a dictionary."""
         return cls(
             width=float(data.get("width", 0.0)),

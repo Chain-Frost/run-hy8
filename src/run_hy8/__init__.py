@@ -3,8 +3,8 @@
 from .classes_references import UnitSystem
 from .config import load_project_from_json, project_from_mapping
 from .executor import Hy8Executable
-from .hydraulics import HydraulicsResult
 from .hy8_path import read_hy8_path_file, resolve_hy8_path, save_hy8_path
+from .hydraulics import HydraulicsResult
 from .inlet_configurations import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
@@ -37,21 +37,22 @@ from .type_helpers import (
 from .writer import Hy8FileWriter
 
 __all__: list[str] = [
-    "HydraulicsResult",
-    "CulvertBarrel",
-    "CulvertCrossing",
-    "CulvertMaterial",
-    "CulvertShape",
     "CircularConcreteInlet",
     "CircularCorrugatedSteelInlet",
     "CircularHdpeInlet",
     "ConcreteBoxInlet",
+    "CulvertBarrel",
+    "CulvertCrossing",
+    "CulvertMaterial",
+    "CulvertShape",
     "FlowDefinition",
     "FlowMethod",
-    "ImprovedInletEdgeType",
     "Hy8Executable",
     "Hy8FileWriter",
     "Hy8Project",
+    "Hy8Results",
+    "HydraulicsResult",
+    "ImprovedInletEdgeType",
     "InletEdgeType",
     "InletEdgeType71",
     "InletType",
@@ -62,12 +63,11 @@ __all__: list[str] = [
     "TailwaterDefinition",
     "TailwaterType",
     "UnitSystem",
-    "Hy8Results",
-    "parse_rst",
-    "parse_rsql",
     "culvert_dataframe",
-    "load_project_from_json",
     "load_project_from_hy8",
+    "load_project_from_json",
+    "parse_rsql",
+    "parse_rst",
     "project_from_mapping",
     "read_hy8_path_file",
     "resolve_hy8_path",
