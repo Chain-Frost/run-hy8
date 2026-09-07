@@ -126,6 +126,35 @@ project call. Its fields are:
 - `row`: complete `Hy8ResultRow`, including any parsed profile data
 - `workspace`: retained workspace path when `keep_files=True`
 
+`row.culverts` contains one `Hy8CulvertResult` per culvert. Each item exposes
+the culvert discharge, flow type, outlet velocity, inlet- and outlet-control
+depths, and full/free barrel lengths for the selected flow. Control-depth
+asterisks written by HY-8 are retained in the corresponding `_qualifier`
+field instead of being discarded or converting the numeric value to `NaN`.
+Numeric values remain in the unit system used by the HY-8 report.
+
+### HY-8 control-depth qualifiers
+
+- `*` on an outlet-control depth means that HY-8 calculated a negative depth
+  and replaced it with `0.0`, because the implied headwater would be below the
+  inlet invert. This meaning is documented by the HY-8 developer in
+  [HY-8 Insider Article 15](https://www.linkedin.com/pulse/hy-8-insider-article-15-culvert-barrel-results-eric-jones-p-e-/).
+- `**` on an inlet-control depth is an extreme-headwater warning. Tests with
+  HY-8 8.0.1.2 show that the marker begins when inlet-control `HW/D` exceeds
+  approximately 10. The installed HY-8 manual does not define this marker, so
+  that threshold should be treated as verified version-specific behaviour,
+  not a documented cross-version contract. In any event, results this high
+  require caution: FHWA's inlet-control curves are based on `HW/D` from 0.5 to
+  3.0 and are extended above 3.0 using a fitted orifice relationship, as
+  described in
+  [FHWA HDS-5](https://www.fhwa.dot.gov/engineering/hydraulics/pubs/12026/hif12026.pdf).
+
+For example, `outlet_control_depth=0.0` with
+`outlet_control_depth_qualifier="*"` is a corrected value, while
+`inlet_control_depth_qualifier="**"` indicates that the reported inlet-control
+depth should not be treated as an ordinary result within the calibrated
+headwater range.
+
 ## Workspaces and retained files
 
 Without a `workspace`, the helpers create a temporary directory and delete it

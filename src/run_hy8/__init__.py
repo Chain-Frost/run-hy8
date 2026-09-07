@@ -22,7 +22,7 @@ from .models import (
     TailwaterDefinition,
 )
 from .reader import culvert_dataframe, load_project_from_hy8
-from .results import Hy8Results, parse_rsql, parse_rst
+from .results import Hy8CulvertResult, Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
 from .type_helpers import (
     CulvertMaterial,
     CulvertShape,
@@ -47,9 +47,11 @@ __all__: list[str] = [
     "CulvertShape",
     "FlowDefinition",
     "FlowMethod",
+    "Hy8CulvertResult",
     "Hy8Executable",
     "Hy8FileWriter",
     "Hy8Project",
+    "Hy8ResultRow",
     "Hy8Results",
     "HydraulicsResult",
     "ImprovedInletEdgeType",

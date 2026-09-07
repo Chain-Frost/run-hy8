@@ -132,6 +132,27 @@ best_design = results.nearest(target=50.0)
 print(f"Design headwater: {best_design.headwater_elevation}")
 ```
 
+Each result row also retains diagnostics for every culvert in the crossing. The
+culvert index is the zero-based value written by HY-8:
+
+```python
+for culvert in best_design.culverts:
+    print(
+        culvert.name,
+        culvert.inlet_control_depth,
+        culvert.outlet_control_depth,
+        culvert.full_length,
+        culvert.free_length,
+    )
+```
+
+HY-8 occasionally appends `*` or `**` to a reported control depth. The numeric
+portion remains available as a float and the marker is retained separately in
+`inlet_control_depth_qualifier` or `outlet_control_depth_qualifier`. Numeric
+values remain in the unit system used by the HY-8 report. See the
+[HY-8 control-depth qualifier legend](docs/headwater_helpers.md#hy-8-control-depth-qualifiers)
+for the meaning and limitations of `*` and `**`.
+
 These utilities power `scripts/batch_hy8_compare.py` and let you automate regression checks without opening the HY-8 GUI.
 
 ## HY-8 executable location
