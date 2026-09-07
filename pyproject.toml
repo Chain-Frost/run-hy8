@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "run-hy8"
-version = "2026.08.13.1"
+version = "2026.09.07.1"
 description = "Windows-only utilities for generating and executing HY-8 projects"
 readme = "README.md"
 keywords = ["hydraulics", "culvert", "HY-8", "engineering"]
@@ -29,6 +29,9 @@ dev = ["build", "pandas-stubs", "pyright", "ruff", "pytest", "pytest-cov", "mkdo
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+run_hy8 = ["py.typed"]
 
 [tool.ruff]
 line-length = 120
