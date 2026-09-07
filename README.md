@@ -37,9 +37,7 @@ The `run-hy8` project is organized into the following modules:
 ## Quick Start
 
 ```powershell
-py -3.14 -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e .
+python -m pip install --user -e .
 ```
 
 ```python

@@ -15,7 +15,7 @@ if not exist "%LOCAL_DIST_DIR%" (
     echo Failed to prepare local dist directory at %LOCAL_DIST_DIR%.
     exit /b 1
 )
-python -c "import os, shutil; src=os.environ['PROJECT_ROOT']; dst=os.environ['LOCAL_STAGE_DIR']; ignore=shutil.ignore_patterns('.git','dist','build','disttest','__pycache__','.pytest_cache','pytest-cache-files-*'); shutil.copytree(src, dst, dirs_exist_ok=True, ignore=ignore)"
+python -c "import os, shutil; src=os.environ['PROJECT_ROOT']; dst=os.environ['LOCAL_STAGE_DIR']; ignore=shutil.ignore_patterns('.git','.venv','venv','env','dist','build','disttest','__pycache__','.pytest_cache','pytest-cache-files-*'); shutil.copytree(src, dst, dirs_exist_ok=True, ignore=ignore)"
 if errorlevel 1 (
     echo Failed to copy project into the local staging area.
     exit /b 1
@@ -62,8 +62,7 @@ if exist "%PACKAGE_DIR%" rmdir /s /q "%PACKAGE_DIR%"
 if "%USING_LOCAL_STAGE%"=="1" (
     call :StageProject
     if errorlevel 1 (
-        endlocal
-        goto :EOF
+        endlocal & exit /b 1
     )
 ) else (
     echo Local staging unavailable. Building directly from %PROJECT_ROOT%.
@@ -77,8 +76,7 @@ if exist "%BUILD_OUTPUT_DIR%" rmdir /s /q "%BUILD_OUTPUT_DIR%"
 mkdir "%BUILD_OUTPUT_DIR%" >nul 2>&1
 if %ERRORLEVEL% neq 0 (
     echo Failed to create build output directory at %BUILD_OUTPUT_DIR%.
-    endlocal
-    goto :EOF
+    endlocal & exit /b 1
 )
 
 REM Build the wheel inside the staging directory
@@ -94,8 +92,7 @@ popd
 REM Check if the build was successful
 if %BUILD_EXIT% neq 0 (
     echo Build failed. Please check the setup.py for errors.
-    endlocal
-    goto :EOF
+    endlocal & exit /b %BUILD_EXIT%
 )
 
 REM Copy the artifacts back to the repo
@@ -105,23 +102,20 @@ mkdir "%PACKAGE_DIR%" >nul 2>&1
 REM Check if the move was successful
 if %ERRORLEVEL% neq 0 (
     echo Failed to create package directory at %PACKAGE_DIR%.
-    endlocal
-    goto :EOF
+    endlocal & exit /b 1
 )
 set "COPIED_FILE="
 for %%F in ("%BUILD_OUTPUT_DIR%\*.whl") do (
     copy "%%~fF" "%PACKAGE_DIR%\\" >nul
     if !ERRORLEVEL! neq 0 (
         echo Failed to copy %%~nxF back to the project.
-        endlocal
-        goto :EOF
+        endlocal & exit /b 1
     )
     set "COPIED_FILE=%%~nxF"
 )
 if not defined COPIED_FILE (
     echo No wheel was produced in %BUILD_OUTPUT_DIR%.
-    endlocal
-    goto :EOF
+    endlocal & exit /b 1
 )
 
 REM Clean up the local workspace after a successful build
@@ -130,5 +124,4 @@ if "%USING_LOCAL_STAGE%"=="1" (
 )
 
 echo Package created and moved to %PACKAGE_DIR% successfully.
-endlocal
-goto :EOF
+endlocal & exit /b 0

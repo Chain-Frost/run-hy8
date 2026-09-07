@@ -5,26 +5,11 @@ This project targets Windows and Python 3.14. The coding conventions in
 
 ## Development setup
 
-Create and activate a Python 3.14 virtual environment from the repository root.
-
-For PowerShell:
-
-```powershell
-py -3.14 -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-For Command Prompt:
-
-```cmd
-py -3.14 -m venv .venv
-.venv\Scripts\activate.bat
-```
-
-Install the package and development tools:
+Use the selected user-level Python 3.14 installation directly. Install the
+package and development tools from the repository root:
 
 ```powershell
-python -m pip install -e .[dev]
+python -m pip install --user -e ".[dev]"
 ```
 
 ## Required checks
