@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,7 @@ readme = "README.md"
 keywords = ["hydraulics", "culvert", "HY-8", "engineering"]
 requires-python = ">=3.14"
 authors = [{name = "Codex scaffolding"}]
-license = "MIT"
+license = "SUL-1.0"
 license-files = ["LICENSE"]
 dependencies = [
     "loguru>=0.7",

@@ -244,6 +244,20 @@ Before running tests locally, install the development extras once per virtual en
 pip install -e .[dev]
 ```
 
+## License
+
+This project is licensed under the [Sustainable Use License v1.0](LICENSE)
+(`SUL-1.0`).
+
+The software may be used and modified for personal, non-commercial, and internal
+business purposes, including commercial professional and consulting work where the
+software itself is not provided as a commercial product or service.
+
+Commercial distribution, incorporation into software supplied commercially to third
+parties, or provision of the software or its functionality as a paid hosted service,
+SaaS, or API is not permitted under the free licence. See the `LICENSE` file for the
+governing terms.
+
 ## Contributing
 
 Contributions are welcome! If you would like to contribute to the project, please follow the guidelines in [`docs/agents.md`](docs/agents.md). It is recommended to first open an issue to discuss any planned changes.
