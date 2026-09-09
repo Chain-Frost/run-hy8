@@ -22,27 +22,23 @@ for /f "delims=" %%F in ('dir /b /o:-d "%DIST_DIR%\run_hy8-*.whl" 2^>nul') do (
     goto :install
 )
 
-for /f "delims=" %%F in ('dir /b /o:-d "%DIST_DIR%\run-hy8-*.tar.gz" 2^>nul') do (
-    set "PACKAGE_FILE=%%F"
-    goto :install
-)
-
-echo No build artifact found in "%DIST_DIR%".
+echo No run-hy8 wheel found in "%DIST_DIR%".
 exit /b 1
 
 :install
 echo Using Python:
 %PYTHON_CMD% -c "import sys; print(sys.executable)"
-echo Installing "%PACKAGE_FILE%"...
-%PYTHON_CMD% -m pip install --upgrade "%DIST_DIR%\!PACKAGE_FILE!" || goto :error
+echo Force reinstalling "%PACKAGE_FILE%" without reinstalling dependencies...
+%PYTHON_CMD% -m pip install --upgrade --force-reinstall --no-deps "%DIST_DIR%\!PACKAGE_FILE!" || goto :error
 
 %PYTHON_CMD% -c "import importlib.metadata, run_hy8, sys; print(f'Verified run-hy8 {importlib.metadata.version(""run-hy8"")} with Python {sys.version_info.major}.{sys.version_info.minor}')" || goto :error
 
 echo.
-echo run-hy8 installed from "%PACKAGE_FILE%".
+echo run-hy8 force reinstalled from "%PACKAGE_FILE%".
 endlocal
 exit /b 0
 
 :error
+echo Force reinstall failed.
 endlocal
 exit /b 1

@@ -1,2 +1,2 @@
 call build_package.bat
-call install_package.bat
+call force_reinstall_package.bat

@@ -225,3 +225,5 @@ scripts/working/*
 scripts/culvert-results-1dnwk.csv
 inspect_excel.py
 show_lines.py
+scripts/*.csv
+
