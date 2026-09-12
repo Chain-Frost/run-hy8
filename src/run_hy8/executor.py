@@ -76,15 +76,15 @@ class Hy8Executable:
         """Invoke HY-8 with a custom list of switches."""
         return self._execute(hy8_file=hy8_file, args=list(args), check=check)
 
-    def build_full_report(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def build_full_report(self, hy8_file: Path, *, check: bool = True) -> subprocess.CompletedProcess[str]:
         """Trigger HY-8's -BuildFullReport automation hook."""
         return self._execute(hy8_file=hy8_file, args=["-BuildFullReport"], check=check)
 
-    def open_run_save(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def open_run_save(self, hy8_file: Path, *, check: bool = True) -> subprocess.CompletedProcess[str]:
         """Open and re-run the project in HY-8 using the -OpenRunSave switch."""
         return self._execute(hy8_file=hy8_file, args=["-OpenRunSave"], check=check)
 
-    def open_run_save_plots(self, hy8_file: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def open_run_save_plots(self, hy8_file: Path, *, check: bool = True) -> subprocess.CompletedProcess[str]:
         """Open, rerun, and capture plots via the -OpenRunSavePlots switch."""
         return self._execute(hy8_file=hy8_file, args=["-OpenRunSavePlots"], check=check)
 

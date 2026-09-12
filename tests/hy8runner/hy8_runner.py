@@ -488,7 +488,7 @@ class Hy8Runner:
             index_culvert = len(self.crossings[index_crossing].culverts) - 1
         self.crossings[index_crossing].culverts[index_culvert].number_of_barrels = number_of_barrels
 
-    def validate_crossings_data(self, overwrite: bool = True) -> tuple[bool, str]:
+    def validate_crossings_data(self, *, overwrite: bool = True) -> tuple[bool, str]:
         """Validate the data.
 
         Returns:
@@ -575,7 +575,7 @@ class Hy8Runner:
 
         return result, messages
 
-    def create_hy8_file(self, overwrite: bool = True) -> tuple[bool, str]:
+    def create_hy8_file(self, *, overwrite: bool = True) -> tuple[bool, str]:
         """Create the HY-8 file.
 
         Args:

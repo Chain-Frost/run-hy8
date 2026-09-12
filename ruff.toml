@@ -7,6 +7,7 @@ extend-exclude = ["tests/hy8runner/hy8Runner.ipynb"]
 select = [
     # Core correctness and Python errors.
     "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
     "F",      # Pyflakes
     "B",      # flake8-bugbear
     "PLE",    # Pylint errors
@@ -16,14 +17,17 @@ select = [
     "UP",     # pyupgrade
     "FURB",   # refurb
     "FLY",    # flynt-style string improvements
+    "SLOT",   # avoid per-instance dictionaries on immutable built-in subclasses
     # Imports.
     "I",      # isort
     "ICN",    # import conventions
+    "INP",    # prevent accidental implicit namespace packages
     # Internal imports deliberately remain package-relative where possible.
     # Code quality and maintainability.
     "A",      # built-in shadowing
     "ARG",    # unused arguments
     "BLE",    # broad exception handling
+    "FBT",    # require explicit, keyword-oriented boolean APIs
     "C4",     # comprehensions
     "C90",    # McCabe complexity
     "EM",     # exception-message style
@@ -38,6 +42,7 @@ select = [
     "RET",    # return-statement improvements
     "RSE",    # raise-statement improvements
     "SIM",    # simplification
+    "SLF",    # private-member access boundaries
     "TRY",    # exception-handling practices
     # Type annotations.
     "ANN",    # type annotation coverage
@@ -87,19 +92,21 @@ convention = "google"
     "D",      # Standalone utility functions do not form the package's public API.
     "E402",
     "ERA",    # Utility/demo scripts may intentionally retain commented-out code.
+    "INP001", # Standalone scripts are not an importable package.
     "PGH003", # Pandas typing gaps require broad type ignores in standalone scripts.
 ]
 "tests/**/*.py" = [
     "D",      # Test functions do not need production-quality docstrings.
     "S101",   # assert is expected in pytest tests.
+    "SLF001", # Tests may inspect or replace private state to verify behavior.
 ]
 "tests/hy8runner/**/*.py" = [
-    "B905",   # Legacy comparison code preserves its original truncating zip behaviour.
-    "C901",   # Retained legacy validation routine is intentionally unchanged.
-    "ERA",    # Retained legacy comparison implementation includes historical placeholders.
-    "F403",   # Legacy package re-exports its comparison helpers.
-    "PTH",    # Retained legacy comparison code keeps its original path representation.
-    "S603",   # Legacy runner invokes the configured local HY-8 executable.
+    "B905",   # The HY-8 comparison harness intentionally preserves truncating zip behaviour.
+    "C901",   # Comparison validation remains one traceable routine.
+    "ERA",    # The comparison writer retains placeholders for unsupported HY-8 cards.
+    "F403",   # The comparison package re-exports its helper modules.
+    "PTH",    # The comparison harness preserves HY-8's string-path interface.
+    "S603",   # The comparison harness invokes the configured local HY-8 executable.
 ]
 "src/run_hy8/config.py" = [
     "ANN401", # Configuration decoding validates dynamically typed JSON values at runtime.

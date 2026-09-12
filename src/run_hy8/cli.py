@@ -75,7 +75,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 1
 
 
-def _run_demo(output: Path, overwrite: bool) -> None:
+def _run_demo(output: Path, *, overwrite: bool) -> None:
     """Write a small demo HY-8 project file so new users can inspect the format."""
     project: Hy8Project = Hy8Project(title="run-hy8 demo project", designer="Codex scaffolding")
     crossing: CulvertCrossing = CulvertCrossing(name="Demo Crossing")
@@ -111,6 +111,7 @@ def _run_demo(output: Path, overwrite: bool) -> None:
 def _run_build(
     config_path: Path,
     output: Path,
+    *,
     overwrite: bool,
     exe_path: Path | None,
     validate_only: bool,

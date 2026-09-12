@@ -115,7 +115,7 @@ class Hy8FileWriter:
             flow,
             flow_values,
             labels,
-            has_user_labels,
+            has_labels=has_user_labels,
         )
         include_labels: bool = has_user_labels
         self._write_card(handle, "DISCHARGEXYUSER", len(flow_values))
@@ -130,6 +130,7 @@ class Hy8FileWriter:
         flow: FlowDefinition,
         flow_values: list[float],
         labels: list[str],
+        *,
         has_labels: bool,
     ) -> tuple[list[float], list[str]]:
         """Guarantee HY-8 sees two user flows, inserting a 10% value if needed."""
