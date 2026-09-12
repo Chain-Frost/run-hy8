@@ -71,8 +71,7 @@ class Hy8Series(TypedDict, total=False):
 
 
 def parse_rst(path: Path) -> dict[str, Hy8Series]:
-    """
-    Parse a .rst report file into a dictionary of data series keyed by crossing name.
+    """Parse a .rst report file into a dictionary of data series keyed by crossing name.
 
     The .rst file contains summary tables for each crossing. This function iterates
     through the file, identifies the current crossing, and extracts the comma-separated
@@ -218,8 +217,7 @@ def _store_reported_series(
 
 
 def parse_series(line: str) -> list[float]:
-    """
-    Convert a comma-separated value line from an HY-8 report into a list of floats.
+    """Convert a comma-separated value line from an HY-8 report into a list of floats.
 
     It handles 'nan' strings and empty parts by converting them to `math.nan`.
     The first part of the line (the label) is skipped.
@@ -227,12 +225,12 @@ def parse_series(line: str) -> list[float]:
     parts: list[str] = line.split(",")[1:]
     values: list[float] = []
     for part in parts:
-        part: str = part.strip()
-        if not part or part.lower() == "nan":
+        stripped_part = part.strip()
+        if not stripped_part or stripped_part.lower() == "nan":
             values.append(math.nan)
         else:
             try:
-                values.append(float(part))
+                values.append(float(stripped_part))
             except ValueError:
                 values.append(math.nan)
     return values
@@ -407,6 +405,7 @@ class Hy8Results:
         return f"{_format_float(flows[0])}↔{_format_float(flows[-1])}"
 
     def nearest(self, target: float) -> Hy8ResultRow | None:
+        """Return the result row whose flow is nearest to the target."""
         best_row: Hy8ResultRow | None = None
         best_delta = float("inf")
         for row in self.rows:
@@ -419,6 +418,7 @@ class Hy8Results:
         return best_row
 
     def roadway_max(self) -> float:
+        """Return the maximum reported roadway discharge."""
         values: list[float] = [row.roadway_discharge for row in self.rows if not math.isnan(row.roadway_discharge)]
         return max(values) if values else 0.0
 
@@ -453,8 +453,7 @@ def _text_at(values: list[str] | None, index: int) -> str:
 
 
 def parse_rsql(path: Path) -> dict[str, list[FlowProfile]]:
-    """
-    Parse a .rsql file into a dictionary of FlowProfile objects grouped by crossing name.
+    """Parse a .rsql file into a dictionary of FlowProfile objects grouped by crossing name.
 
     The .rsql file contains detailed, line-by-line output for each flow profile
     calculation, which is more detailed than the summary in the .rst file.

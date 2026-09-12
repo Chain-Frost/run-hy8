@@ -35,11 +35,10 @@ class RoadwayProfile(Validatable):
 
     def points(self) -> list[tuple[float, float]]:
         """Return a list of (station, elevation) tuples."""
-        return list(zip(self.stations, self.elevations))
+        return list(zip(self.stations, self.elevations, strict=False))
 
     def add_point(self, station: float, elevation: float) -> RoadwayProfile:
         """Append a station/elevation pair while keeping arrays aligned."""
-
         self.stations.append(station)
         self.elevations.append(elevation)
         logger.debug(
@@ -63,7 +62,8 @@ class RoadwayProfile(Validatable):
     def crest_elevation(self) -> float:
         """Return the lowest elevation in the roadway profile."""
         if not self.elevations:
-            raise ValueError("Roadway elevations are required before computing crest elevation.")
+            msg = "Roadway elevations are required before computing crest elevation."
+            raise ValueError(msg)
         return min(self.elevations)
 
     def to_dict(self) -> dict[str, Any]:

@@ -12,8 +12,7 @@ from .hy8_path import resolve_hy8_path, save_hy8_path
 
 
 class Hy8Executable:
-    """
-    A thin wrapper around the HY-8 command-line interface.
+    """A thin wrapper around the HY-8 command-line interface.
 
     This class provides methods to invoke the HY-8 executable with various
     automation switches for running analyses and generating reports. It also
@@ -26,8 +25,7 @@ class Hy8Executable:
     _default_path: Path | None = None
 
     def __init__(self, exe_path: Path | None = None) -> None:
-        """
-        Initializes the Hy8Executable instance.
+        """Initializes the Hy8Executable instance.
 
         Args:
             exe_path: An optional path to a specific HY-8 executable. If not
@@ -41,8 +39,7 @@ class Hy8Executable:
 
     @classmethod
     def default_path(cls) -> Path:
-        """
-        Return the configured default HY-8 executable path.
+        """Return the configured default HY-8 executable path.
 
         The path is cached at the class level after the first resolution.
         """
@@ -52,8 +49,7 @@ class Hy8Executable:
 
     @classmethod
     def configure_default_path(cls, path: Path) -> None:
-        """
-        Override the default HY-8 path for the current session.
+        """Override the default HY-8 path for the current session.
 
         This does not persist the path to disk.
 
@@ -64,8 +60,7 @@ class Hy8Executable:
 
     @classmethod
     def persist_default_path(cls, path: Path) -> Path:
-        """
-        Override and persist the default HY-8 path into HY8_PATH.txt.
+        """Override and persist the default HY-8 path into HY8_PATH.txt.
 
         Args:
             path: The path to save to the configuration file.
@@ -104,8 +99,7 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        """
-        Generate flow-tailwater tables using the -BuildFlowTwTable switch.
+        """Generate flow-tailwater tables using the -BuildFlowTwTable switch.
 
         Args:
             hy8_file: The path to the .hy8 project file.
@@ -143,8 +137,7 @@ class Hy8Executable:
         tw_increment: float = 0.25,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        """
-        Build headwater and tailwater tables using the -BuildHwTwTable switch.
+        """Build headwater and tailwater tables using the -BuildHwTwTable switch.
 
         Args:
             hy8_file: The path to the .hy8 project file.
@@ -171,7 +164,8 @@ class Hy8Executable:
         """Run HY-8 with shared validation and capture stdout/stderr."""
         hy8_file = hy8_file.with_suffix(".hy8")
         if not hy8_file.exists():
-            raise FileNotFoundError(f"HY-8 project not found: {hy8_file}")
+            msg = f"HY-8 project not found: {hy8_file}"
+            raise FileNotFoundError(msg)
         command: list[str] = [str(self.exe_path), *args, str(hy8_file)]
         return subprocess.run(command, check=check, capture_output=True, text=True)
 
@@ -179,9 +173,11 @@ class Hy8Executable:
     def _ensure_windows() -> None:
         """Make sure the caller is on Windows before shelling out."""
         if os.name != "nt":
-            raise OSError("The HY-8 executable is only available on Windows.")
+            msg = "The HY-8 executable is only available on Windows."
+            raise OSError(msg)
 
     def _ensure_exists(self) -> None:
         """Ensure the resolved executable path exists before invoking."""
         if not self.exe_path.exists():
-            raise FileNotFoundError(f"HY-8 executable not found: {self.exe_path}")
+            msg = f"HY-8 executable not found: {self.exe_path}"
+            raise FileNotFoundError(msg)

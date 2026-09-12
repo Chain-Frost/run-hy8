@@ -145,7 +145,7 @@ def inputs_from_row(row: dict[str, Any], *, tailwater: float) -> CrossingInputs:
         value = row.get(key, default)
         try:
             return float(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return default
 
     inlet_invert = get_value("US Invert", DEFAULT_INLET_INVERT)
@@ -302,7 +302,6 @@ class CrossingOutcome:
 
 def _select_result_row(results: Hy8Results, target_flow: float) -> Hy8ResultRow:
     """Return the row whose discharge best matches the requested target."""
-
     best: Hy8ResultRow | None = None
     best_delta: float = float("inf")
     for row in results.rows:
@@ -313,13 +312,15 @@ def _select_result_row(results: Hy8Results, target_flow: float) -> Hy8ResultRow:
             best_delta = delta
             best = row
     if best is None:
-        raise ValueError("HY-8 output did not include any usable rows.")
+        msg = "HY-8 output did not include any usable rows."
+        raise ValueError(msg)
     return best
 
 
 def load_rows(excel_path: Path) -> list[dict[str, Any]]:
     if not excel_path.exists():
-        raise FileNotFoundError(f"Culvert Excel workbook not found: {excel_path}")
+        msg = f"Culvert Excel workbook not found: {excel_path}"
+        raise FileNotFoundError(msg)
     df = pd.read_excel(excel_path, sheet_name="Maximums")  # pyright: ignore[reportUnknownMemberType]
     df = df.rename(
         columns={
@@ -349,22 +350,20 @@ def select_rows(rows: list[dict[str, Any]], name: str | None) -> list[dict[str, 
     def matches(row: dict[str, Any], target: str) -> bool:
         base = normalize_field(row, "Crossing")
         label = crossing_label(row)
-        return target == base or target == label
+        return target in (base, label)
 
     filtered: list[dict[str, Any]] = []
     if name:
-        for row in rows:
-            if matches(row, name) and _flow_value(row) > 0:
-                filtered.append(row)
+        filtered.extend(row for row in rows if matches(row, name) and _flow_value(row) > 0)
         if not filtered:
-            raise ValueError(f"Crossing '{name}' not found in Excel input.")
+            msg = f"Crossing '{name}' not found in Excel input."
+            raise ValueError(msg)
         return filtered
 
-    for row in rows:
-        if _flow_value(row) > 0:
-            filtered.append(row)
+    filtered.extend(row for row in rows if _flow_value(row) > 0)
     if not filtered:
-        raise ValueError("No rows with a positive adopted flow were found.")
+        msg = "No rows with a positive adopted flow were found."
+        raise ValueError(msg)
     return filtered
 
 
@@ -401,7 +400,6 @@ def run_fixed_flow_scenarios(
     keep_workspace: bool,
 ) -> dict[str, tuple[ScenarioOutcome, ScenarioOutcome]]:
     """Run the fixed-flow headwater scenarios for all rows of a crossing."""
-
     if not rows:
         return {}
     crossing_name: str = normalize_field(rows[0], "Crossing")
@@ -464,7 +462,8 @@ def run_fixed_flow_scenarios(
                 rsql_map: dict[str, list[FlowProfile]] = parse_rsql(hy8_file.with_suffix(".rsql"))
                 series: Hy8Series | None = rst_map.get(base_crossing.name)
                 if not series:
-                    raise ValueError(f"HY-8 results missing crossing '{base_crossing.name}'.")
+                    msg = f"HY-8 results missing crossing '{base_crossing.name}'."
+                    raise ValueError(msg)
                 results = Hy8Results(series, rsql_map.get(base_crossing.name, []))
                 for entry in group_entries:
                     row: Hy8ResultRow = _select_result_row(results, entry.flow)
@@ -550,14 +549,13 @@ def limit_crossings(rows: list[dict[str, Any]], limit: int) -> list[dict[str, An
 def _flow_value(row: dict[str, Any]) -> float:
     try:
         value = float(row.get("Adopted Flow (m^3/s)", 0.0) or 0.0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         value = 0.0
     return max(value, 0.0)
 
 
 def _flow_seed_hint(value: float, barrel: CulvertBarrel | None) -> float:
     """Return a non-zero flow to seed headwater solves when the adopted flow is missing."""
-
     if value and value > MINIMUM_SEED_FLOW:
         return value
     area: float | None = None
@@ -578,12 +576,11 @@ def _flow_seed_hint(value: float, barrel: CulvertBarrel | None) -> float:
 
 def _safe_flow(value: float | None) -> float | None:
     """Clamp flow values used for output artifacts."""
-
     if value is None:
         return None
     try:
         flow = float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if math.isnan(flow) or flow <= 0:
         return None
@@ -594,7 +591,7 @@ def optional_float_value(row: dict[str, Any], key: str, default: float | None = 
     value = row.get(key, default)
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -628,7 +625,8 @@ def build_crossing(
         barrels = int(float(row["Barrels"]))
         diameter = float(row["Diameter (m)"])
     except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError(f"Crossing '{crossing_name}' is missing barrel or diameter data: {exc}") from exc
+        msg = f"Crossing '{crossing_name}' is missing barrel or diameter data: {exc}"
+        raise ValueError(msg) from exc
 
     project = Hy8Project(title=f"Excel demo - {crossing_name}", units=UnitSystem.SI, exit_loss_option=0)
     crossing: CulvertCrossing = CulvertCrossing(name=crossing_name)
@@ -665,7 +663,8 @@ def build_crossing(
     errors: list[str] = crossing.validate()
     if errors:
         joined: str = "; ".join(errors)
-        raise ValueError(f"Validation errors for '{crossing_name}': {joined}")
+        msg = f"Validation errors for '{crossing_name}': {joined}"
+        raise ValueError(msg)
     return project, crossing, diameter, barrels, barrel
 
 
@@ -677,7 +676,6 @@ def create_project_crossing(
     flow: float | None,
 ) -> CulvertCrossing | None:
     """Build a standalone crossing for inclusion in the final HY-8 project."""
-
     safe_flow: float | None = _safe_flow(value=flow)
     if safe_flow is None:
         return None
@@ -773,9 +771,8 @@ def write_final_hy8_project(
     outcomes: list[CrossingOutcome],
 ) -> Path | None:
     """Create and save a consolidated HY-8 project for the crossing."""
-
     project = Hy8Project(title=f"{crossing_name} Results", units=UnitSystem.SI, exit_loss_option=0)
-    for row, outcome in zip(rows, outcomes):
+    for row, outcome in zip(rows, outcomes, strict=False):
         if not outcome:
             continue
         tailwater_value, zero_tailwater = tailwater_values(row)
@@ -850,7 +847,7 @@ def run_crossing(
         value = row.get(key, default)
         try:
             return float(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return default
 
     ds_invert = optional_float("DS Invert", DEFAULT_OUTLET_INVERT)
@@ -896,7 +893,8 @@ def run_crossing(
     describe_scenario(label=FLOW_ZERO_TW_PREFIX, outcome=q_zero_tailwater)
 
     if us_headwater is None:
-        raise ValueError(f"Crossing '{crossing_name}' is missing a US headwater level.")
+        msg = f"Crossing '{crossing_name}' is missing a US headwater level."
+        raise ValueError(msg)
     set_tailwater(crossing=crossing, elevation=tailwater_value)
     hw_data_tailwater: ScenarioOutcome = ScenarioOutcome()
     try:
@@ -980,10 +978,12 @@ def _crossing_worker(
             keep_workspace=keep_workspace,
             workspace_root=workspace_root,
         )
-        return indices, outcomes, None
+        result = (indices, outcomes, None)
     except Exception as exc:  # noqa: BLE001  # pragma: no cover - isolate worker failures
         failures = [make_failure_outcome(row, exc) for row in rows]
         return indices, failures, str(exc)
+    else:
+        return result
 
 
 def run_crossing_group(
@@ -1050,7 +1050,7 @@ def main() -> None:
             futures = [executor.submit(_crossing_worker, payload) for payload in payloads]
             for future in as_completed(futures):
                 indices, outcome_list, error_message = future.result()
-                for idx, outcome in zip(indices, outcome_list):
+                for idx, outcome in zip(indices, outcome_list, strict=False):
                     results[idx] = outcome
                 if error_message:
                     crossing_name: str = normalize_field(rows_to_run[indices[0]], "Crossing") or "<unknown>"
@@ -1064,7 +1064,8 @@ def main() -> None:
     else:
         print("No successful crossings; results file not created.")
     if had_errors:
-        raise SystemExit("One or more crossings failed; see stderr for details.")
+        msg = "One or more crossings failed; see stderr for details."
+        raise SystemExit(msg)
 
 
 if __name__ == "__main__":

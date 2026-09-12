@@ -35,8 +35,7 @@ if TYPE_CHECKING:
 
 
 def load_project_from_hy8(path: Path) -> Hy8Project:
-    """
-    Read a .hy8 file from disk and convert it into a Hy8Project object model.
+    """Read a .hy8 file from disk and convert it into a Hy8Project object model.
 
     Args:
         path: The path to the .hy8 file.
@@ -54,8 +53,7 @@ class _Hy8Card:
 
 
 class _Hy8CardStream:
-    """
-    A stream that iterates over HY-8 card/value pairs from a list of lines.
+    """A stream that iterates over HY-8 card/value pairs from a list of lines.
 
     This class handles splitting lines into a (key, value) tuple, skipping
     empty lines, and provides a push-back mechanism for more complex parsing.
@@ -67,8 +65,7 @@ class _Hy8CardStream:
         self._buffer: list[_Hy8Card] = []
 
     def next_card(self) -> _Hy8Card:
-        """
-        Return the next card from the stream.
+        """Return the next card from the stream.
 
         Raises:
             StopIteration: When all lines have been consumed.
@@ -166,22 +163,26 @@ class _Hy8Parser:
         try:
             card: _Hy8Card = self._stream.next_card()
         except StopIteration as exc:  # pragma: no cover - defensive guard
-            raise ValueError("HY-8 file is empty.") from exc
+            msg = "HY-8 file is empty."
+            raise ValueError(msg) from exc
         if card.key != "HY8PROJECTFILE":
-            raise ValueError(f"Expected HY8PROJECTFILE header, found '{card.key}'.")
+            msg = f"Expected HY8PROJECTFILE header, found '{card.key}'."
+            raise ValueError(msg)
         try:
             version = float(card.value)
         except ValueError as exc:
-            raise ValueError(f"Invalid HY-8 project version '{card.value}'.") from exc
+            msg = f"Invalid HY-8 project version '{card.value}'."
+            raise ValueError(msg) from exc
         if version != 80.0:
-            raise ValueError(f"Unsupported HY-8 project version {card.value}; run-hy8 supports version 8 only.")
+            msg = f"Unsupported HY-8 project version {card.value}; run-hy8 supports version 8 only."
+            raise ValueError(msg)
 
     def _apply_project_card(self, project: Hy8Project, card: _Hy8Card) -> None:
         """Apply a card's value to the top-level Hy8Project object."""
         if card.key == "UNITS":
             # The UNITS flag is for display only; HY-8 calculations are English units.
             return
-        elif card.key == "EXITLOSSOPTION":
+        if card.key == "EXITLOSSOPTION":
             project.exit_loss_option = self._as_int(value=card.value, default=0)
         elif card.key == "PROJTITLE":
             project.title = self._clean_string(raw=card.value)
@@ -220,7 +221,8 @@ class _Hy8Parser:
                 elif method_flag == 1:
                     crossing.flow.method = FlowMethod.USER_DEFINED
                 else:
-                    raise ValueError(f"Crossing '{crossing.name}' uses unsupported flow method flag '{method_flag}'.")
+                    msg = f"Crossing '{crossing.name}' uses unsupported flow method flag '{method_flag}'."
+                    raise ValueError(msg)
             elif key == "DISCHARGEXYUSER":
                 pending_flow_values = self._read_flow_values(expected=self._as_int(value=value))
             elif key == "DISCHARGEXYUSER_NAME":
@@ -280,7 +282,8 @@ class _Hy8Parser:
             value: str = card.value
             if key == "ENDCULVERT":
                 if v8_inlet_index is None:
-                    raise ValueError(f"Culvert '{name}' is missing the HY-8 v8 INLETEDGETYPE71 card.")
+                    msg = f"Culvert '{name}' is missing the HY-8 v8 INLETEDGETYPE71 card."
+                    raise ValueError(msg)
                 culvert.inlet_configuration = resolve_v8_inlet_configuration(
                     shape=culvert.shape,
                     material=culvert.material,
@@ -345,9 +348,8 @@ class _Hy8Parser:
         if flow.method is FlowMethod.MIN_DESIGN_MAX:
             if user_values:
                 if len(user_values) != 3:
-                    raise ValueError(
-                        f"Crossing '{crossing.name}' must provide exactly three flows for Min/Design/Max problems."
-                    )
+                    msg = f"Crossing '{crossing.name}' must provide exactly three flows for Min/Design/Max problems."
+                    raise ValueError(msg)
                 flow.minimum, flow.design, flow.maximum = user_values[:3]
                 flow.user_values = list(user_values[:3])
             else:
@@ -358,7 +360,8 @@ class _Hy8Parser:
             flow.user_values = list(user_values)
             flow.user_value_labels = list(labels) if labels else []
             return
-        raise ValueError(f"Crossing '{crossing.name}' uses unsupported flow method '{flow.method.value}'.")
+        msg = f"Crossing '{crossing.name}' uses unsupported flow method '{flow.method.value}'."
+        raise ValueError(msg)
 
     def _read_flow_values(self, expected: int) -> tuple[list[float], list[str]]:
         """Read a sequence of user-defined flow values and their optional labels."""
@@ -373,7 +376,7 @@ class _Hy8Parser:
             if card.key == "DISCHARGEXYUSER_Y":
                 try:
                     values.append(self._flow_from_source(float(card.value.split()[0])))
-                except (IndexError, ValueError):
+                except IndexError, ValueError:
                     values.append(0.0)
                 labels.append("")
                 expect_name = True
@@ -423,15 +426,15 @@ class _Hy8Parser:
     @staticmethod
     def _as_int(value: str, *, default: int = 0) -> int:
         try:
-            return int(value.split()[0])
-        except (IndexError, ValueError):
+            return int(value.split(maxsplit=1)[0])
+        except IndexError, ValueError:
             return default
 
     @staticmethod
     def _as_float(value: str, *, default: float = 0.0) -> float:
         try:
-            return float(value.split()[0])
-        except (IndexError, ValueError):
+            return float(value.split(maxsplit=1)[0])
+        except IndexError, ValueError:
             return default
 
     @staticmethod
@@ -455,7 +458,8 @@ class _Hy8Parser:
         try:
             return CulvertShape(value=index)
         except ValueError as exc:
-            raise ValueError(f"Unsupported HY-8 v8 culvert shape code {index}.") from exc
+            msg = f"Unsupported HY-8 v8 culvert shape code {index}."
+            raise ValueError(msg) from exc
 
     @staticmethod
     def _culvert_material(value: str) -> CulvertMaterial:
@@ -463,7 +467,8 @@ class _Hy8Parser:
         try:
             return CulvertMaterial(value=index)
         except ValueError as exc:
-            raise ValueError(f"Unsupported HY-8 v8 culvert material code {index}.") from exc
+            msg = f"Unsupported HY-8 v8 culvert material code {index}."
+            raise ValueError(msg) from exc
 
     @staticmethod
     def _inlet_type(value: str) -> InletType:
@@ -471,7 +476,8 @@ class _Hy8Parser:
         try:
             return InletType(value=index)
         except ValueError as exc:
-            raise ValueError(f"Unsupported HY-8 v8 inlet type code {index}.") from exc
+            msg = f"Unsupported HY-8 v8 inlet type code {index}."
+            raise ValueError(msg) from exc
 
     @staticmethod
     def _improved_inlet_edge_type(value: str) -> ImprovedInletEdgeType:
@@ -479,12 +485,12 @@ class _Hy8Parser:
         try:
             return ImprovedInletEdgeType(value=index)
         except ValueError as exc:
-            raise ValueError(f"Unsupported HY-8 v8 improved inlet edge code {index}.") from exc
+            msg = f"Unsupported HY-8 v8 improved inlet edge code {index}."
+            raise ValueError(msg) from exc
 
 
 def culvert_dataframe(project: Hy8Project) -> pd.DataFrame:
-    """
-    Return a pandas DataFrame describing every culvert barrel in a project.
+    """Return a pandas DataFrame describing every culvert barrel in a project.
 
     Args:
         project: The Hy8Project to convert.

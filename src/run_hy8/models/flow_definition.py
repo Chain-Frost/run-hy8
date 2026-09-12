@@ -53,11 +53,11 @@ class FlowDefinition(Validatable):
             return self._min_design_max_values()
         if self.method is FlowMethod.USER_DEFINED:
             return list(self.user_values)
-        raise ValueError(f"Flow method '{self.method}' is not supported.")
+        msg = f"Flow method '{self.method}' is not supported."
+        raise ValueError(msg)
 
     def add_user_flow(self, value: float, label: str | None = None) -> FlowDefinition:
         """Append a user-defined flow (and optional label) while maintaining invariants."""
-
         self.method = FlowMethod.USER_DEFINED
         self.user_values.append(value)
         if label is not None:
@@ -76,7 +76,6 @@ class FlowDefinition(Validatable):
 
     def set_min_design_max(self, minimum: float, design: float, maximum: float) -> FlowDefinition:
         """Flip this definition into the min/design/max mode."""
-
         self.method = FlowMethod.MIN_DESIGN_MAX
         self.minimum = minimum
         self.design = design
@@ -98,7 +97,8 @@ class FlowDefinition(Validatable):
         values.append(self.design)
         values.append(self.maximum)
         if len(values) != 3:
-            raise ValueError("Min/Design/Max problems must provide exactly three flows.")
+            msg = "Min/Design/Max problems must provide exactly three flows."
+            raise ValueError(msg)
         return values
 
     def to_dict(self) -> dict[str, Any]:
@@ -145,7 +145,9 @@ class FlowDefinition(Validatable):
         elif self.method is FlowMethod.USER_DEFINED:
             if not self.user_values:
                 errors.append(f"{prefix}Provide at least one user-defined flow value.")
-            elif len(self.user_values) > 1 and any(a >= b for a, b in zip(self.user_values, self.user_values[1:])):
+            elif len(self.user_values) > 1 and any(
+                a >= b for a, b in zip(self.user_values, self.user_values[1:], strict=False)
+            ):
                 errors.append(f"{prefix}User-defined flows must be strictly increasing.")
             if self.user_value_labels and len(self.user_value_labels) != len(self.user_values):
                 errors.append(f"{prefix}Provide the same number of flow labels as flow values.")

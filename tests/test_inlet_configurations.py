@@ -63,10 +63,7 @@ def test_hy8_v8_default_manning_values(
 
 
 def test_default_manning_registry_covers_every_supported_context() -> None:
-    supported_contexts = {
-        (spec.shape, spec.material)
-        for spec in HY8_V8_INLET_SPECS.values()
-    }
+    supported_contexts = {(spec.shape, spec.material) for spec in HY8_V8_INLET_SPECS.values()}
 
     barrels = [CulvertBarrel(shape=shape, material=material) for shape, material in supported_contexts]
     assert all(barrel.manning_values() for barrel in barrels)

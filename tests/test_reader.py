@@ -78,4 +78,5 @@ def _run_hy8_and_wait(executable: Hy8Executable, hy8_file: Path) -> None:
     """Execute HY-8 and ensure the results files were created."""
     completed: CompletedProcess[str] = executable.open_run_save(hy8_file=hy8_file)
     if completed.returncode != 0:  # pragma: no cover - defensive guard
-        raise RuntimeError(f"HY-8 execution failed: {completed.stderr.strip()}")
+        msg = f"HY-8 execution failed: {completed.stderr.strip()}"
+        raise RuntimeError(msg)

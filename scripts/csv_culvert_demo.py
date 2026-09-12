@@ -49,9 +49,7 @@ HEADWALL_RATIO_MULTIPLIER = 1.5
 INCLUDE_HEADWALL_RATIO_VELOCITY = False
 HEADWALL_RATIO_VELOCITY_ENABLED = INCLUDE_HEADWALL_RATIO_VELOCITY and HEADWALL_RATIO_MULTIPLIER > 0
 VELOCITY_RATIO_FIELD: str | None = (
-    f"Outlet Velocity (HW:D {HEADWALL_RATIO_MULTIPLIER:.2f}) (m/s)"
-    if HEADWALL_RATIO_VELOCITY_ENABLED
-    else None
+    f"Outlet Velocity (HW:D {HEADWALL_RATIO_MULTIPLIER:.2f}) (m/s)" if HEADWALL_RATIO_VELOCITY_ENABLED else None
 )
 
 RESULTS_OUTPUT: Path = Path(__file__).resolve().parent / "culvert-results.csv"
@@ -176,7 +174,8 @@ class CrossingOutcome:
 
 def load_rows(csv_path: Path) -> list[dict[str, str]]:
     if not csv_path.exists():
-        raise FileNotFoundError(f"Culvert CSV not found: {csv_path}")
+        msg = f"Culvert CSV not found: {csv_path}"
+        raise FileNotFoundError(msg)
     with csv_path.open(newline="", encoding="utf-8-sig") as handle:
         reader: csv.DictReader[str] = csv.DictReader(handle)
         return [row for row in reader if row.get("Crossing")]
@@ -187,17 +186,19 @@ def select_rows(rows: list[dict[str, str]], name: str | None) -> list[dict[str, 
         for row in rows:
             if row["Crossing"].strip() == name:
                 return [row]
-        raise ValueError(f"Crossing '{name}' not found in CSV.")
+        msg = f"Crossing '{name}' not found in CSV."
+        raise ValueError(msg)
     selected: list[dict[str, str]] = []
     for row in rows:
         try:
             value = float(row["Adopted Flow"])
-        except (KeyError, TypeError, ValueError):
+        except KeyError, TypeError, ValueError:
             continue
         if value > 0:
             selected.append(row)
     if not selected:
-        raise ValueError("No rows with a positive adopted flow were found.")
+        msg = "No rows with a positive adopted flow were found."
+        raise ValueError(msg)
     return selected
 
 
@@ -235,7 +236,8 @@ def build_crossing(
 ) -> tuple[Hy8Project, CulvertCrossing, float, int, CulvertBarrel]:
     crossing_name: str = row["Crossing"].strip()
     if flow_value <= 0:
-        raise ValueError(f"Crossing '{crossing_name}' has a non-positive flow ({flow_value}).")
+        msg = f"Crossing '{crossing_name}' has a non-positive flow ({flow_value})."
+        raise ValueError(msg)
     barrels = int(float(row["Barrels"]))
     diameter = float(row["Diameter (m)"])
 
@@ -273,7 +275,8 @@ def build_crossing(
     errors: list[str] = crossing.validate()
     if errors:
         joined: str = "; ".join(errors)
-        raise ValueError(f"Validation errors for '{crossing_name}': {joined}")
+        msg = f"Validation errors for '{crossing_name}': {joined}"
+        raise ValueError(msg)
     return project, crossing, diameter, barrels, barrel
 
 
@@ -310,7 +313,8 @@ def solve_headwater_with_q_from_hw(
 ) -> HydraulicsResult:
     lower_hw, upper_hw = bounds
     if not upper_hw > lower_hw:
-        raise ValueError("Upper headwater bound must exceed the inlet invert.")
+        msg = "Upper headwater bound must exceed the inlet invert."
+        raise ValueError(msg)
 
     def run(hw: float) -> HydraulicsResult:
         return crossing.q_from_hw(
@@ -328,10 +332,11 @@ def solve_headwater_with_q_from_hw(
 
     high_result: HydraulicsResult = run(hw=upper_hw)
     if high_result.computed_flow + tolerance < flow:
-        raise ValueError(
+        msg = (
             f"Target flow {flow:.4f} m^3/s exceeds the capacity before overtopping "
             f"(max flow {high_result.computed_flow:.4f} m^3/s at HW {upper_hw:.3f} m)."
         )
+        raise ValueError(msg)
 
     best_result: HydraulicsResult = high_result
     hw_min: float = lower_hw
@@ -597,7 +602,8 @@ def main() -> None:
     else:
         print("No successful crossings; results file not created.")
     if had_errors:
-        raise SystemExit("One or more crossings failed; see stderr for details.")
+        msg = "One or more crossings failed; see stderr for details."
+        raise SystemExit(msg)
 
 
 if __name__ == "__main__":

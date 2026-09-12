@@ -36,10 +36,10 @@ JSONMapping = Mapping[str, Any]
 
 def load_project_from_json(path: Path) -> Hy8Project:
     """Read a JSON file from disk and create a `Hy8Project`."""
-
     raw_data: Any = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw_data, Mapping):
-        raise TypeError("Top-level JSON document must be an object.")
+        msg = "Top-level JSON document must be an object."
+        raise TypeError(msg)
     data: JSONMapping = cast(JSONMapping, raw_data)
     return project_from_mapping(data)
 
@@ -49,7 +49,8 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     # Ensure the top-level 'project' key points to a dictionary.
     project_section_raw: Any = config.get("project", {})
     if not isinstance(project_section_raw, Mapping):
-        raise TypeError("Project section must be an object.")
+        msg = "Project section must be an object."
+        raise TypeError(msg)
     project_section: JSONMapping = cast(JSONMapping, project_section_raw)
 
     # Initialize the project and populate top-level metadata.
@@ -64,7 +65,8 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     # Ensure the 'crossings' key points to a list.
     crossings_data_raw: Any = config.get("crossings", [])
     if not isinstance(crossings_data_raw, ABCSequence) or isinstance(crossings_data_raw, (str, bytes)):
-        raise TypeError("'crossings' section must be a list of crossing definitions")
+        msg = "'crossings' section must be a list of crossing definitions"
+        raise TypeError(msg)
 
     crossings_data_sequence: ABCSequence[Any] = cast(ABCSequence[Any], crossings_data_raw)
     crossings_data_raw_list: list[Any] = list(crossings_data_sequence)
@@ -73,7 +75,8 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
     for crossing_entry_raw in crossings_data_raw_list:
         crossing_entry: Any = crossing_entry_raw
         if not isinstance(crossing_entry, Mapping):
-            raise TypeError("Each crossing definition must be an object.")
+            msg = "Each crossing definition must be an object."
+            raise TypeError(msg)
         crossings_data_list.append(cast(JSONMapping, crossing_entry))
 
     # Parse each crossing dictionary and add it to the project.
@@ -84,8 +87,7 @@ def project_from_mapping(config: JSONMapping) -> Hy8Project:
 
 
 def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
-    """
-    Convert a single crossing dictionary into a CulvertCrossing instance.
+    """Convert a single crossing dictionary into a CulvertCrossing instance.
 
     Args:
         entry: The dictionary representing a single crossing's configuration.
@@ -106,14 +108,16 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
 
     culvert_entries_raw: Any = entry.get("culverts", [])
     if not isinstance(culvert_entries_raw, ABCSequence) or isinstance(culvert_entries_raw, (str, bytes)):
-        raise TypeError(f"Crossing '{name}' culverts must be a list")
+        msg = f"Crossing '{name}' culverts must be a list"
+        raise TypeError(msg)
     culvert_entries_sequence: ABCSequence[Any] = cast(ABCSequence[Any], culvert_entries_raw)
     culvert_entries_raw_list: list[Any] = list(culvert_entries_sequence)
     culvert_entries_list: list[JSONMapping] = []
     for culvert_entry_raw in culvert_entries_raw_list:
         culvert_entry: Any = culvert_entry_raw
         if not isinstance(culvert_entry, Mapping):
-            raise TypeError(f"Culvert entries in crossing '{name}' must be objects.")
+            msg = f"Culvert entries in crossing '{name}' must be objects."
+            raise TypeError(msg)
         culvert_entries_list.append(cast(JSONMapping, culvert_entry))
 
     # Parse each culvert dictionary and add it to the crossing.
@@ -124,8 +128,7 @@ def _parse_crossing(entry: JSONMapping) -> CulvertCrossing:
 
 
 def _parse_flow(entry: JSONMapping) -> FlowDefinition:
-    """
-    Parse the flow block into a FlowDefinition with validation.
+    """Parse the flow block into a FlowDefinition with validation.
 
     Args:
         entry: The dictionary representing the flow configuration.
@@ -138,17 +141,20 @@ def _parse_flow(entry: JSONMapping) -> FlowDefinition:
     try:
         method = FlowMethod(value=method_value)
     except ValueError as exc:
-        raise ValueError(f"Unsupported flow method '{method_value}'") from exc
+        msg = f"Unsupported flow method '{method_value}'"
+        raise ValueError(msg) from exc
 
     if method is FlowMethod.MIN_MAX_INCREMENT:
-        raise ValueError("Flow method 'min-max-increment' is not supported by run-hy8.")
+        msg = "Flow method 'min-max-increment' is not supported by run-hy8."
+        raise ValueError(msg)
 
     flow = FlowDefinition(method=method)
     # If user-defined flow values are present, parse them into a list of floats.
     if "user_values" in entry:
         values_raw: Any = entry.get("user_values", [])
         if not isinstance(values_raw, ABCSequence) or isinstance(values_raw, (str, bytes)):
-            raise ValueError("Flow 'user_values' must be a list of numbers")
+            msg = "Flow 'user_values' must be a list of numbers"
+            raise ValueError(msg)
         values_sequence: ABCSequence[Any] = cast(ABCSequence[Any], values_raw)
         values_list: list[Any] = list(values_sequence)
         flow.user_values = [float(value) for value in values_list]
@@ -162,8 +168,7 @@ def _parse_flow(entry: JSONMapping) -> FlowDefinition:
 
 
 def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
-    """
-    Interpret a tailwater configuration dictionary.
+    """Interpret a tailwater configuration dictionary.
 
     Note: This application only supports a constant tailwater elevation. Other
     types supported by the HY-8 GUI are explicitly disallowed.
@@ -178,10 +183,11 @@ def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
     if requested_type is not None:
         requested_enum: TailwaterType = _parse_tailwater_type(value=requested_type)
         if requested_enum is not TailwaterType.CONSTANT:
-            raise ValueError(
+            msg = (
                 f"Tailwater type '{requested_enum.name}' is not supported by run-hy8. "
                 "Configure a constant elevation or use the HY-8 GUI."
             )
+            raise ValueError(msg)
 
     # Disallow fields related to more complex tailwater calculations.
     unsupported_fields: set[str] = {
@@ -192,9 +198,8 @@ def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
     } & entry.keys()
     if unsupported_fields:
         pretty: str = ", ".join(sorted(unsupported_fields))
-        raise ValueError(
-            f"Tailwater fields ({pretty}) are not supported by run-hy8. Use the HY-8 GUI for this configuration."
-        )
+        msg = f"Tailwater fields ({pretty}) are not supported by run-hy8. Use the HY-8 GUI for this configuration."
+        raise ValueError(msg)
 
     tailwater = TailwaterDefinition()
     tailwater.constant_elevation = float(entry.get("constant_elevation", tailwater.constant_elevation))
@@ -203,8 +208,7 @@ def _parse_tailwater(entry: JSONMapping) -> TailwaterDefinition:
 
 
 def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
-    """
-    Convert the roadway section from a dictionary into a RoadwayProfile object.
+    """Convert the roadway section from a dictionary into a RoadwayProfile object.
 
     Args:
         entry: The dictionary representing the roadway configuration.
@@ -216,7 +220,8 @@ def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
     roadway.width = float(entry.get("width", roadway.width))
     roadway.shape = int(entry.get("shape", roadway.shape))
     if "surface" not in entry:
-        raise ValueError("Roadway surface must be specified (paved, gravel, user_defined).")
+        msg = "Roadway surface must be specified (paved, gravel, user_defined)."
+        raise ValueError(msg)
     roadway_surface_value: Any = entry["surface"]
     roadway.surface = _parse_surface(roadway_surface_value)
     roadway.stations = [float(value) for value in entry.get("stations", [])]
@@ -225,8 +230,7 @@ def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
 
 
 def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
-    """
-    Create a CulvertBarrel from a serialized dictionary entry.
+    """Create a CulvertBarrel from a serialized dictionary entry.
 
     Args:
         entry: The dictionary representing a single culvert barrel's configuration.
@@ -252,7 +256,8 @@ def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
                 category=LegacyInletConfigurationWarning,
                 stacklevel=3,
             )
-            raise ValueError("Do not combine inlet_configuration with deprecated inlet edge fields.")
+            msg = "Do not combine inlet_configuration with deprecated inlet edge fields."
+            raise ValueError(msg)
         if "inlet_edge_type" in entry:
             culvert.inlet_edge_type = coerce_enum(
                 enum_cls=InletEdgeType,
@@ -293,8 +298,7 @@ def _parse_culvert(entry: JSONMapping, *, crossing_name: str) -> CulvertBarrel:
 
 
 def _parse_unit_system(value: Any) -> UnitSystem:
-    """
-    Coerce a configuration string into the corresponding UnitSystem enum member.
+    """Coerce a configuration string into the corresponding UnitSystem enum member.
 
     This function is flexible and accepts the enum name (e.g., "SI") or the
     CLI flag (e.g., "EN"), ignoring case and whitespace.
@@ -311,12 +315,12 @@ def _parse_unit_system(value: Any) -> UnitSystem:
     for unit in UnitSystem:
         if unit.cli_flag.upper() == normalized or unit.name == normalized:
             return unit
-    raise ValueError(f"Unsupported unit system '{value}'")
+    msg = f"Unsupported unit system '{value}'"
+    raise ValueError(msg)
 
 
 def _parse_surface(value: Any) -> RoadwaySurface:
-    """
-    Convert a roadway surface name from config into a RoadwaySurface enum member.
+    """Convert a roadway surface name from config into a RoadwaySurface enum member.
 
     Normalizes the input string by making it uppercase and replacing hyphens
     with underscores to match the enum member names (e.g., "user-defined" -> "USER_DEFINED").
@@ -331,12 +335,12 @@ def _parse_surface(value: Any) -> RoadwaySurface:
     try:
         return RoadwaySurface[normalized]
     except KeyError as exc:
-        raise ValueError(f"Unsupported roadway surface '{value}'") from exc
+        msg = f"Unsupported roadway surface '{value}'"
+        raise ValueError(msg) from exc
 
 
 def _parse_culvert_shape(value: Any) -> CulvertShape:
-    """
-    Convert a culvert shape name from config into a CulvertShape enum member.
+    """Convert a culvert shape name from config into a CulvertShape enum member.
 
     Normalizes the input string to uppercase to match enum member names.
 
@@ -350,12 +354,12 @@ def _parse_culvert_shape(value: Any) -> CulvertShape:
     try:
         return CulvertShape[normalized]
     except KeyError as exc:
-        raise ValueError(f"Unsupported culvert shape '{value}'") from exc
+        msg = f"Unsupported culvert shape '{value}'"
+        raise ValueError(msg) from exc
 
 
 def _parse_culvert_material(value: Any) -> CulvertMaterial:
-    """
-    Convert a culvert material name from config into a CulvertMaterial enum member.
+    """Convert a culvert material name from config into a CulvertMaterial enum member.
 
     Normalizes the input string by making it uppercase and replacing spaces
     with underscores to match enum member names (e.g., "CONCRETE" -> "CONCRETE").
@@ -370,12 +374,12 @@ def _parse_culvert_material(value: Any) -> CulvertMaterial:
     try:
         return CulvertMaterial[normalized]
     except KeyError as exc:
-        raise ValueError(f"Unsupported culvert material '{value}'") from exc
+        msg = f"Unsupported culvert material '{value}'"
+        raise ValueError(msg) from exc
 
 
 def _parse_tailwater_type(value: Any) -> TailwaterType:
-    """
-    Convert a tailwater type name from config into a TailwaterType enum member.
+    """Convert a tailwater type name from config into a TailwaterType enum member.
 
     Normalizes the input string by making it uppercase and replacing hyphens
     with underscores to match enum member names (e.g., "rating-curve" -> "RATING_CURVE").
@@ -390,14 +394,17 @@ def _parse_tailwater_type(value: Any) -> TailwaterType:
     try:
         return TailwaterType[normalized]
     except KeyError as exc:
-        raise ValueError(f"Unsupported tailwater type '{value}'") from exc
+        msg = f"Unsupported tailwater type '{value}'"
+        raise ValueError(msg) from exc
 
 
 def _require_str(entry: JSONMapping, key: str, context: str) -> str:
     """Fetch a mandatory string field or raise a contextual exception."""
     if key not in entry:
-        raise ValueError(f"Missing required field '{key}' in {context}")
+        msg = f"Missing required field '{key}' in {context}"
+        raise ValueError(msg)
     value = entry[key]
     if not isinstance(value, str):
-        raise TypeError(f"Field '{key}' in {context} must be a string")
+        msg = f"Field '{key}' in {context} must be a string"
+        raise TypeError(msg)
     return value

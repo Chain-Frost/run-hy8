@@ -31,7 +31,9 @@ jobs:
 
       - name: Lint
         shell: pwsh
-        run: ruff check .
+        run: |
+          python -m ruff check .
+          python -m ruff format --check .
 
       - name: Type check
         shell: pwsh

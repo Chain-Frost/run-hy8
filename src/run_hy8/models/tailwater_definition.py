@@ -31,8 +31,7 @@ class TailwaterDefinition(Validatable):
         """Return a short, human-readable description of the tailwater definition."""
         if self.tw_type is TailwaterType.CONSTANT:
             return (
-                f"Tailwater(type=CONSTANT, elevation={self.constant_elevation:.3f}, "
-                f"invert={self.invert_elevation:.3f})"
+                f"Tailwater(type=CONSTANT, elevation={self.constant_elevation:.3f}, invert={self.invert_elevation:.3f})"
             )
         return f"Tailwater(type={self.tw_type.name}, entries={len(self.rating_curve)})"
 
@@ -44,7 +43,6 @@ class TailwaterDefinition(Validatable):
 
     def set_constant(self, *, elevation: float, invert: float | None = None) -> TailwaterDefinition:
         """Fluent helper to configure a constant tailwater elevation."""
-
         self.tw_type = TailwaterType.CONSTANT
         self.constant_elevation = elevation
         if invert is not None:

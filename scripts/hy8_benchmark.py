@@ -391,8 +391,7 @@ def run_configuration(
             ): index
             for index, batch in enumerate(batches, start=1)
         }
-        for future in as_completed(futures):
-            results.append(future.result())
+        results.extend(future.result() for future in as_completed(futures))
     results.sort(key=lambda r: r.batch_index)
     wall_time: float = perf_counter() - wall_start
     return results, wall_time
@@ -410,11 +409,14 @@ def write_csv(path: Path, fieldnames: list[str], rows: Iterable[dict[str, float 
 def main() -> None:
     args: argparse.Namespace = parse_args()
     if args.total_crossings <= 0:
-        raise SystemExit("total-crossings must be positive.")
+        msg = "total-crossings must be positive."
+        raise SystemExit(msg)
     if min(args.batch_sizes) <= 0:
-        raise SystemExit("batch sizes must be positive.")
+        msg = "batch sizes must be positive."
+        raise SystemExit(msg)
     if min(args.worker_counts) <= 0:
-        raise SystemExit("worker counts must be positive.")
+        msg = "worker counts must be positive."
+        raise SystemExit(msg)
 
     specs: list[CrossingSpec] = build_crossing_specs(args)
     unit_system: UnitSystem = UnitSystem[args.unit_system]

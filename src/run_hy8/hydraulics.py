@@ -88,7 +88,13 @@ class _FlowSample:
 class FlowSearchError(RuntimeError):
     """Raised when the headwater search cannot converge on a discharge."""
 
-    def __init__(self, message: str, *, best_sample: _FlowSample | None = None, target_headwater: float | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        best_sample: _FlowSample | None = None,
+        target_headwater: float | None = None,
+    ) -> None:
         self.best_sample = best_sample
         self.target_headwater = target_headwater
         super().__init__(message)
@@ -96,7 +102,6 @@ class FlowSearchError(RuntimeError):
 
 def _flow_sample_list() -> list[_FlowSample]:
     """Return an empty list that pyright can treat as list[_FlowSample]."""
-
     return []
 
 
@@ -113,7 +118,6 @@ class _FlowSearch:
 
     def _baseline_flow(self) -> float:
         """Return the most reasonable flow estimate available."""
-
         if self.q_hint and self.q_hint > 0:
             return self.q_hint
         if self.simple_flow and self.simple_flow > 0:
@@ -125,7 +129,6 @@ class _FlowSearch:
 
     def initial_candidates(self) -> list[float]:
         """Return the list of seed flows evaluated before adaptive bracketing."""
-
         seeds: set[float] = {MINIMUM_SEED_FLOW}
         baseline: float = self._baseline_flow()
         for factor in SEED_SCALE_FACTORS:
@@ -142,7 +145,6 @@ class _FlowSearch:
 
     def subdivision_candidates(self, low: _FlowSample, high: _FlowSample) -> list[float]:
         """Return interior flows for evaluating an existing bracket."""
-
         if BRACKET_SUBDIVISIONS <= 1:
             return []
         span: float = high.flow - low.flow
@@ -162,7 +164,6 @@ class _FlowSearch:
 
     def record(self, flow: float, row: Hy8ResultRow) -> _FlowSample:
         """Record a single HY-8 run."""
-
         sample = _FlowSample(flow=flow, row=row)
         self.samples.append(sample)
         return sample
@@ -172,7 +173,6 @@ class _FlowSearch:
 
     def exact_match(self) -> _FlowSample | None:
         """Return a previously recorded sample whose headwater matches the target."""
-
         for sample in self.samples:
             if math.isnan(sample.headwater):
                 continue
@@ -182,7 +182,6 @@ class _FlowSearch:
 
     def bracket(self) -> tuple[_FlowSample, _FlowSample] | None:
         """Return the low/high samples that straddle the target headwater."""
-
         ordered: list[_FlowSample] = sorted(
             (sample for sample in self.samples if not math.isnan(sample.headwater)),
             key=lambda sample: sample.flow,
@@ -206,7 +205,6 @@ class _FlowSearch:
 
     def next_guess(self) -> float | None:
         """Return the next flow to evaluate when no bracket exists yet."""
-
         if len(self.samples) >= self.max_runs:
             return None
         lows: list[_FlowSample] = [s for s in self.samples if not math.isnan(s.headwater) and self._delta(s) <= 0]
@@ -223,7 +221,6 @@ class _FlowSearch:
 
     def closest_sample(self) -> _FlowSample | None:
         """Return the recorded sample whose headwater is nearest to the target."""
-
         candidates = [sample for sample in self.samples if not math.isnan(sample.headwater)]
         if not candidates:
             return None
@@ -232,7 +229,6 @@ class _FlowSearch:
 
 def _resolve_hy8_executable(hy8: Hy8Executable | Path | str | None) -> Hy8Executable:
     """Return a `Hy8Executable` instance regardless of caller input."""
-
     if isinstance(hy8, Hy8Executable):
         return hy8
     if hy8 is None:
@@ -242,7 +238,6 @@ def _resolve_hy8_executable(hy8: Hy8Executable | Path | str | None) -> Hy8Execut
 
 def _prepare_workspace(base: Path | None, *, keep_files: bool) -> tuple[Path, bool]:
     """Create or reuse the workspace directory for HY-8 artifacts."""
-
     if base is not None:
         base = Path(base)
         base.mkdir(parents=True, exist_ok=True)
@@ -257,7 +252,6 @@ def _prepare_workspace(base: Path | None, *, keep_files: bool) -> tuple[Path, bo
 
 def _cleanup_workspace(path: Path, *, should_cleanup: bool) -> None:
     """Remove a temporary workspace unless the caller opted to keep files."""
-
     if should_cleanup and path.exists():
         logger.debug("Removing temporary workspace {path}", path=path)
         shutil.rmtree(path, ignore_errors=True)
@@ -270,7 +264,6 @@ def _clone_project_with_crossing(
     exit_loss_option: int | None,
 ) -> tuple[Hy8Project, CulvertCrossing]:
     """Clone the crossing into a standalone project for HY-8 execution."""
-
     logger.debug("Cloning crossing {name} for HY-8 execution", name=crossing.name)
     crossing_copy: CulvertCrossing = copy.deepcopy(crossing)
     if project:
@@ -303,7 +296,6 @@ def _write_and_run(
     scenario: str | None = None,
 ) -> Hy8Results:
     """Write the temporary project to disk, run HY-8, and parse the outputs."""
-
     scenario_suffix: str = f"_{scenario}" if scenario else ""
     hy8_file: Path = workspace / f"{crossing_name}{scenario_suffix}_run_{run_index:03d}.hy8"
     logger.info(
@@ -322,14 +314,14 @@ def _write_and_run(
     rsql_path: Path = hy8_file.with_suffix(suffix=".rsql")
     series: Hy8Series | None = parse_rst(path=rst_path).get(crossing_name)
     if not series:
-        raise ValueError(f"HY-8 results did not contain crossing '{crossing_name}'.")
+        msg = f"HY-8 results did not contain crossing '{crossing_name}'."
+        raise ValueError(msg)
     profiles: list[FlowProfile] = parse_rsql(path=rsql_path).get(crossing_name, [])
     return Hy8Results(entry=series, profiles=profiles)
 
 
 def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
     """Return the HY-8 result row whose flow most closely matches `flow`."""
-
     best: Hy8ResultRow | None = None
     logger.debug(results)
     best_delta: float = float("inf")
@@ -342,13 +334,13 @@ def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
             best = row
     if best is None:
         logger.error(f"{flow}, {results}")
-        raise ValueError("HY-8 output did not include any valid flow rows.")
+        msg = "HY-8 output did not include any valid flow rows."
+        raise ValueError(msg)
     return best
 
 
 def _total_barrels(crossing: CulvertCrossing) -> int:
     """Return the number of barrels represented by the crossing."""
-
     total = 0
     for barrel in crossing.culverts:
         count: int = barrel.number_of_barrels if barrel.number_of_barrels > 0 else 1
@@ -358,9 +350,9 @@ def _total_barrels(crossing: CulvertCrossing) -> int:
 
 def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     """Return the characteristic diameter used for HW/D ratio calculations."""
-
     if not crossing.culverts:
-        raise ValueError("At least one culvert barrel is required.")
+        msg = "At least one culvert barrel is required."
+        raise ValueError(msg)
     reference: CulvertBarrel = crossing.culverts[0]
     shape: CulvertShape = reference.shape
     diameter: float
@@ -369,18 +361,20 @@ def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     elif shape is CulvertShape.BOX:
         diameter = reference.rise
     else:
-        raise NotImplementedError("Headwater ratio lookup is only supported for circle/box culverts.")
+        msg = "Headwater ratio lookup is only supported for circle/box culverts."
+        raise NotImplementedError(msg)
     if diameter <= 0:
-        raise ValueError("Characteristic diameter must be greater than zero.")
+        msg = "Characteristic diameter must be greater than zero."
+        raise ValueError(msg)
     for barrel in crossing.culverts[1:]:
         if barrel.shape is not shape:
-            raise ValueError("All barrels must share the same shape for headwater ratio calculations.")
+            msg = "All barrels must share the same shape for headwater ratio calculations."
+            raise ValueError(msg)
     return diameter
 
 
 def _simple_flow_estimate(crossing: CulvertCrossing) -> float:
     """Return a quick discharge estimate used to seed the flow search."""
-
     diameter: float = _characteristic_diameter(crossing=crossing)
     barrels: int = _total_barrels(crossing=crossing)
     area: float = math.pi * (diameter**2) / 4.0
@@ -399,7 +393,6 @@ def crossing_hw_from_q(
     keep_files: bool = False,
 ) -> HydraulicsResult:
     """Run HY-8 once for a single discharge and return the resulting headwater."""
-
     logger.info("Computing headwater for crossing {name} at flow {flow:.4f}", name=crossing.name, flow=q)
     hy8_exec: Hy8Executable = _resolve_hy8_executable(hy8=hy8)
     scenario_project, scenario_crossing = _clone_project_with_crossing(
@@ -456,9 +449,9 @@ def crossing_q_from_hw(
        between Python and HY-8 many times.
     3. Fall back to linear interpolation within the latest bracket once it has been densely sampled.
     """
-
     if math.isnan(hw):
-        raise ValueError("Target headwater cannot be NaN.")
+        msg = "Target headwater cannot be NaN."
+        raise ValueError(msg)
     logger.info(
         "Searching for discharge that yields HW={headwater:.4f} for crossing {name}",
         headwater=hw,
@@ -599,10 +592,7 @@ def crossing_q_from_hw(
             closest = search.closest_sample()
             message = "Unable to bracket the requested headwater."
             if closest:
-                message += (
-                    f" Closest sample flow {closest.flow:.4f} => HW {closest.headwater:.4f} "
-                    f"(target {hw:.4f})."
-                )
+                message += f" Closest sample flow {closest.flow:.4f} => HW {closest.headwater:.4f} (target {hw:.4f})."
             raise FlowSearchError(message, best_sample=closest, target_headwater=hw)
         logger.info(
             "Crossing {name}: HW {headwater:.4f} achieved at flow {flow:.4f}",
@@ -636,7 +626,8 @@ def crossing_q_for_hwd(
 ) -> HydraulicsResult:
     """Run HY-8 to find the discharge that produces the requested HW/D ratio."""
     if hw_d_ratio < 0:
-        raise ValueError("Headwater-to-diameter ratio must be non-negative.")
+        msg = "Headwater-to-diameter ratio must be non-negative."
+        raise ValueError(msg)
     diameter: float = _characteristic_diameter(crossing=crossing)
     inlet_elevation: float = crossing.culverts[0].inlet_invert_elevation
     target_headwater: float = inlet_elevation + hw_d_ratio * diameter

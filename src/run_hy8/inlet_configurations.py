@@ -118,7 +118,6 @@ type InletConfigurationKey = tuple[type[StrEnum], str]
 
 def _inlet_key(configuration: SupportedInletConfiguration) -> InletConfigurationKey:
     """Qualify a StrEnum value because equal strings from different enums compare equal."""
-
     return type(configuration), configuration.value
 
 
@@ -215,7 +214,6 @@ HY8_V8_INLET_BY_CONTEXT: dict[tuple[CulvertShape, CulvertMaterial, InletType, in
 
 def default_inlet_configuration(shape: CulvertShape, material: CulvertMaterial) -> SupportedInletConfiguration:
     """Return HY-8 v8's first straight-inlet option for a supported context."""
-
     return resolve_v8_inlet_configuration(
         shape=shape,
         material=material,
@@ -228,11 +226,11 @@ def resolve_v8_inlet_spec(
     configuration: SupportedInletConfiguration,
 ) -> Hy8V8InletSpec:
     """Return the version 8 file specification for a semantic configuration."""
-
     try:
         return HY8_V8_INLET_SPECS[_inlet_key(configuration)]
     except KeyError as exc:  # pragma: no cover - type checkers prevent normal callers
-        raise ValueError(f"Unsupported HY-8 v8 inlet configuration: {configuration!r}") from exc
+        msg = f"Unsupported HY-8 v8 inlet configuration: {configuration!r}"
+        raise ValueError(msg) from exc
 
 
 def resolve_v8_inlet_configuration(
@@ -243,16 +241,16 @@ def resolve_v8_inlet_configuration(
     v8_index: int,
 ) -> SupportedInletConfiguration:
     """Resolve a contextual HY-8 v8 inlet-list index into its semantic identifier."""
-
     key: tuple[CulvertShape, CulvertMaterial, InletType, int] = (shape, material, inlet_type, v8_index)
     try:
         return HY8_V8_INLET_BY_CONTEXT[key]
     except KeyError as exc:
-        raise ValueError(
+        msg = (
             "Unsupported HY-8 v8 inlet configuration: "
             f"shape={shape.name}, material={material.name}, "
             f"inlet_type={inlet_type.name}, index={v8_index}."
-        ) from exc
+        )
+        raise ValueError(msg) from exc
 
 
 def parse_inlet_configuration(
@@ -262,7 +260,6 @@ def parse_inlet_configuration(
     material: CulvertMaterial,
 ) -> SupportedInletConfiguration:
     """Parse a public configuration slug in the supplied shape/material context."""
-
     candidates: list[CircularConcreteInlet | CircularCorrugatedSteelInlet | CircularHdpeInlet | ConcreteBoxInlet] = [
         configuration
         for configuration in _ALL_INLET_CONFIGURATIONS
@@ -270,7 +267,9 @@ def parse_inlet_configuration(
         if spec.shape is shape and spec.material is material
     ]
     if isinstance(value, StrEnum):
-        typed_value: CircularConcreteInlet | CircularCorrugatedSteelInlet | CircularHdpeInlet | ConcreteBoxInlet = cast(SupportedInletConfiguration, value)
+        typed_value: CircularConcreteInlet | CircularCorrugatedSteelInlet | CircularHdpeInlet | ConcreteBoxInlet = cast(
+            SupportedInletConfiguration, value
+        )
         for candidate in candidates:
             if _inlet_key(configuration=typed_value) == _inlet_key(configuration=candidate):
                 return candidate
@@ -278,11 +277,12 @@ def parse_inlet_configuration(
     for configuration in candidates:
         if configuration.value == normalized or configuration.name.lower().replace("_", "-") == normalized:
             return configuration
-    available:str = ", ".join(configuration.value for configuration in candidates)
-    raise ValueError(
+    available: str = ", ".join(configuration.value for configuration in candidates)
+    msg = (
         f"Unsupported inlet configuration '{value}' for {shape.name}/{material.name}. "
         f"Available configurations: {available or '<none>'}."
     )
+    raise ValueError(msg)
 
 
 __all__: list[str] = [

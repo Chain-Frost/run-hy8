@@ -26,8 +26,7 @@ from .units import cms_to_cfs, metres_to_feet
 
 
 class Hy8FileWriter:
-    """
-    Writes HY-8 project files (.hy8) from the internal object model.
+    """Writes HY-8 project files (.hy8) from the internal object model.
 
     This class serializes a `Hy8Project` instance into the text-based .hy8
     format that the HY-8 executable can read. It handles unit conversions,
@@ -35,22 +34,20 @@ class Hy8FileWriter:
     """
 
     def __init__(self, project: Hy8Project, *, version: float = 80.0) -> None:
-        """
-        Initializes the writer with a project.
+        """Initializes the writer with a project.
 
         Args:
             project: The `Hy8Project` instance to be written.
             version: The HY-8 version number to write in the file header.
         """
         if version != 80.0:
-            raise ValueError(f"Unsupported HY-8 project version {version}; run-hy8 supports version 8 only.")
+            msg = f"Unsupported HY-8 project version {version}; run-hy8 supports version 8 only."
+            raise ValueError(msg)
         self.project: Hy8Project = project
         self.version: float = version
 
     def write(self, output_path: Path, *, overwrite: bool = True) -> Path:
-        """
-        Validate the project and write it to a .hy8 file on disk.
-        """
+        """Validate the project and write it to a .hy8 file on disk."""
         output_path = output_path.with_suffix(".hy8")
         errors: list[str] = self.project.validate()
         if errors:
@@ -58,7 +55,8 @@ class Hy8FileWriter:
             raise ValueError(message)
 
         if output_path.exists() and not overwrite:
-            raise FileExistsError(f"{output_path} already exists. Set overwrite=True to replace it.")
+            msg = f"{output_path} already exists. Set overwrite=True to replace it."
+            raise FileExistsError(msg)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as handle:
@@ -167,10 +165,11 @@ class Hy8FileWriter:
     def _write_tailwater(self, handle: TextIO, tailwater: TailwaterDefinition) -> None:
         """Encode tailwater conditions (currently constant depth only)."""
         if tailwater.tw_type is not TailwaterType.CONSTANT:
-            raise ValueError(
+            msg = (
                 f"Tailwater type '{tailwater.tw_type.name}' is not supported by run-hy8. "
                 "Use the HY-8 GUI for advanced tailwater definitions."
             )
+            raise ValueError(msg)
         self._write_card(
             handle,
             "TAILWATERTYPE",
@@ -281,11 +280,10 @@ class Hy8FileWriter:
         width so that digits stack vertically even when a value becomes negative or
         grows to the tens/hundreds/thousands.
         """
-
-        CARD_COLUMN: int = 21
-        BASE_GAP: int = 3
-        BASE_LENGTH: int = 8
-        FIELD_WIDTH: int = 11
+        card_column: int = 21
+        base_gap: int = 3
+        base_length: int = 8
+        field_width: int = 11
 
         def fmt_numeric(value: float) -> str:
             if isinstance(value, int):
@@ -293,7 +291,7 @@ class Hy8FileWriter:
             return f"{float(value):.6f}"
 
         if name:
-            line: str = name if len(name) >= CARD_COLUMN else f"{name:<{CARD_COLUMN}}"
+            line: str = name if len(name) >= card_column else f"{name:<{card_column}}"
         else:
             line = ""
         builder: list[str] = [line]
@@ -312,27 +310,26 @@ class Hy8FileWriter:
             current += len(text)
 
         for value in values:
-            if isinstance(value, Enum):
-                value = value.value
-            if value is None:
+            normalized_value = value.value if isinstance(value, Enum) else value
+            if normalized_value is None:
                 continue
-            if isinstance(value, (int, float)):
-                value_text: str = fmt_numeric(value)
+            if isinstance(normalized_value, (int, float)):
+                value_text: str = fmt_numeric(normalized_value)
                 if numeric_index == 0:
-                    if current < CARD_COLUMN:
-                        append(" " * (CARD_COLUMN - current))
-                    elif current > CARD_COLUMN:
+                    if current < card_column:
+                        append(" " * (card_column - current))
+                    elif current > card_column:
                         append(" ")
                 else:
-                    extra: int = max(0, (previous_length or BASE_LENGTH) - BASE_LENGTH)
-                    gap: int = max(1, BASE_GAP - extra)
+                    extra: int = max(0, (previous_length or base_length) - base_length)
+                    gap: int = max(1, base_gap - extra)
                     append(" " * gap)
                 append(value_text)
                 previous_length = len(value_text)
                 numeric_index += 1
             else:
-                text = str(value)
-                target: int = CARD_COLUMN if numeric_index == 0 else CARD_COLUMN + numeric_index * FIELD_WIDTH
+                text = str(normalized_value)
+                target: int = card_column if numeric_index == 0 else card_column + numeric_index * field_width
                 if current < target:
                     append(" " * (target - current))
                 elif current > target:

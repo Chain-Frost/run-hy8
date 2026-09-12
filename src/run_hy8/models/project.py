@@ -37,7 +37,6 @@ class Hy8Project(Validatable):
     @staticmethod
     def project_timestamp_hours() -> float:
         """HY-8 expects the project date as hours since epoch."""
-
         return datetime.now(tz=UTC).timestamp() / 3600.0
 
     def describe(self) -> str:

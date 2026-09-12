@@ -186,11 +186,8 @@ def _normalize(contents: str) -> list[str]:
             continue
         if not line or line[0].isspace():
             continue
-        if line.startswith("HY8PROJECTFILE"):
-            line: str = _normalize_header(line)
-        tokens: list[str] = []
-        for token in line.split():
-            tokens.append(_normalize_token(token))
+        normalized_line = _normalize_header(line) if line.startswith("HY8PROJECTFILE") else line
+        tokens = [_normalize_token(token) for token in normalized_line.split()]
         lines.append(" ".join(tokens))
     return lines
 

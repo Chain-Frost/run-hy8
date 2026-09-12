@@ -120,7 +120,8 @@ def _run_build(
         project: Hy8Project = _load_project(config_path)
         _validate_project(project)
     except ValueError as exc:
-        raise SystemExit(f"Invalid configuration: {exc}") from exc
+        msg = f"Invalid configuration: {exc}"
+        raise SystemExit(msg) from exc
 
     if validate_only:
         print(f"{config_path} is valid.")
@@ -143,7 +144,8 @@ def _load_project(config_path: Path) -> Hy8Project:
     suffix: str = config_path.suffix.lower()
     if suffix == ".json":
         return load_project_from_json(config_path)
-    raise ValueError(f"Unsupported configuration extension '{config_path.suffix}'. Use .json.")
+    msg = f"Unsupported configuration extension '{config_path.suffix}'. Use .json."
+    raise ValueError(msg)
 
 
 def _validate_project(project: Hy8Project) -> None:

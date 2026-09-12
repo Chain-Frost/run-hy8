@@ -30,6 +30,6 @@ def test_sample_scenario_files_match(tmp_path: Path) -> None:
     run_hy8_path: Path = write_with_run_hy8(project=project, directory=tmp_path / "run_hy8")
     legacy_path: Path = write_with_hy8runner(project=project, directory=tmp_path / "hy8runner", hy8_exe=None)
 
-    assert _normalized_lines(path=run_hy8_path) == _normalized_lines(
-        path=legacy_path
-    ), "run-hy8 and hy8runner outputs diverged"
+    assert _normalized_lines(path=run_hy8_path) == _normalized_lines(path=legacy_path), (
+        "run-hy8 and hy8runner outputs diverged"
+    )

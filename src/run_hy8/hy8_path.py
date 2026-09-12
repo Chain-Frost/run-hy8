@@ -10,8 +10,7 @@ DEFAULT_INSTALL_PATH = Path(r"C:\Program Files\HY-8 8.00\HY864.exe")
 
 
 def hy8_path_file() -> Path:
-    """
-    Return the path to the configuration file that stores the HY-8 executable location.
+    """Return the path to the configuration file that stores the HY-8 executable location.
 
     This file is expected to be at the root of the project, two levels up
     from this source file.
@@ -20,8 +19,7 @@ def hy8_path_file() -> Path:
 
 
 def read_hy8_path_file() -> Path | None:
-    """
-    Read and return the path from the HY8_PATH.txt configuration file.
+    """Read and return the path from the HY8_PATH.txt configuration file.
 
     Returns:
         The path to the HY-8 executable if the file exists and is not empty,
@@ -37,8 +35,7 @@ def read_hy8_path_file() -> Path | None:
 
 
 def save_hy8_path(path: Path) -> Path:
-    """
-    Persist a HY-8 executable path to the HY8_PATH.txt configuration file.
+    """Persist a HY-8 executable path to the HY8_PATH.txt configuration file.
 
     Args:
         path: The path to the HY-8 executable to save.
@@ -52,8 +49,7 @@ def save_hy8_path(path: Path) -> Path:
 
 
 def resolve_hy8_path() -> Path:
-    """
-    Resolve the HY-8 executable path from various sources in order of precedence.
+    """Resolve the HY-8 executable path from various sources in order of precedence.
 
     The resolution order is:
     1. `HY8_EXE` or `HY8_EXECUTABLE` environment variables.

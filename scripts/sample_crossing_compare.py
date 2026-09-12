@@ -139,12 +139,14 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     if args.hy8_exe and not args.hy8_exe.exists():
-        raise FileNotFoundError(f"HY-8 executable not found: {args.hy8_exe}")
+        msg = f"HY-8 executable not found: {args.hy8_exe}"
+        raise FileNotFoundError(msg)
 
     output_dir: Path = prepare_output_dir(args.output_dir, overwrite=args.force)
     scenarios, source_message = select_scenarios(args.scenario_file, args.excel, args.limit)
     if not scenarios:
-        raise RuntimeError("No scenarios were generated. Provide a workbook or adjust the built-in sample count.")
+        msg = "No scenarios were generated. Provide a workbook or adjust the built-in sample count."
+        raise RuntimeError(msg)
     print(source_message)
 
     project: Hy8Project = build_project(title="Sample Comparison", scenarios=scenarios)
@@ -184,7 +186,8 @@ def main() -> None:
 def prepare_output_dir(path: Path, *, overwrite: bool) -> Path:
     if path.exists():
         if not overwrite:
-            raise FileExistsError(f"{path} already exists. Re-run with --force to overwrite.")
+            msg = f"{path} already exists. Re-run with --force to overwrite."
+            raise FileExistsError(msg)
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -198,18 +201,20 @@ def select_scenarios(
     limit = max(0, limit)
     if scenario_file:
         if not scenario_file.exists():
-            raise FileNotFoundError(f"Scenario file not found: {scenario_file}")
+            msg = f"Scenario file not found: {scenario_file}"
+            raise FileNotFoundError(msg)
         scenarios, skipped = load_scenarios_from_data_file(scenario_file, skip_zero_flow=True)
         if not scenarios:
-            raise RuntimeError(f"No scenarios were found in {scenario_file}.")
+            msg = f"No scenarios were found in {scenario_file}."
+            raise RuntimeError(msg)
         count = len(scenarios) if limit == 0 else min(limit, len(scenarios))
-        message = f"Loaded {count} scenarios from {scenario_file} " f"(skipped {skipped} rows with zero discharge)."
+        message = f"Loaded {count} scenarios from {scenario_file} (skipped {skipped} rows with zero discharge)."
         return scenarios[:count], message
     if excel_path and excel_path.exists():
         scenarios, skipped = load_scenarios(excel_path, skip_zero_flow=True)
         if scenarios:
             count = len(scenarios) if limit == 0 else min(limit, len(scenarios))
-            message = f"Loaded {count} scenarios from {excel_path} " f"(skipped {skipped} rows with zero discharge)."
+            message = f"Loaded {count} scenarios from {excel_path} (skipped {skipped} rows with zero discharge)."
             return scenarios[:count], message
         print(f"Workbook {excel_path} did not yield any valid scenarios; falling back to built-in samples.")
     fallback: list[Scenario] = build_builtin_scenarios()
@@ -264,7 +269,7 @@ def write_with_hy8runner(project: Hy8Project, directory: Path, hy8_exe: Path | N
     directory.mkdir(parents=True, exist_ok=True)
     hy8_path: Path = directory / f"{slugify(name=project.title)}.hy8"
     exe_dir: Path = hy8_exe.parent if hy8_exe else directory
-    exe_path: Path = exe_dir / "HY864.exe" if not hy8_exe else hy8_exe
+    exe_path: Path = hy8_exe or exe_dir / "HY864.exe"
     if not exe_path.exists():
         exe_path.write_bytes(b"")
 
@@ -302,7 +307,8 @@ def write_with_hy8runner(project: Hy8Project, directory: Path, hy8_exe: Path | N
 
     success, messages = runner.create_hy8_file()
     if not success:
-        raise RuntimeError(f"hy8runner failed to create the project: {messages}")
+        msg = f"hy8runner failed to create the project: {messages}"
+        raise RuntimeError(msg)
     return hy8_path
 
 
@@ -311,7 +317,8 @@ def _configure_flow(runner: Hy8Runner, crossing: CulvertCrossing, index: int) ->
     values: list[float] = flow.sequence()
     if flow.method is FlowMethod.MIN_DESIGN_MAX:
         if len(values) != 3:
-            raise ValueError(f"{crossing.name}: Min/Design/Max problems require exactly three flows.")
+            msg = f"{crossing.name}: Min/Design/Max problems require exactly three flows."
+            raise ValueError(msg)
         runner.set_discharge_min_design_max_flow(
             flow_min=values[0],
             flow_design=values[1],
@@ -320,10 +327,12 @@ def _configure_flow(runner: Hy8Runner, crossing: CulvertCrossing, index: int) ->
         )
     elif flow.method is FlowMethod.USER_DEFINED:
         if len(values) < 2:
-            raise ValueError(f"{crossing.name}: Provide at least two user-defined flow values.")
+            msg = f"{crossing.name}: Provide at least two user-defined flow values."
+            raise ValueError(msg)
         runner.set_discharge_user_list_flow(values, index=index)
     else:
-        raise ValueError(f"{crossing.name}: Flow method '{flow.method.value}' is not supported by run-hy8.")
+        msg = f"{crossing.name}: Flow method '{flow.method.value}' is not supported by run-hy8."
+        raise ValueError(msg)
 
 
 def _synchronize_culverts(runner: Hy8Runner, culverts: list[CulvertBarrel], crossing_index: int) -> None:
@@ -526,9 +535,8 @@ def _normalized_lines(path: Path) -> list[str]:
             continue
         if not raw or raw[0].isspace():
             continue
-        if raw.startswith("HY8PROJECTFILE"):
-            raw: str = _normalize_header(raw)
-        tokens: list[str] = [_normalize_token(token) for token in raw.split()]
+        normalized_raw = _normalize_header(raw) if raw.startswith("HY8PROJECTFILE") else raw
+        tokens: list[str] = [_normalize_token(token) for token in normalized_raw.split()]
         lines.append(" ".join(tokens))
     return lines
 
@@ -565,7 +573,8 @@ def load_scenarios_from_data_file(path: Path, *, skip_zero_flow: bool) -> tuple[
         return load_scenarios_from_json(path, skip_zero_flow=skip_zero_flow)
     if suffix == ".csv":
         return load_scenarios_from_csv(path, skip_zero_flow=skip_zero_flow)
-    raise ValueError(f"Unsupported scenario file type: {path.suffix}")
+    msg = f"Unsupported scenario file type: {path.suffix}"
+    raise ValueError(msg)
 
 
 def load_scenarios_from_json(path: Path, *, skip_zero_flow: bool) -> tuple[list[Scenario], int]:
@@ -576,7 +585,8 @@ def load_scenarios_from_json(path: Path, *, skip_zero_flow: bool) -> tuple[list[
         elif "data" in data:
             data = data["data"]
     if not isinstance(data, list):
-        raise TypeError(f"JSON scenario file {path} must contain a list of scenario mappings.")
+        msg = f"JSON scenario file {path} must contain a list of scenario mappings."
+        raise TypeError(msg)
     return records_to_scenarios(data, skip_zero_flow=skip_zero_flow)
 
 
@@ -632,14 +642,14 @@ def _float(value: Any, fallback: float = math.nan) -> float:
         return fallback
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return fallback
 
 
 def _int(value: Any, *, default: int) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 

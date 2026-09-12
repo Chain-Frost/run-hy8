@@ -65,11 +65,13 @@ def parse_args() -> argparse.Namespace:
 
 def load_reference_crossing() -> tuple[Hy8Project, CulvertCrossing]:
     if not EXAMPLE_FILE.exists():
-        raise FileNotFoundError(f"Example HY-8 file not found: {EXAMPLE_FILE}")
+        msg = f"Example HY-8 file not found: {EXAMPLE_FILE}"
+        raise FileNotFoundError(msg)
     project: Hy8Project = load_project_from_hy8(EXAMPLE_FILE)
     crossing = next((item for item in project.crossings if item.name == REFERENCE_NAME), None)
     if crossing is None:
-        raise RuntimeError(f"Crossing '{REFERENCE_NAME}' was not found in {EXAMPLE_FILE}")
+        msg = f"Crossing '{REFERENCE_NAME}' was not found in {EXAMPLE_FILE}"
+        raise RuntimeError(msg)
     return project, crossing
 
 
@@ -130,10 +132,7 @@ def show_crossing_summary(title: str, crossing: CulvertCrossing) -> None:
             f"  Culvert span/rise: {barrel.span:.6f} m x {barrel.rise:.6f} m "
             f"(material {barrel.material.name}, barrels {barrel.number_of_barrels})"
         )
-        print(
-            f"  Inlet/outlet invert: {barrel.inlet_invert_elevation:.6f} -> "
-            f"{barrel.outlet_invert_elevation:.6f}"
-        )
+        print(f"  Inlet/outlet invert: {barrel.inlet_invert_elevation:.6f} -> {barrel.outlet_invert_elevation:.6f}")
         print(
             f"  Inlet geometry: {barrel.inlet_type.name}, configuration {barrel.inlet_configuration.value}, "
             f"improved {barrel.improved_inlet_edge_type.name}"
@@ -166,7 +165,10 @@ def ensure_manual_matches(reference: CulvertCrossing, manual: CulvertCrossing) -
                 ("Culvert material", ref_barrel.material is manual_barrel.material),
                 ("Culvert barrels", ref_barrel.number_of_barrels == manual_barrel.number_of_barrels),
                 ("Inlet invert", almost_equal(ref_barrel.inlet_invert_elevation, manual_barrel.inlet_invert_elevation)),
-                ("Outlet invert", almost_equal(ref_barrel.outlet_invert_elevation, manual_barrel.outlet_invert_elevation)),
+                (
+                    "Outlet invert",
+                    almost_equal(ref_barrel.outlet_invert_elevation, manual_barrel.outlet_invert_elevation),
+                ),
                 ("Inlet type", ref_barrel.inlet_type is manual_barrel.inlet_type),
                 ("Inlet configuration", ref_barrel.inlet_configuration is manual_barrel.inlet_configuration),
                 (
@@ -178,7 +180,8 @@ def ensure_manual_matches(reference: CulvertCrossing, manual: CulvertCrossing) -
     mismatches = [label for label, matches in checks if not matches]
     if mismatches:
         joined = ", ".join(mismatches)
-        raise ValueError(f"Manual crossing does not match reference fields: {joined}")
+        msg = f"Manual crossing does not match reference fields: {joined}"
+        raise ValueError(msg)
 
 
 def run_wrapper_examples(
@@ -197,10 +200,7 @@ def run_wrapper_examples(
 
     func_result = crossing_hw_from_q(crossing=crossing, q=flow, hy8=hy8_path, project=project)
     delta = abs(func_result.computed_headwater - hw_result.computed_headwater)
-    print(
-        f"  crossing_hw_from_q: HW {func_result.computed_headwater:.3f} "
-        f"(diff vs method {delta:.6f})"
-    )
+    print(f"  crossing_hw_from_q: HW {func_result.computed_headwater:.3f} (diff vs method {delta:.6f})")
 
     target_hw = hw_result.computed_headwater
     q_result = crossing.q_from_hw(hw=target_hw, q_hint=flow, hy8=hy8_path, project=project)
@@ -229,13 +229,14 @@ def sequences_close(values: Iterable[float], others: Iterable[float], *, toleran
     b = list(others)
     if len(a) != len(b):
         return False
-    return all(math.isclose(x, y, abs_tol=tolerance) for x, y in zip(a, b))
+    return all(math.isclose(x, y, abs_tol=tolerance) for x, y in zip(a, b, strict=False))
 
 
 def main() -> None:
     args = parse_args()
     if args.hy8 and not args.hy8.exists():
-        raise FileNotFoundError(f"HY-8 executable not found: {args.hy8}")
+        msg = f"HY-8 executable not found: {args.hy8}"
+        raise FileNotFoundError(msg)
 
     print(f"Loading reference project from {EXAMPLE_FILE}")
     reference_project, reference_crossing = load_reference_crossing()

@@ -1,0 +1,138 @@
+required-version = "==0.16.6"
+target-version = "py314"
+line-length = 120
+extend-exclude = ["tests/hy8runner/hy8Runner.ipynb"]
+
+[lint]
+select = [
+    # Core correctness and Python errors.
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes
+    "B",      # flake8-bugbear
+    "PLE",    # Pylint errors
+    "PLW",    # Pylint warnings
+    "RUF",    # Ruff-specific rules
+    # Modern Python.
+    "UP",     # pyupgrade
+    "FURB",   # refurb
+    "FLY",    # flynt-style string improvements
+    # Imports.
+    "I",      # isort
+    "ICN",    # import conventions
+    # Internal imports deliberately remain package-relative where possible.
+    # Code quality and maintainability.
+    "A",      # built-in shadowing
+    "ARG",    # unused arguments
+    "BLE",    # broad exception handling
+    "C4",     # comprehensions
+    "C90",    # McCabe complexity
+    "EM",     # exception-message style
+    "ERA",    # commented-out code
+    "ISC",    # implicit string concatenation
+    "N",      # naming conventions
+    "PERF",   # performance
+    "PD",     # pandas API correctness and maintainability
+    "PGH",    # pygrep-hooks / code hygiene
+    "PIE",    # miscellaneous Python improvements
+    "PLC",    # Pylint convention
+    "RET",    # return-statement improvements
+    "RSE",    # raise-statement improvements
+    "SIM",    # simplification
+    "TRY",    # exception-handling practices
+    # Type annotations.
+    "ANN",    # type annotation coverage
+    # Documentation.
+    "D",      # pydocstyle
+    # Logging.
+    "G",      # logging-format checks
+    "LOG",    # logging-specific checks
+    # Security.
+    "S",      # flake8-bandit
+    # Filesystem and general hygiene.
+    "EXE",    # executable/shebang checks
+    "PTH",    # pathlib usage
+    "T10",    # debugger statements
+    "YTT",    # sys.version checks
+    # Testing.
+    "PT",     # pytest style and correctness
+]
+
+ignore = [
+    # Ruff formatter compatibility.
+    "D206",   # docstring tab indentation
+    "D300",   # triple-single-quoted docstrings
+    "E111",   # indentation with invalid multiple
+    "E114",   # indentation with invalid multiple in comments
+    "E117",   # over-indented
+    # The formatter cannot or should not wrap every valid construct.
+    "E501",   # line too long
+    # Constructors and protocol methods inherit their public type documentation.
+    "D105",   # missing docstring in magic method
+    "D107",   # missing docstring in __init__
+    # Public APIs intentionally retain built-in exception types for compatibility.
+    "TRY003", # long messages on standard exception types
+]
+
+[lint.mccabe]
+# Allow moderately complex file-format and orchestration routines before requiring refactoring.
+max-complexity = 15
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.per-file-ignores]
+# Repository scripts adjust sys.path before importing the local package.
+"scripts/**/*.py" = [
+    "ANN401", # Standalone adapters accept dynamically typed tabular and report values.
+    "D",      # Standalone utility functions do not form the package's public API.
+    "E402",
+    "ERA",    # Utility/demo scripts may intentionally retain commented-out code.
+    "PGH003", # Pandas typing gaps require broad type ignores in standalone scripts.
+]
+"tests/**/*.py" = [
+    "D",      # Test functions do not need production-quality docstrings.
+    "S101",   # assert is expected in pytest tests.
+]
+"tests/hy8runner/**/*.py" = [
+    "B905",   # Legacy comparison code preserves its original truncating zip behaviour.
+    "C901",   # Retained legacy validation routine is intentionally unchanged.
+    "ERA",    # Retained legacy comparison implementation includes historical placeholders.
+    "F403",   # Legacy package re-exports its comparison helpers.
+    "PTH",    # Retained legacy comparison code keeps its original path representation.
+    "S603",   # Legacy runner invokes the configured local HY-8 executable.
+]
+"src/run_hy8/config.py" = [
+    "ANN401", # Configuration decoding validates dynamically typed JSON values at runtime.
+]
+"src/run_hy8/executor.py" = [
+    "S603",   # Executes a fixed HY-8 command assembled from validated local paths.
+]
+"src/run_hy8/hydraulics.py" = [
+    "C901",   # Flow-search orchestration remains one traceable decision procedure.
+]
+"src/run_hy8/models/base.py" = [
+    "ANN401", # Model validators intentionally accept values before runtime type validation.
+]
+"src/run_hy8/models/culvert_crossing.py" = [
+    "ANN401",  # Keyword compatibility adapter validates dynamic values at runtime.
+    "PLC0415", # Local imports avoid package import cycles during validation and writing.
+]
+"src/run_hy8/models/project.py" = [
+    "PLC0415", # Local imports avoid package import cycles during validation and writing.
+]
+"src/run_hy8/reader.py" = [
+    "C901",    # HY-8 card parsers remain auditable as format-oriented routines.
+    "PLC0415", # Local import avoids a reader/model import cycle.
+]
+"src/run_hy8/results.py" = [
+    "C901",   # Report parsing remains one traceable state-machine procedure.
+]
+"src/run_hy8/type_helpers.py" = [
+    "ANN401", # Runtime enum coercion accepts arbitrary input before validation.
+    "UP042",  # Preserve established str-plus-Enum string behaviour in the public API.
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

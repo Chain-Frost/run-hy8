@@ -124,7 +124,7 @@ class Hy8RunnerCulvertCrossing:
         hy8_file.write(f"SURFACE {surface_index}\n")
         hy8_file.write(f"NUMSTATIONS {len(self.roadway_stations)}\n")
         roadway_cardname: str = "ROADWAYSECDATA"
-        for station, elevation in zip(self.roadway_stations, self.roadway_elevations):
+        for station, elevation in zip(self.roadway_stations, self.roadway_elevations, strict=False):
             hy8_file.write(f"{roadway_cardname} {station} {elevation}\n")
             roadway_cardname = "ROADWAYPOINT"
 

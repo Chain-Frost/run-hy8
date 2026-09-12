@@ -25,20 +25,13 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["build", "pandas-stubs", "pyright", "ruff", "pytest", "pytest-cov", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
+dev = ["build", "pandas-stubs", "pyright", "ruff==0.16.6", "pytest", "pytest-cov", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 run_hy8 = ["py.typed"]
-
-[tool.ruff]
-line-length = 120
-
-[tool.ruff.lint.per-file-ignores]
-# Repository scripts adjust sys.path before importing the local package.
-"scripts/*.py" = ["E402"]
 
 [tool.pyright]
 include = ["src/run_hy8"]

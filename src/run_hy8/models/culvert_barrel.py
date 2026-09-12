@@ -77,8 +77,9 @@ class CulvertBarrel(Validatable):
 
     def _configuration_from_legacy_fields(self) -> SupportedInletConfiguration:
         """Interpret a legacy numeric value as the current contextual v8 list index."""
-
-        raw: InletEdgeType71 | InletEdgeType | None = self.inlet_edge_type71 if self.inlet_edge_type71 is not None else self.inlet_edge_type
+        raw: InletEdgeType71 | InletEdgeType | None = (
+            self.inlet_edge_type71 if self.inlet_edge_type71 is not None else self.inlet_edge_type
+        )
         if raw is None:  # pragma: no cover - guarded by caller
             return self.inlet_configuration
         return resolve_v8_inlet_configuration(
@@ -90,7 +91,6 @@ class CulvertBarrel(Validatable):
 
     def resolved_inlet_configuration(self) -> SupportedInletConfiguration:
         """Return the semantic v8 configuration, translating deprecated fields if needed."""
-
         if self.inlet_edge_type is not None or self.inlet_edge_type71 is not None:
             self._warn_legacy_inlet_configuration()
             return self._configuration_from_legacy_fields()
@@ -100,8 +100,7 @@ class CulvertBarrel(Validatable):
         """Return a short, human-readable description of the culvert barrel."""
         shape: str = self.shape.name
         return (
-            f"CulvertBarrel(name={self.name or '<unnamed>'}, shape={shape}, "
-            f"span={self.span:.2f}, rise={self.rise:.2f})"
+            f"CulvertBarrel(name={self.name or '<unnamed>'}, shape={shape}, span={self.span:.2f}, rise={self.rise:.2f})"
         )
 
     def __str__(self) -> str:
@@ -143,7 +142,8 @@ class CulvertBarrel(Validatable):
                 category=LegacyInletConfigurationWarning,
                 stacklevel=2,
             )
-            raise ValueError("Do not combine inlet_configuration with deprecated inlet edge fields.")
+            msg = "Do not combine inlet_configuration with deprecated inlet edge fields."
+            raise ValueError(msg)
         return cls(
             name=data.get("name", ""),
             span=float(data.get("span", 0.0)),
@@ -180,7 +180,9 @@ class CulvertBarrel(Validatable):
     @staticmethod
     def _configuration_from_mapping(data: Mapping[str, Any]) -> SupportedInletConfiguration:
         shape: CulvertShape = coerce_enum(CulvertShape, data.get("shape"), default=CulvertShape.CIRCLE)
-        material: CulvertMaterial = coerce_enum(CulvertMaterial, data.get("material"), default=CulvertMaterial.CORRUGATED_STEEL)
+        material: CulvertMaterial = coerce_enum(
+            CulvertMaterial, data.get("material"), default=CulvertMaterial.CORRUGATED_STEEL
+        )
         raw = data.get("inlet_configuration")
         if raw is None:
             return default_inlet_configuration(shape=shape, material=material)
@@ -222,7 +224,6 @@ class CulvertBarrel(Validatable):
                 v8 default. This intentional failure prevents future enum
                 additions from silently receiving an unrelated roughness.
         """
-
         return default_manning_values(shape=self.shape, material=self.material)
 
     def resolved_manning_values(self) -> tuple[float, float]:
@@ -232,7 +233,6 @@ class CulvertBarrel(Validatable):
         only one preserves that override and uses the researched HY-8 default
         for the other side.
         """
-
         if self.manning_n_top is not None and self.manning_n_bottom is not None:
             return self.manning_n_top, self.manning_n_bottom
         default_top, default_bottom = self.manning_values()

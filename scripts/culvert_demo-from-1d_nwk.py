@@ -186,15 +186,17 @@ def workspace_for_scenario(root: Path | None, scenario: str) -> Path | None:
 
 def read_gis_records(path: Path, *, layer: str | None = None) -> list[dict[str, Any]]:
     if not path.exists():
-        raise FileNotFoundError(f"GIS file not found: {path}")
+        msg = f"GIS file not found: {path}"
+        raise FileNotFoundError(msg)
     kwargs: dict[str, Any] = {}
     if layer:
         kwargs["layer"] = layer
-    gdf: DataFrame = gpd.read_file(path, **kwargs) # pyright: ignore[reportUnknownMemberType]
+    gdf: DataFrame = gpd.read_file(path, **kwargs)  # pyright: ignore[reportUnknownMemberType]
     if gdf.empty:
-        raise ValueError(f"No features found in GIS file: {path}")
+        msg = f"No features found in GIS file: {path}"
+        raise ValueError(msg)
     gdf = gdf.where(gdf.notna(), None)
-    records: list[dict[str, Any]] = gdf.to_dict(orient="records") # pyright: ignore[reportAssignmentType]
+    records: list[dict[str, Any]] = gdf.to_dict(orient="records")  # pyright: ignore[reportAssignmentType]
     return records
 
 
@@ -210,7 +212,7 @@ def optional_float(value: Any, *, default: float | None = None) -> float | None:
         return default
     try:
         numeric = float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
     if math.isnan(numeric):
         return default
@@ -220,7 +222,8 @@ def optional_float(value: Any, *, default: float | None = None) -> float | None:
 def require_float(row: dict[str, Any], field_name: str) -> float:
     value = optional_float(row.get(field_name))
     if value is None:
-        raise ValueError(f"Missing or invalid '{field_name}'.")
+        msg = f"Missing or invalid '{field_name}'."
+        raise ValueError(msg)
     return value
 
 
@@ -229,7 +232,8 @@ def first_present_value(row: dict[str, Any], field_names: tuple[str, ...]) -> tu
         if field_name in row and row.get(field_name) not in (None, ""):
             return field_name, row.get(field_name)
     joined: str = ", ".join(field_names)
-    raise ValueError(f"Missing required field. Expected one of: {joined}.")
+    msg = f"Missing required field. Expected one of: {joined}."
+    raise ValueError(msg)
 
 
 def crossing_name_from_row(row: dict[str, Any], source_row: int) -> str:
@@ -240,25 +244,29 @@ def crossing_name_from_row(row: dict[str, Any], source_row: int) -> str:
 def row_to_record(row: dict[str, Any], source_row: int) -> CrossingRecord:
     source_type: str = normalize_text(row.get(TYPE_FIELD)).upper()
     if source_type != "C":
-        raise ValueError(f"Unsupported culvert type '{source_type or '<blank>'}'. Only 'C' is supported.")
+        msg = f"Unsupported culvert type '{source_type or '<blank>'}'. Only 'C' is supported."
+        raise ValueError(msg)
 
     _, diameter_raw = first_present_value(row=row, field_names=DIAMETER_FIELDS)
     diameter: float | None = optional_float(value=diameter_raw)
     if diameter is None or diameter <= 0:
-        raise ValueError("Missing or invalid diameter field.")
+        msg = "Missing or invalid diameter field."
+        raise ValueError(msg)
 
     length: float = require_float(row=row, field_name=LENGTH_FIELD)
     if length <= 0:
-        raise ValueError(f"'{LENGTH_FIELD}' must be greater than zero.")
+        msg = f"'{LENGTH_FIELD}' must be greater than zero."
+        raise ValueError(msg)
 
     inlet_invert: float = require_float(row=row, field_name=US_INVERT_FIELD)
     outlet_invert: float = require_float(row=row, field_name=DS_INVERT_FIELD)
 
     manning_n: float | None = optional_float(value=row.get(MANNING_FIELD), default=DEFAULT_MANNING_N)
     if manning_n is None or manning_n <= 0:
-        raise ValueError(f"Missing or invalid '{MANNING_FIELD}'.")
+        msg = f"Missing or invalid '{MANNING_FIELD}'."
+        raise ValueError(msg)
 
-    barrels:int = DEFAULT_BARRELS
+    barrels: int = DEFAULT_BARRELS
     try:
         _, barrels_raw = first_present_value(row, BARRELS_FIELDS)
     except ValueError:
@@ -267,9 +275,11 @@ def row_to_record(row: dict[str, Any], source_row: int) -> CrossingRecord:
         try:
             barrels = int(float(barrels_raw))
         except (TypeError, ValueError) as exc:
-            raise ValueError("Missing or invalid barrel count field.") from exc
+            msg = "Missing or invalid barrel count field."
+            raise ValueError(msg) from exc
         if barrels <= 0:
-            raise ValueError("Barrel count must be greater than zero.")
+            msg = "Barrel count must be greater than zero."
+            raise ValueError(msg)
 
     return CrossingRecord(
         source_row=source_row,
@@ -311,7 +321,8 @@ def select_records(records: list[CrossingRecord], name: str | None) -> list[Cros
     if name:
         filtered: list[CrossingRecord] = [record for record in records if record.crossing == name]
         if not filtered:
-            raise ValueError(f"Crossing '{name}' not found in GIS input.")
+            msg = f"Crossing '{name}' not found in GIS input."
+            raise ValueError(msg)
         return filtered
     return records
 
@@ -324,15 +335,20 @@ def limit_crossings(records: list[CrossingRecord], limit: int) -> list[CrossingR
 
 def build_crossing(record: CrossingRecord) -> tuple[Hy8Project, CulvertCrossing]:
     if record.source_type != "C":
-        raise ValueError(f"Unsupported culvert type '{record.source_type or '<blank>'}'. Only 'C' is supported.")
+        msg = f"Unsupported culvert type '{record.source_type or '<blank>'}'. Only 'C' is supported."
+        raise ValueError(msg)
     if not math.isfinite(record.diameter) or record.diameter <= 0:
-        raise ValueError("Diameter must be greater than zero.")
+        msg = "Diameter must be greater than zero."
+        raise ValueError(msg)
     if not math.isfinite(record.length) or record.length <= 0:
-        raise ValueError("Barrel length must be greater than zero.")
+        msg = "Barrel length must be greater than zero."
+        raise ValueError(msg)
     if not math.isfinite(record.manning_n) or record.manning_n <= 0:
-        raise ValueError("Manning n must be greater than zero.")
+        msg = "Manning n must be greater than zero."
+        raise ValueError(msg)
     if not math.isfinite(record.inlet_invert) or not math.isfinite(record.outlet_invert):
-        raise ValueError("Inlet and outlet invert elevations are required.")
+        msg = "Inlet and outlet invert elevations are required."
+        raise ValueError(msg)
 
     project = Hy8Project(title=f"GIS demo - {record.crossing}", units=UnitSystem.SI, exit_loss_option=0)
     crossing = CulvertCrossing(name=record.crossing)
@@ -449,7 +465,9 @@ def run_crossing(
 
     project, crossing = build_crossing(record=record)
     q_hint: float = seed_flow_hint(record=record)
-    crossing_workspace: Path | None = workspace_for_crossing(root=workspace_root, source_row=record.source_row, name=record.crossing)
+    crossing_workspace: Path | None = workspace_for_crossing(
+        root=workspace_root, source_row=record.source_row, name=record.crossing
+    )
 
     print(f"Crossing: {record.crossing}")
     print(f"  Source row: {record.source_row}")
@@ -543,14 +561,18 @@ def main() -> None:
 
     hy8_str: str | None = str(hy8_path) if hy8_path else None
     workspace_str: str | None = str(workspace_root) if workspace_root else None
-    payloads: list[tuple[CrossingRecord, str | None, bool, str | None]] = [(record, hy8_str, KEEP_WORKSPACE, workspace_str) for record in records_to_run]
+    payloads: list[tuple[CrossingRecord, str | None, bool, str | None]] = [
+        (record, hy8_str, KEEP_WORKSPACE, workspace_str) for record in records_to_run
+    ]
 
     results: list[CrossingOutcome | None] = [None] * len(payloads)
     had_errors = False
     if payloads:
         max_workers: int = min(MAX_WORKERS, len(payloads)) or 1
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            futures: dict[Future[CrossingOutcome], int] = {executor.submit(_crossing_worker, payload): index for index, payload in enumerate(payloads)}
+            futures: dict[Future[CrossingOutcome], int] = {
+                executor.submit(_crossing_worker, payload): index for index, payload in enumerate(payloads)
+            }
             for future in as_completed(futures):
                 index: int = futures[future]
                 outcome: CrossingOutcome = future.result()
@@ -569,7 +591,8 @@ def main() -> None:
     else:
         print("No results were generated.")
     if had_errors:
-        raise SystemExit("One or more crossings failed; see stderr for details.")
+        msg = "One or more crossings failed; see stderr for details."
+        raise SystemExit(msg)
 
 
 if __name__ == "__main__":

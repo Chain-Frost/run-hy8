@@ -138,7 +138,8 @@ def load_scenarios(path: Path, *, skip_zero_flow: bool = True) -> tuple[list[Sce
     ]
     missing: list[str] = [col for col in required if col not in df.columns]
     if missing:
-        raise ValueError(f"Missing columns: {missing}")
+        msg = f"Missing columns: {missing}"
+        raise ValueError(msg)
 
     df: DataFrame = df.dropna(subset=["Q", "DS_h", "Height"])  # type: ignore
     zero_flow_skipped = 0
@@ -413,7 +414,7 @@ def main() -> None:
             except Exception as exc:  # noqa: BLE001
                 print(f"Batch {batch_index} failed: {exc}")
     df = pd.DataFrame(all_records)
-    df.sort_values(by="index", inplace=True)
+    df = df.sort_values(by="index")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.output, index=False)
     errors: DataFrame = df[df["status"] != "ok"]

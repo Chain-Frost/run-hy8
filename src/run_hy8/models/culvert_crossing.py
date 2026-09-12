@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 def _culvert_list() -> list[CulvertBarrel]:
     """Return a fresh list of CulvertBarrel objects for defaults."""
-
     return []
 
 
@@ -48,8 +47,7 @@ class CulvertCrossing(Validatable):
             crest = self.roadway.crest_elevation()
         crest_str: str = f", crest={crest:.3f}" if crest is not None else ""
         return (
-            f"CulvertCrossing(name={self.name}, barrels={barrel_count}, flow_method={self.flow.method.name}"
-            f"{crest_str})"
+            f"CulvertCrossing(name={self.name}, barrels={barrel_count}, flow_method={self.flow.method.name}{crest_str})"
         )
 
     def __str__(self) -> str:
@@ -84,9 +82,9 @@ class CulvertCrossing(Validatable):
 
     def add_barrel(self, barrel: CulvertBarrel | None = None, **kwargs: Any) -> CulvertBarrel:
         """Append a barrel definition, optionally constructing one from kwargs."""
-
         if barrel is not None and kwargs:
-            raise ValueError("Provide either a barrel instance or keyword arguments, not both.")
+            msg = "Provide either a barrel instance or keyword arguments, not both."
+            raise ValueError(msg)
         if barrel is None:
             options: dict[str, Any] = dict(kwargs)
             options.setdefault("name", f"Barrel {len(self.culverts) + 1}")

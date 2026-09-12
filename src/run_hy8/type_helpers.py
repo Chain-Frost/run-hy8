@@ -8,7 +8,6 @@ from typing import Any, Self
 
 def coerce_enum[TEnum: Enum](enum_cls: type[TEnum], value: Any, *, default: TEnum) -> TEnum:
     """Return enum member from the provided value, accepting names/values."""
-
     if value is None:
         return default
     if isinstance(value, enum_cls):

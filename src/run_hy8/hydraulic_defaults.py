@@ -51,9 +51,7 @@ HY8_V8_OBSERVED_MANNING_N: dict[Hy8ShapeMaterialName, ManningPair] = {
 # barrels. Adding a new enum does not activate one of the observations above;
 # its full shape, material, inlet and serialization support must be implemented
 # before it is added to this bridge.
-_SUPPORTED_CONTEXT_NAMES: dict[
-    tuple[CulvertShape, CulvertMaterial], Hy8ShapeMaterialName
-] = {
+_SUPPORTED_CONTEXT_NAMES: dict[tuple[CulvertShape, CulvertMaterial], Hy8ShapeMaterialName] = {
     (CulvertShape.CIRCLE, CulvertMaterial.CONCRETE): ("Circular", "Concrete"),
     (CulvertShape.CIRCLE, CulvertMaterial.CORRUGATED_STEEL): (
         "Circular",
@@ -74,17 +72,17 @@ def default_manning_values(
         ValueError: If ``run-hy8`` does not yet support the complete
             shape/material context. There is intentionally no catch-all.
     """
-
     context: tuple[CulvertShape, CulvertMaterial] = (shape, material)
     try:
         observed_name = _SUPPORTED_CONTEXT_NAMES[context]
     except KeyError as exc:
-        raise ValueError(
+        msg = (
             "No HY-8 v8 default Manning's n is registered for "
             f"{shape.name}/{material.name}. Specify both manning_n_top and "
             "manning_n_bottom explicitly or implement the complete researched "
             "shape/material context."
-        ) from exc
+        )
+        raise ValueError(msg) from exc
     return HY8_V8_OBSERVED_MANNING_N[observed_name]
 
 
