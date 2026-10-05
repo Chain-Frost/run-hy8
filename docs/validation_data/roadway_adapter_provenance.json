@@ -1,7 +1,7 @@
 {
   "date": "2026-10-05",
   "timezone": "Australia/Perth",
-  "status": "verified uncommitted source snapshot; GUI fixture and committed-revision build pending",
+  "status": "Historical pre-padding source snapshot; superseded by roadway_padding_build_provenance.json",
   "base_git_head": "bd1d6e1f04388f0c70bc25e0226d65fbdb711a2d",
   "new_committed_revision": null,
   "python": "3.14.6",
@@ -96,5 +96,6 @@
     "mkdocs_strict": "passed",
     "git_diff_check": "passed"
   },
-  "scope": "HY-8 adapter input parity; no independent hydraulic solver acceptance or calibration"
+  "scope": "HY-8 adapter input parity; no independent hydraulic solver acceptance or calibration",
+  "superseded_by": "roadway_padding_build_provenance.json"
 }
