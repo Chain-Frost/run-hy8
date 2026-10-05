@@ -1,2 +1,5 @@
-call build_package.bat
-call force_reinstall_package.bat
+@echo off
+call "%~dp0build_package.bat" %*
+if errorlevel 1 exit /b %errorlevel%
+call "%~dp0force_reinstall_package.bat"
+exit /b %errorlevel%

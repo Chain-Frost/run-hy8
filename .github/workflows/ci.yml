@@ -42,3 +42,12 @@ jobs:
       - name: Test
         shell: pwsh
         run: python -m pytest --cov=src/run_hy8 --cov-report=xml
+
+      - name: Verify package artifacts
+        shell: pwsh
+        run: |
+          python scripts/build_library.py --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/verify_wheel.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/smoke_test_installed_wheel.py

@@ -167,6 +167,11 @@ per-invocation basis if needed.
 
 ## Configuration via JSON
 
+Intentional roadway studies can select `RoadwayOvertoppingPolicy.WARN` or `ALLOW`
+in the hydraulic helpers, or `--roadway-overtopping warn|allow` with CLI execution.
+The default `ERROR` checks actual reported roadway discharge after execution.
+See [roadway coefficient, profile, policy and validation contracts](docs/roadway_overtopping.md).
+
 For quick scripting, describe your project in JSON and let the CLI write the `.hy8` file. The same schema is used
 by the checked-in `sample_project.json`:
 
@@ -190,6 +195,7 @@ by the checked-in `sample_project.json`:
         "invert_elevation": 99.0
       },
       "roadway": {
+        "shape": "IRREGULAR",
         "width": 40,
         "surface": "paved",
         "stations": [-20, 0, 20],

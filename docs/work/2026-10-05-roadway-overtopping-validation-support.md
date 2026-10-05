@@ -8,6 +8,70 @@ Branch: `feature/issue-2-roadway-overtopping-validation`
 
 Baseline: `main` at `9d578a3a7045f0aa84698964f0fb64e7347fe309`
 
+## Implementation status
+
+Adapter implementation and command-line input-parity evidence are available;
+the full issue remains open pending the user-supplied GUI-authored fixture and
+a build from a new committed source revision. The current base HEAD is
+`bd1d6e1f04388f0c70bc25e0226d65fbdb711a2d`. No files were staged, committed,
+pushed or published by this implementation run.
+
+See [the implemented contract and exact commands](../roadway_overtopping.md),
+[24 retained adapter cases](../validation_data/hy8_8_0_1_2_roadway_adapter.csv)
+and [source/wheel/executable provenance](../validation_data/roadway_adapter_provenance.json).
+
+Implemented: explicit SI coefficient with English `WEIRCOEFF` read/write,
+typed profile shapes, finite/ordered geometry checks, supported submerged input,
+result-time `ERROR/WARN/ALLOW` across crossing/project helpers and intermediate
+inverse batches, matching CLI option, raw profile evidence and SI result parsing.
+The installed manual's 3-15 irregular count is stale: FHWA's 7.70 release history
+raises it to 5000, confirmed by a successful 5000-point saved-file probe.
+
+HY-8 8.0.1.2 was run with Python 3.14.6 on Windows. All 24 matrix cases verified
+saved inputs and exactly equivalent parsed reader/writer reports. These are
+adapter tests, not paired `ryan-culverts` hydraulic validation. Paved/gravel
+ignore the stored explicit coefficient in the observed cases; user-defined
+results respond to coefficient and tailwater. The exact user-defined
+submergence law remains unresolved, and no independent paved/gravel correction
+selector is claimed.
+
+A three-point irregular overtopping case with two user-flow entries crashes at
+executable offset `0x141ed5` (access violation `0xc0000005`); three entries succeed.
+The writer pads irregular user-flow sets to at least three while preserving
+requested values. Other exploratory 5/16-point report probes also crashed;
+the retained three-point cases and a 5000-point probe succeeded. This is
+version-specific executable behavior, not evidence that every profile in the
+accepted station-count range executes reliably. No hydraulic equations were added.
+
+No user project was available for the required GUI-authored irregular/submerged
+round-trip. The user will create one later. The optional fixture test is ready
+and explicitly skips until `HY8_ROADWAY_GUI_FIXTURE` is set. Interactive GUI
+investigation was stopped at the user's request; no GUI elements were implemented.
+
+Repository checks executed with `PYTHONPATH=src`:
+
+- `python -m pytest tests -q`: **120 passed**, one GUI-fixture skip, four maintained
+  comparison-harness tests deselected by the repository's default marker policy.
+  Runtime: 16.67 seconds. HY-8 executable tests ran, including all three surfaces,
+  free/submerged cases, single-request irregular padding and English result matching.
+- `python -m ruff check .`: passed.
+- `python -m ruff format --check .`: passed.
+- `python -m pyright src/run_hy8`: passed, zero errors/warnings.
+- `python -m mkdocs build --strict`: passed after the provenance JSON was
+  generated (an earlier run failed because that linked artifact did not yet exist).
+- `git diff --check`: passed.
+- `python -m build --wheel --outdir validation_artifacts/wheels`: passed.
+- Isolated target install and `python -I scripts/verify_roadway_wheel.py` with the
+  exact arguments in the handoff: passed; all 25 source/typing files matched,
+  installed version `2026.10.5.1`, isolated import and coefficient smoke passed.
+- `python scripts/validate_roadway.py --matrix --output validation_artifacts/roadway-matrix --csv docs/validation_data/hy8_8_0_1_2_roadway_adapter.csv`:
+  all 24 cases passed saved-input and parsed-report round-trip checks.
+
+HY-8's observed `.rst` precision is two decimal places; `.rsql` has roughly six
+significant figures and no roadway discharge in the inspected outputs. The
+reporting-policy threshold is 0.005 m3/s. No independent-solver acceptance
+tolerances, calibration or external roadway regression baselines were selected.
+
 ## Purpose
 
 Extend `run-hy8` so a desktop validation agent can deliberately create, execute, read and

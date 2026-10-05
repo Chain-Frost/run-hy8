@@ -36,8 +36,10 @@ from .models import (
     FlowDefinition,
     Hy8Project,
 )
+from .overtopping import check_roadway_overtopping
 from .results import Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
-from .type_helpers import CulvertShape, FlowMethod
+from .type_helpers import CulvertShape, FlowMethod, RoadwayOvertoppingPolicy
+from .units import cfs_to_cms, feet_to_metres
 from .writer import Hy8FileWriter
 
 MINIMUM_SEED_FLOW: float = 0.05
@@ -294,6 +296,7 @@ def _write_and_run(
     workspace: Path,
     run_index: int,
     scenario: str | None = None,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> Hy8Results:
     """Write the temporary project to disk, run HY-8, and parse the outputs."""
     scenario_suffix: str = f"_{scenario}" if scenario else ""
@@ -317,7 +320,9 @@ def _write_and_run(
         msg = f"HY-8 results did not contain crossing '{crossing_name}'."
         raise ValueError(msg)
     profiles: list[FlowProfile] = parse_rsql(path=rsql_path).get(crossing_name, [])
-    return Hy8Results(entry=series, profiles=profiles)
+    results = Hy8Results(entry=series, profiles=profiles)
+    check_roadway_overtopping(results, crossing_name, roadway_overtopping)
+    return results
 
 
 def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
@@ -391,6 +396,7 @@ def crossing_hw_from_q(
     exit_loss_option: int | None = None,
     workspace: Path | None = None,
     keep_files: bool = False,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> HydraulicsResult:
     """Run HY-8 once for a single discharge and return the resulting headwater."""
     logger.info("Computing headwater for crossing {name} at flow {flow:.4f}", name=crossing.name, flow=q)
@@ -408,8 +414,10 @@ def crossing_hw_from_q(
             workspace=workspace_path,
             run_index=1,
             scenario="hw_from_q",
+            roadway_overtopping=roadway_overtopping,
         )
-        row: Hy8ResultRow = _select_row_by_flow(results=results, flow=q)
+        flow_si = cfs_to_cms(q) if scenario_project.units is UnitSystem.ENGLISH else q
+        row: Hy8ResultRow = _select_row_by_flow(results=results, flow=flow_si)
         logger.debug(
             "HY-8 returned headwater {headwater:.4f} for crossing {name} at flow {flow:.4f}",
             headwater=row.headwater_elevation,
@@ -439,6 +447,7 @@ def crossing_q_from_hw(
     exit_loss_option: int | None = None,
     workspace: Path | None = None,
     keep_files: bool = False,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> HydraulicsResult:
     """Solve for the discharge that produces the requested headwater using adaptive HY-8 runs.
 
@@ -464,7 +473,8 @@ def crossing_q_from_hw(
     workspace_path, should_cleanup = _prepare_workspace(base=workspace, keep_files=keep_files)
     try:
         simple_flow: float = _simple_flow_estimate(crossing=scenario_crossing)
-        search = _FlowSearch(target_headwater=hw, simple_flow=simple_flow, q_hint=q_hint)
+        headwater_si = feet_to_metres(hw) if scenario_project.units is UnitSystem.ENGLISH else hw
+        search = _FlowSearch(target_headwater=headwater_si, simple_flow=simple_flow, q_hint=q_hint)
         run_count = 0
         final_row: Hy8ResultRow | None = None
         final_flow: float | None = None
@@ -473,7 +483,7 @@ def crossing_q_from_hw(
             nonlocal final_row, final_flow
             if sample is None:
                 return False
-            if abs(sample.headwater - hw) <= search.tolerance:
+            if abs(sample.headwater - headwater_si) <= search.tolerance:
                 final_row = sample.row
                 final_flow = sample.flow
                 return True
@@ -502,10 +512,12 @@ def crossing_q_from_hw(
                 workspace=workspace_path,
                 run_index=run_count,
                 scenario="q_from_hw",
+                roadway_overtopping=roadway_overtopping,
             )
             samples: list[_FlowSample] = []
             for flow_value in flows:
-                row: Hy8ResultRow = _select_row_by_flow(results=results, flow=flow_value)
+                flow_si = cfs_to_cms(flow_value) if scenario_project.units is UnitSystem.ENGLISH else flow_value
+                row: Hy8ResultRow = _select_row_by_flow(results=results, flow=flow_si)
                 sample: _FlowSample = search.record(flow=flow_value, row=row)
                 logger.debug(
                     "{label} result for crossing {name}: flow {flow:.4f} => headwater {headwater:.4f}",
@@ -603,7 +615,7 @@ def crossing_q_from_hw(
         return HydraulicsResult(
             crossing_name=scenario_crossing.name,
             requested_headwater=hw,
-            computed_flow=final_flow,
+            computed_flow=final_row.flow,
             computed_headwater=final_row.headwater_elevation,
             row=final_row,
             workspace=workspace_path if keep_files else None,
@@ -623,6 +635,7 @@ def crossing_q_for_hwd(
     exit_loss_option: int | None = None,
     workspace: Path | None = None,
     keep_files: bool = False,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> HydraulicsResult:
     """Run HY-8 to find the discharge that produces the requested HW/D ratio."""
     if hw_d_ratio < 0:
@@ -647,6 +660,7 @@ def crossing_q_for_hwd(
         exit_loss_option=exit_loss_option,
         workspace=workspace,
         keep_files=keep_files,
+        roadway_overtopping=roadway_overtopping,
     )
     result.requested_headwater = target_headwater
     return result
@@ -668,6 +682,7 @@ def project_hw_from_q(
     hy8: Hy8Executable | Path | str | None = None,
     workspace: Path | None = None,
     keep_files: bool = False,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute headwaters for each project crossing at a fixed discharge."""
     logger.info("Running project-level headwater lookup for flow {flow:.4f}", flow=q)
@@ -686,6 +701,7 @@ def project_hw_from_q(
                 project=project,
                 workspace=crossing_workspace,
                 keep_files=keep_files,
+                roadway_overtopping=roadway_overtopping,
             )
             key: str = _unique_crossing_key(name=crossing.name, counts=name_counts)
             results[key] = result
@@ -702,6 +718,7 @@ def project_q_from_hw(
     hy8: Hy8Executable | Path | str | None = None,
     workspace: Path | None = None,
     keep_files: bool = False,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute discharges for each project crossing that reach the target headwater."""
     logger.info("Running project-level discharge search for HW={headwater:.4f}", headwater=hw)
@@ -721,6 +738,7 @@ def project_q_from_hw(
                 project=project,
                 workspace=crossing_workspace,
                 keep_files=keep_files,
+                roadway_overtopping=roadway_overtopping,
             )
             key: str = _unique_crossing_key(name=crossing.name, counts=name_counts)
             results[key] = result
@@ -737,6 +755,7 @@ def project_q_for_hwd(
     hy8: Hy8Executable | Path | str | None = None,
     workspace: Path | None = None,
     keep_files: bool = False,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> OrderedDict[str, HydraulicsResult]:
     """Compute discharges for each project crossing that satisfy the HW/D ratio."""
     logger.info("Running project-level discharge search for HW/D ratio {ratio:.3f}", ratio=hw_d_ratio)
@@ -756,6 +775,7 @@ def project_q_for_hwd(
                 project=project,
                 workspace=crossing_workspace,
                 keep_files=keep_files,
+                roadway_overtopping=roadway_overtopping,
             )
             key: str = _unique_crossing_key(name=crossing.name, counts=name_counts)
             results[key] = result

@@ -25,10 +25,11 @@ from .type_helpers import (
     FlowMethod,
     ImprovedInletEdgeType,
     InletType,
+    RoadwayShape,
     RoadwaySurface,
     TailwaterType,
 )
-from .units import cfs_to_cms, feet_to_metres
+from .units import cfs_to_cms, feet_to_metres, weir_coefficient_to_si
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -253,12 +254,14 @@ class _Hy8Parser:
             elif key == "RATINGCURVE":
                 self._stream.skip_until(target="END RATINGCURVE")
             elif key == "ROADWAYSHAPE":
-                crossing.roadway.shape = self._as_int(value=value, default=crossing.roadway.shape)
+                crossing.roadway.shape = RoadwayShape(self._as_int(value=value, default=crossing.roadway.shape))
             elif key == "ROADWIDTH":
-                width = self._as_float(value=value, default=crossing.roadway.width)
+                width: float = self._as_float(value=value, default=crossing.roadway.width)
                 crossing.roadway.width = self._length_from_source(width)
             elif key == "SURFACE":
                 crossing.roadway.surface = self._roadway_surface(value=value)
+            elif key == "WEIRCOEFF":
+                crossing.roadway.discharge_coefficient = weir_coefficient_to_si(float(value))
             elif key in {"ROADWAYSECDATA", "ROADWAYPOINT"}:
                 station_elev: list[float] = self._floats(value=value, expected=2)
                 if len(station_elev) == 2:
@@ -446,11 +449,11 @@ class _Hy8Parser:
 
     @staticmethod
     def _roadway_surface(value: str) -> RoadwaySurface:
-        index: int = _Hy8Parser._as_int(value=value, default=1)
         try:
-            return RoadwaySurface(value=index)
-        except ValueError:
-            return RoadwaySurface.PAVED
+            return RoadwaySurface(value=int(value))
+        except ValueError as exc:
+            msg = f"Unsupported HY-8 roadway surface '{value}'."
+            raise ValueError(msg) from exc
 
     @staticmethod
     def _culvert_shape(value: str) -> CulvertShape:

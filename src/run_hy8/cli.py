@@ -17,7 +17,9 @@ from .models import (
     RoadwayProfile,
     TailwaterDefinition,
 )
-from .type_helpers import FlowMethod
+from .overtopping import RoadwayOvertoppingError, check_roadway_overtopping
+from .results import FlowProfile, Hy8Results, Hy8Series, parse_rsql, parse_rst
+from .type_helpers import FlowMethod, RoadwayOvertoppingPolicy, RoadwayShape
 from .writer import Hy8FileWriter
 
 
@@ -48,6 +50,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     build_parser.add_argument("--output", type=Path, required=True, help="Destination HY-8 file.")
     build_parser.add_argument("--overwrite", action="store_true", help="Replace the output file if it exists.")
     build_parser.add_argument(
+        "--roadway-overtopping",
+        choices=[policy.value for policy in RoadwayOvertoppingPolicy],
+        default="error",
+        help="Policy for actual roadway discharge after execution (default: error).",
+    )
+    build_parser.add_argument(
         "--run-exe",
         type=Path,
         help="Optional HY-8 executable path. When provided, -OpenRunSave is executed after writing the project.",
@@ -69,6 +77,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             overwrite=args.overwrite,
             exe_path=args.run_exe,
             validate_only=args.validate_only,
+            roadway_overtopping=RoadwayOvertoppingPolicy(args.roadway_overtopping),
         )
         return 0
     parser.error(message=f"Unhandled command {args.command}")
@@ -90,6 +99,7 @@ def _run_demo(output: Path, *, overwrite: bool) -> None:
     crossing.tailwater = TailwaterDefinition(invert_elevation=99.0, constant_elevation=100.5)
     crossing.roadway = RoadwayProfile(
         width=40.0,
+        shape=RoadwayShape.IRREGULAR,
         stations=[-20.0, 0.0, 20.0],
         elevations=[102.0, 101.5, 102.0],
     )
@@ -115,6 +125,7 @@ def _run_build(
     overwrite: bool,
     exe_path: Path | None,
     validate_only: bool,
+    roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
 ) -> None:
     """Build a HY-8 file from JSON configuration and optionally run HY-8 afterwards."""
     try:
@@ -138,6 +149,17 @@ def _run_build(
             print(result.stdout.strip())
         if result.stderr.strip():
             print(result.stderr.strip())
+        summaries: dict[str, Hy8Series] = parse_rst(path=hy8_path.with_suffix(suffix=".rst"))
+        profiles: dict[str, list[FlowProfile]] = parse_rsql(hy8_path.with_suffix(suffix=".rsql"))
+        for crossing in project.crossings:
+            if crossing.name not in summaries:
+                msg: str = f"HY-8 results did not contain crossing '{crossing.name}'."
+                raise SystemExit(msg)
+            results = Hy8Results(entry=summaries[crossing.name], profiles=profiles.get(crossing.name))
+            try:
+                check_roadway_overtopping(results, crossing_name=crossing.name, policy=roadway_overtopping)
+            except (RoadwayOvertoppingError, ValueError) as exc:
+                raise SystemExit(str(exc)) from exc
 
 
 def _load_project(config_path: Path) -> Hy8Project:
@@ -145,7 +167,7 @@ def _load_project(config_path: Path) -> Hy8Project:
     suffix: str = config_path.suffix.lower()
     if suffix == ".json":
         return load_project_from_json(config_path)
-    msg = f"Unsupported configuration extension '{config_path.suffix}'. Use .json."
+    msg: str = f"Unsupported configuration extension '{config_path.suffix}'. Use .json."
     raise ValueError(msg)
 
 

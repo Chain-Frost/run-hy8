@@ -26,6 +26,7 @@ from .type_helpers import (
     FlowMethod,
     InletEdgeType,
     InletEdgeType71,
+    RoadwayShape,
     RoadwaySurface,
     TailwaterType,
     coerce_enum,
@@ -218,7 +219,10 @@ def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
     """
     roadway = RoadwayProfile()
     roadway.width = float(entry.get("width", roadway.width))
-    roadway.shape = int(entry.get("shape", roadway.shape))
+    shape_value: Any = entry.get("shape", roadway.shape)
+    if isinstance(shape_value, str):
+        shape_value = shape_value.strip().upper()
+    roadway.shape = coerce_enum(RoadwayShape, shape_value, default=RoadwayShape.CONSTANT)
     if "surface" not in entry:
         msg = "Roadway surface must be specified (paved, gravel, user_defined)."
         raise ValueError(msg)
@@ -226,6 +230,8 @@ def _parse_roadway(entry: JSONMapping) -> RoadwayProfile:
     roadway.surface = _parse_surface(roadway_surface_value)
     roadway.stations = [float(value) for value in entry.get("stations", [])]
     roadway.elevations = [float(value) for value in entry.get("elevations", [])]
+    coefficient: Any = entry.get("discharge_coefficient")
+    roadway.discharge_coefficient = float(coefficient) if coefficient is not None else None
     return roadway
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from _collections_abc import Mapping
 from _collections_abc import Sequence as ABCSequence
 from dataclasses import dataclass, field
@@ -103,7 +104,9 @@ class TailwaterDefinition(Validatable):
             )
             return errors
 
-        if self.constant_elevation < self.invert_elevation:
+        if not math.isfinite(self.constant_elevation) or not math.isfinite(self.invert_elevation):
+            errors.append(f"{prefix}Tailwater elevations must be finite.")
+        elif self.constant_elevation < self.invert_elevation:
             errors.append(
                 f"{prefix}Constant tailwater elevation must be greater than or equal to the invert elevation."
             )

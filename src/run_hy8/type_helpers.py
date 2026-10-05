@@ -40,11 +40,26 @@ class TailwaterType(int, Enum):
 
 
 class RoadwaySurface(int, Enum):
-    """Roadway surface assumptions used when HY-8 estimates friction losses."""
+    """Automatic paved/gravel coefficient or explicit coefficient mode."""
 
     PAVED = 1
     GRAVEL = 2
     USER_DEFINED = 3
+
+
+class RoadwayShape(IntEnum):
+    """HY-8 roadway geometry flags."""
+
+    CONSTANT = 1
+    IRREGULAR = 2
+
+
+class RoadwayOvertoppingPolicy(str, Enum):
+    """How high-level runs handle actual reported roadway discharge."""
+
+    ERROR = "error"
+    WARN = "warn"
+    ALLOW = "allow"
 
 
 class _DescribedIntEnum(IntEnum):
@@ -53,7 +68,7 @@ class _DescribedIntEnum(IntEnum):
     _label_: str
 
     def __new__(cls, value: int, label: str) -> Self:
-        obj = int.__new__(cls, value)
+        obj: Self = int.__new__(cls, value)
         obj._value_ = value
         obj._label_ = label
         return obj

@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, TypedDict
 
+from .units import CFS_TO_CMS, FT_TO_METRES
+
 ValueKey = Literal["flow", "headwater", "velocity"]
 SummaryKey = Literal["roadway", "iterations"]
 
@@ -230,10 +232,20 @@ def parse_series(line: str) -> list[float]:
             values.append(math.nan)
         else:
             try:
-                values.append(float(stripped_part))
+                values.append(float(stripped_part) * _report_unit_factor(line))
             except ValueError:
                 values.append(math.nan)
     return values
+
+
+def _report_unit_factor(line: str) -> float:
+    """Normalize English report labels to the public SI contract."""
+    label = line.split(",", 1)[0].lower().replace(" ", "")
+    if "(cfs)" in label:
+        return CFS_TO_CMS
+    if "(ft)" in label or "(ft/s)" in label:
+        return FT_TO_METRES
+    return 1.0
 
 
 def _parse_reported_series(line: str) -> tuple[list[float], list[str]]:
@@ -248,7 +260,7 @@ def _parse_reported_series(line: str) -> tuple[list[float], list[str]]:
             values.append(math.nan)
             qualifiers.append("")
             continue
-        values.append(float(match.group("value")))
+        values.append(float(match.group("value")) * _report_unit_factor(line))
         qualifiers.append(match.group("qualifier") or "")
     return values, qualifiers
 
@@ -272,9 +284,12 @@ class FlowProfile:
     """Single flow profile row emitted by HY-8's .rsql output."""
 
     flow: float = math.nan
-    headwater_depth: float = math.nan
+    # Retained for compatibility; .rsql reports HW/D, not a depth in metres.
+    headwater_depth: float = field(default=math.nan, compare=False)
     flow_type: str = ""
     overtopping: bool = False
+    raw_fields: dict[str, str] = field(default_factory=dict[str, str])
+    headwater_to_depth_ratio: float = math.nan
 
     def __repr__(self) -> str:
         return (
@@ -328,6 +343,8 @@ class Hy8ResultRow:
     flow_type: str = ""
     overtopping: bool = False
     culverts: list[Hy8CulvertResult] = field(default_factory=_culvert_result_list)
+    headwater_to_depth_ratio: float = math.nan
+    profile_fields: dict[str, str] = field(default_factory=dict[str, str])
 
     def __repr__(self) -> str:
         return (
@@ -368,6 +385,9 @@ class Hy8Results:
             roadway_val = roadway[idx] if idx < len(roadway) else math.nan
             iteration = iterations[idx] if idx < len(iterations) else ""
             profile: FlowProfile | None = nearest_profile(profiles, flow)
+            if profile is not None and abs(profile.flow - flow) > 0.005:
+                # .rsql may contain only the selected profile, not every .rst row.
+                profile = None
             flow_type_text: str = flow_types[idx] if idx < len(flow_types) else ""
             profile_type: str = profile.flow_type if profile else ""
             row: Hy8ResultRow = Hy8ResultRow(
@@ -380,6 +400,8 @@ class Hy8Results:
                 flow_type=flow_type_text or profile_type,
                 overtopping=profile.overtopping if profile else False,
                 culverts=[_culvert_result_at(culvert, idx) for culvert in culvert_series],
+                headwater_to_depth_ratio=profile.headwater_to_depth_ratio if profile else math.nan,
+                profile_fields=dict(profile.raw_fields) if profile else {},
             )
             if iteration and "overtopping" in iteration.lower():
                 # The .rst iteration string sometimes contains an "overtopping" note.
@@ -485,16 +507,18 @@ def parse_rsql(path: Path) -> dict[str, list[FlowProfile]]:
             raw_key, raw_value = line.split(":", 1)
             key: str = raw_key.strip()
             value: str = raw_value.strip()
+            current_profile.raw_fields[key] = value
             if key == "FlowProfileFlow":
                 try:
-                    current_profile.flow = float(value)
+                    # .rsql stores English flow even when the .rst display is SI.
+                    current_profile.flow = float(value) * CFS_TO_CMS
                 except ValueError:
                     current_profile.flow = math.nan
             elif key == "HeadwaterToDepth":
                 try:
-                    current_profile.headwater_depth = float(value)
+                    current_profile.headwater_to_depth_ratio = float(value)
                 except ValueError:
-                    current_profile.headwater_depth = math.nan
+                    current_profile.headwater_to_depth_ratio = math.nan
             elif key == "FlowType":
                 current_profile.flow_type = value
             elif key == "Overtops":

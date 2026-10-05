@@ -36,6 +36,7 @@ CONFIG_MAPPING: dict[str, object] = {
             "tailwater": {"constant_elevation": 100.5, "invert_elevation": 99.0},
             "roadway": {
                 "width": 36.0,
+                "shape": 2,
                 "surface": "paved",
                 "stations": [-15.0, 0.0, 15.0],
                 "elevations": [102.0, 101.5, 102.0],
@@ -106,7 +107,7 @@ def build_two_crossing_project() -> Hy8Project:
     second.tailwater.constant_elevation = 150.0
     second.tailwater.invert_elevation = 148.5
     second.roadway.width = 40.0
-    second.roadway.shape = 1
+    second.roadway.shape = 2
     second.roadway.surface = RoadwaySurface.GRAVEL
     second.roadway.stations = [-10.0, 0.0, 10.0]
     second.roadway.elevations = [151.0, 150.5, 151.0]
@@ -146,8 +147,9 @@ def build_user_defined_project() -> Hy8Project:
     crossing.tailwater.constant_elevation = 200.0
     crossing.tailwater.invert_elevation = 199.0
     crossing.roadway.width = 30.0
-    crossing.roadway.shape = 1
+    crossing.roadway.shape = 2
     crossing.roadway.surface = RoadwaySurface.USER_DEFINED
+    crossing.roadway.discharge_coefficient = 1.6
     crossing.roadway.stations = [-12.0, 0.0, 12.0]
     crossing.roadway.elevations = [201.0, 200.5, 201.0]
     crossing.culverts.append(

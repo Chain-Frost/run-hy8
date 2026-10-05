@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 from loguru import logger
 
 from ..classes_references import UnitSystem
+from ..type_helpers import RoadwayOvertoppingPolicy
 from .base import Validatable, normalize_mapping, normalize_sequence
 from .culvert_barrel import CulvertBarrel
 from .flow_definition import FlowDefinition
@@ -70,14 +71,6 @@ class CulvertCrossing(Validatable):
         for index, culvert in enumerate(self.culverts, start=1):
             culvert_prefix: str = f"{prefix}Culvert #{index} ({culvert.name}): "
             errors.extend(culvert.validate(culvert_prefix))
-        if self.roadway.elevations:
-            road_crest: float = self.roadway.crest_elevation()
-            if self.tailwater.constant_elevation >= road_crest:
-                errors.append(
-                    f"{prefix}Constant tailwater elevation ({self.tailwater.constant_elevation}) "
-                    f"reaches or exceeds the roadway crest ({road_crest}). "
-                    "Lower the tailwater or use the HY-8 GUI for overtopping conditions."
-                )
         return errors
 
     def add_barrel(self, barrel: CulvertBarrel | None = None, **kwargs: Any) -> CulvertBarrel:
@@ -103,6 +96,7 @@ class CulvertCrossing(Validatable):
         exit_loss_option: int | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
+        roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
     ) -> HydraulicsResult:
         """Run HY-8 for a specific discharge and return the resulting headwater."""
         from ..hydraulics import crossing_hw_from_q
@@ -117,6 +111,7 @@ class CulvertCrossing(Validatable):
             exit_loss_option=exit_loss_option,
             workspace=workspace,
             keep_files=keep_files,
+            roadway_overtopping=roadway_overtopping,
         )
         logger.debug(
             "Crossing {name} hw_from_q computed headwater {headwater:.4f} for flow {flow:.4f}",
@@ -137,6 +132,7 @@ class CulvertCrossing(Validatable):
         exit_loss_option: int | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
+        roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
     ) -> HydraulicsResult:
         """Iteratively run HY-8 to find the discharge that produces the requested headwater."""
         from ..hydraulics import crossing_q_from_hw
@@ -152,6 +148,7 @@ class CulvertCrossing(Validatable):
             exit_loss_option=exit_loss_option,
             workspace=workspace,
             keep_files=keep_files,
+            roadway_overtopping=roadway_overtopping,
         )
         logger.debug(
             "Crossing {name} q_from_hw computed flow {flow:.4f} for headwater {headwater:.4f}",
@@ -172,6 +169,7 @@ class CulvertCrossing(Validatable):
         exit_loss_option: int | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
+        roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
     ) -> HydraulicsResult:
         """Run HY-8 to find the discharge that satisfies a headwater-to-diameter ratio (optionally seeding with q_hint)."""
         from ..hydraulics import crossing_q_for_hwd
@@ -187,6 +185,7 @@ class CulvertCrossing(Validatable):
             exit_loss_option=exit_loss_option,
             workspace=workspace,
             keep_files=keep_files,
+            roadway_overtopping=roadway_overtopping,
         )
         logger.debug(
             "Crossing {name} q_for_hwd computed flow {flow:.4f} for HW/D {ratio:.4f}",

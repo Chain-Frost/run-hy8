@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 from loguru import logger
 
 from ..classes_references import UnitSystem
-from ..type_helpers import coerce_enum
+from ..type_helpers import RoadwayOvertoppingPolicy, coerce_enum
 from .base import Validatable, crossing_list, normalize_sequence
 from .culvert_crossing import CulvertCrossing
 
@@ -82,6 +82,7 @@ class Hy8Project(Validatable):
         hy8: Hy8Executable | Path | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
+        roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
     ) -> OrderedDict[str, HydraulicsResult]:
         """Return per-crossing headwater elevations by running HY-8 for the specified discharge."""
         from ..hydraulics import project_hw_from_q
@@ -95,6 +96,7 @@ class Hy8Project(Validatable):
             hy8=hy8,
             workspace=workspace,
             keep_files=keep_files,
+            roadway_overtopping=roadway_overtopping,
         )
         logger.debug(
             "Project hw_from_q complete for flow {flow:.4f} across {count} crossings",
@@ -111,6 +113,7 @@ class Hy8Project(Validatable):
         hy8: Hy8Executable | Path | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
+        roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
     ) -> OrderedDict[str, HydraulicsResult]:
         """Return per-crossing discharges for a requested headwater."""
         from ..hydraulics import project_q_from_hw
@@ -127,6 +130,7 @@ class Hy8Project(Validatable):
             hy8=hy8,
             workspace=workspace,
             keep_files=keep_files,
+            roadway_overtopping=roadway_overtopping,
         )
         logger.debug(
             "Project q_from_hw complete for HW {headwater:.4f} across {count} crossings",
@@ -143,6 +147,7 @@ class Hy8Project(Validatable):
         hy8: Hy8Executable | Path | None = None,
         workspace: Path | None = None,
         keep_files: bool = False,
+        roadway_overtopping: RoadwayOvertoppingPolicy = RoadwayOvertoppingPolicy.ERROR,
     ) -> OrderedDict[str, HydraulicsResult]:
         """Return per-crossing discharges for a headwater-to-diameter ratio (optionally seeded by q_hint)."""
         from ..hydraulics import project_q_for_hwd
@@ -159,6 +164,7 @@ class Hy8Project(Validatable):
             hy8=hy8,
             workspace=workspace,
             keep_files=keep_files,
+            roadway_overtopping=roadway_overtopping,
         )
         logger.debug(
             "Project q_for_hwd complete for ratio {ratio:.4f} across {count} crossings",

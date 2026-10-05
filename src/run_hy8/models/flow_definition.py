@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from _collections_abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
@@ -132,6 +133,10 @@ class FlowDefinition(Validatable):
     def validate(self, prefix: str = "") -> list[str]:
         """Return a list of validation errors, or an empty list if the model is valid."""
         errors: list[str] = []
+        if self.method in {FlowMethod.MIN_DESIGN_MAX, FlowMethod.USER_DEFINED} and any(
+            not math.isfinite(value) or value < 0 for value in self.sequence()
+        ):
+            errors.append(f"{prefix}Flows must be finite and non-negative.")
         if self.method is FlowMethod.MIN_DESIGN_MAX:
             if self.user_values and len(self.user_values) != 3:
                 errors.append(f"{prefix}Provide exactly three flows for Min/Design/Max problems.")

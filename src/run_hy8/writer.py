@@ -20,9 +20,10 @@ from .type_helpers import (
     CulvertMaterial,
     CulvertShape,
     FlowMethod,
+    RoadwayShape,
     TailwaterType,
 )
-from .units import cms_to_cfs, metres_to_feet
+from .units import cms_to_cfs, metres_to_feet, weir_coefficient_to_english
 
 
 class Hy8FileWriter:
@@ -116,6 +117,7 @@ class Hy8FileWriter:
             flow_values,
             labels,
             has_labels=has_user_labels,
+            minimum_count=3 if crossing.roadway.shape == RoadwayShape.IRREGULAR else 2,
         )
         include_labels: bool = has_user_labels
         self._write_card(handle, "DISCHARGEXYUSER", len(flow_values))
@@ -132,19 +134,26 @@ class Hy8FileWriter:
         labels: list[str],
         *,
         has_labels: bool,
+        minimum_count: int = 2,
     ) -> tuple[list[float], list[str]]:
-        """Guarantee HY-8 sees two user flows, inserting a 10% value if needed."""
+        """Pad user flows for executable stability, keeping requested flows intact."""
         # The HY-8 GUI requires at least two points for a user-defined flow curve.
         # If only one is provided, we add a second point at 10% of the value.
-        if flow.method is not FlowMethod.USER_DEFINED or len(flow_values) != 1:
+        # HY-8 8.0.1.2 crashes in the irregular overtopping report with two
+        # user flows; three flows avoid that failure in the retained case.
+        if flow.method is not FlowMethod.USER_DEFINED or len(flow_values) >= minimum_count:
             return flow_values, labels
-        base_value: float = flow_values[0]
-        generated_value: float = base_value * 0.1
-        entries: list[tuple[float, str | None]] = []
-        base_label: str | None = labels[0] if has_labels and labels else None
-        entries.append((base_value, base_label))
-        dummy_label: str | None = FlowDefinition.DUMMY_FLOW_LABEL if has_labels else None
-        entries.append((generated_value, dummy_label))
+        entries: list[tuple[float, str | None]] = [
+            (value, labels[idx] if has_labels and idx < len(labels) else None) for idx, value in enumerate(flow_values)
+        ]
+        base_value = max(flow_values)
+        generated_value = base_value * 0.1 if base_value > 0 else 0.05
+        while len(entries) < minimum_count:
+            if generated_value not in [value for value, _ in entries]:
+                dummy_label = FlowDefinition.DUMMY_FLOW_LABEL if has_labels else None
+                entries.append((generated_value, dummy_label))
+            # Avoid looping forever if tiny flows underflow to zero.
+            generated_value = generated_value * 0.5 if generated_value > 0 else 0.05
         entries.sort(key=lambda entry: entry[0])
         normalized_values: list[float] = [value for value, _ in entries]
         if not has_labels:
@@ -206,6 +215,8 @@ class Hy8FileWriter:
         roadway: RoadwayProfile = crossing.roadway
         self._write_card(handle, "ROADWAYSHAPE", roadway.shape)
         self._write_card(handle, "ROADWIDTH", self._length_value(roadway.width))
+        if roadway.discharge_coefficient is not None:
+            self._write_card(handle, "WEIRCOEFF", weir_coefficient_to_english(roadway.discharge_coefficient))
         self._write_card(handle, "SURFACE", roadway.surface.value)
         self._write_card(handle, "NUMSTATIONS", len(roadway.stations))
         card: str = "ROADWAYSECDATA"
