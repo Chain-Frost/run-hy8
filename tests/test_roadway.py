@@ -28,6 +28,7 @@ from run_hy8 import (
     UnitSystem,
     check_roadway_overtopping,
     cli,
+    hydraulics,
     load_project_from_hy8,
     parse_rsql,
     parse_rst,
@@ -216,6 +217,35 @@ class FakeExecutable(Hy8Executable):
         text += "Roadway Discharge (cms), " + ", ".join("1" if q > 0.5 else "0" for q in flows) + "\n"
         hy8_file.with_suffix(".rst").write_text(text, encoding="utf-8")
         return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+
+@pytest.mark.parametrize("units", [UnitSystem.SI, UnitSystem.ENGLISH])
+def test_inverse_interpolation_uses_si_headwater(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, units: UnitSystem
+) -> None:
+    def seeds(_search: hydraulics._FlowSearch) -> list[float]:
+        return [1, 3]
+
+    def no_subdivisions(_search: hydraulics._FlowSearch, **_bounds: object) -> list[float]:
+        return []
+
+    # Force the interpolation fallback with neither seed inside tolerance.
+    monkeypatch.setattr(hydraulics._FlowSearch, "initial_candidates", seeds)
+    monkeypatch.setattr(hydraulics._FlowSearch, "subdivision_candidates", no_subdivisions)
+    project = build_case("constant-free", units=units)
+    headwater_si = 10.06 if units is UnitSystem.ENGLISH else 12.13
+    requested = headwater_si / 0.3048 if units is UnitSystem.ENGLISH else headwater_si
+    result = project.crossings[0].q_from_hw(
+        requested,
+        project=project,
+        hy8=FakeExecutable(),
+        workspace=tmp_path,
+        roadway_overtopping=RoadwayOvertoppingPolicy.ALLOW,
+    )
+    assert result.computed_flow == pytest.approx(headwater_si - 10, abs=1e-7)
+    assert result.computed_headwater == pytest.approx(headwater_si, abs=1e-7)
+    assert result.requested_headwater == requested
+    assert len(list(tmp_path.glob("*.hy8"))) == 2
 
 
 @pytest.mark.parametrize("method", ["q_from_hw", "q_for_hwd"])

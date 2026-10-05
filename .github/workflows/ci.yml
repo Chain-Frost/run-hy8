@@ -43,6 +43,10 @@ jobs:
         shell: pwsh
         run: python -m pytest --cov=src/run_hy8 --cov-report=xml
 
+      - name: Verify retained package artifact
+        shell: pwsh
+        run: python scripts/verify_wheel.py
+
       - name: Verify package artifacts
         shell: pwsh
         run: |

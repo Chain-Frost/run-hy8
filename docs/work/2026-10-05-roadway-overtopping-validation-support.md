@@ -18,8 +18,8 @@ optional follow-up comparison. Exact user-defined submergence-law reconstruction
 and independent solver acceptance remain outside the demonstrated evidence.
 
 The final wheel has been rebuilt and verified against all 25 package source/type
-files, with isolated installation/import checks. Final committed source/wheel
-identity is recorded in `docs/validation_data/roadway_padding_build_provenance.json`.
+files, with isolated installation/import checks. Latest source/wheel identity is recorded in
+`docs/validation_data/roadway_review_fix_build_provenance.json`.
 The original 24-case provenance below is retained as historical evidence.
 
 See [the implemented contract and exact commands](../roadway_overtopping.md),
@@ -510,3 +510,22 @@ Issue #2 is complete when:
 - unit/config/executable tests cover the supported behaviour;
 - documentation states both the supported capability and its remaining limits;
 - all executed validation checks are recorded honestly.
+
+
+## PR #3 review fixes, 2026-10-06
+
+Fixed inverse-search interpolation to use the converted SI headwater target.
+Regression cases force the interpolation fallback in both SI and English mode,
+checking the returned discharge, headwater and original requested target.
+
+Rebuilt the retained wheel from Git-normalized source bytes. All 25 package
+source/type members now match the package Git tree exactly; the strict retained
+wheel verifier passes without normalizing newlines. CI now verifies the retained
+artifact before rebuilding, so a bad committed wheel cannot be masked by a rebuild.
+
+Validation: 155 tests passed, one optional GUI fixture skipped, four legacy parity
+comparisons deselected. Ruff check/format and strict Pyright passed. The updated
+artifact fingerprint and package Git tree are in
+`docs/validation_data/roadway_review_fix_build_provenance.json`. The prior manifest
+is retained as historical evidence. These fixes are a local follow-up commit;
+no PR was opened and no push was performed.

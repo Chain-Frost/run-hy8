@@ -1,7 +1,7 @@
 {
   "date": "2026-10-05",
   "timezone": "Australia/Perth",
-  "status": "Rebuilt wheel verified against committed package source; ready for PR squash merge",
+  "status": "Historical pre-review wheel; superseded by roadway_review_fix_build_provenance.json",
   "source_git_revision": "7fc2b82faee1dacd05b8ba846578f88b8869846f",
   "source_package_git_tree": "7dc15db6c945d6f200b81cbf658a117da0744264",
   "wheel_artifact": "dist/run_hy8-2026.10.5.1-py3-none-any.whl",
@@ -94,5 +94,6 @@
     "Exact USER_DEFINED submergence law remains unresolved.",
     "No independent hydraulic solver acceptance or calibration is claimed."
   ],
-  "historical_adapter_matrix_provenance": "docs/validation_data/roadway_adapter_provenance.json"
+  "historical_adapter_matrix_provenance": "docs/validation_data/roadway_adapter_provenance.json",
+  "superseded_by": "roadway_review_fix_build_provenance.json"
 }

@@ -576,7 +576,7 @@ def crossing_q_from_hw(
                 if slope == 0:
                     guess: float = (low.flow + high.flow) / 2
                 else:
-                    guess = low.flow + ((hw - low.headwater) / slope) * (high.flow - low.flow)
+                    guess = low.flow + ((headwater_si - low.headwater) / slope) * (high.flow - low.flow)
                 samples: list[_FlowSample] = run_flow_batch(flows=[guess], label="Interpolation")
                 if samples:
                     matched = False
