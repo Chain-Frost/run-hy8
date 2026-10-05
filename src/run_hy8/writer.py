@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from itertools import pairwise
 from pathlib import Path
 from typing import TextIO
 
@@ -100,6 +101,13 @@ class Hy8FileWriter:
         """Serialize the discharge definition HY-8 expects."""
         flow: FlowDefinition = crossing.flow
         discharge_method: int = 0 if flow.method is FlowMethod.MIN_DESIGN_MAX else 1
+        irregular: bool = crossing.roadway.shape == RoadwayShape.IRREGULAR
+        point_count: int = len(crossing.roadway.stations)
+        # Native min/design/max calculates eleven flows. Larger irregular
+        # profiles need an explicit list to avoid OpenRunSave's indexing failure.
+        explicit_range = irregular and point_count > 11 and flow.method is FlowMethod.MIN_DESIGN_MAX
+        if explicit_range:
+            discharge_method = 1
         min_flow, design_flow, max_flow = self._flow_range_values(flow)
         self._write_card(
             handle,
@@ -112,13 +120,15 @@ class Hy8FileWriter:
         flow_values: list[float] = flow.sequence()
         has_user_labels: bool = bool(flow.user_value_labels)
         labels: list[str] = list(flow.user_value_labels)
-        flow_values, labels = self._ensure_minimum_user_defined_flows(
-            flow,
-            flow_values,
-            labels,
-            has_labels=has_user_labels,
-            minimum_count=3 if crossing.roadway.shape == RoadwayShape.IRREGULAR else 2,
-        )
+        if irregular and (flow.method is FlowMethod.USER_DEFINED or explicit_range):
+            if explicit_range:
+                labels = ["Minimum Flow", "Design Flow", "Maximum Flow"]
+                has_user_labels = True
+            flow_values, labels = self._pad_irregular_flows(flow_values, labels, minimum_count=point_count)
+        else:
+            flow_values, labels = self._ensure_minimum_user_defined_flows(
+                flow, flow_values, labels, has_labels=has_user_labels
+            )
         include_labels: bool = has_user_labels
         self._write_card(handle, "DISCHARGEXYUSER", len(flow_values))
         for idx, value in enumerate(flow_values):
@@ -126,6 +136,32 @@ class Hy8FileWriter:
             if include_labels:
                 label: str = labels[idx] if idx < len(labels) else ""
                 self._write_card(handle, "DISCHARGEXYUSER_NAME", f'"{label}"')
+
+    def _pad_irregular_flows(
+        self, flow_values: list[float], labels: list[str], *, minimum_count: int
+    ) -> tuple[list[float], list[str]]:
+        """Add exactly the missing flows, preserving requests and model state."""
+        if len(flow_values) >= minimum_count:
+            return flow_values, labels
+        entries: list[tuple[float, str]] = [
+            (value, labels[index] if labels else "") for index, value in enumerate(flow_values)
+        ]
+        while len(entries) < minimum_count:
+            entries.sort()
+            # Split the widest interval rather than accumulating helpers that
+            # round to duplicate zero-valued English cards.
+            bounds: list[tuple[float, float]] = [(0.0, entries[0][0]), *[(a[0], b[0]) for a, b in pairwise(entries)]]
+            lower, upper = max(bounds, key=lambda pair: pair[1] - pair[0])
+            candidate: float = lower + (upper - lower) / 2
+            if upper == 0:
+                candidate = 0.05
+            stored: str = f"{self._flow_value(candidate):.6f}"
+            if any(f"{self._flow_value(value):.6f}" == stored for value, _ in entries):
+                msg = "Cannot pad irregular roadway flows distinctly at HY-8's six-decimal input precision."
+                raise ValueError(msg)
+            entries.append((candidate, FlowDefinition.DUMMY_FLOW_LABEL if labels else ""))
+        entries.sort()
+        return [value for value, _ in entries], [label for _, label in entries] if labels else []
 
     def _ensure_minimum_user_defined_flows(
         self,
@@ -139,8 +175,6 @@ class Hy8FileWriter:
         """Pad user flows for executable stability, keeping requested flows intact."""
         # The HY-8 GUI requires at least two points for a user-defined flow curve.
         # If only one is provided, we add a second point at 10% of the value.
-        # HY-8 8.0.1.2 crashes in the irregular overtopping report with two
-        # user flows; three flows avoid that failure in the retained case.
         if flow.method is not FlowMethod.USER_DEFINED or len(flow_values) >= minimum_count:
             return flow_values, labels
         entries: list[tuple[float, str | None]] = [

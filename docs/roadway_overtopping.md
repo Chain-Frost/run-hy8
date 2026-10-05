@@ -59,13 +59,42 @@ stations `[0, 10, 20]`, elevations `[12, 12.5, 13]`.
 Numeric shape flags remain accepted, and dictionaries retain numeric shape flags;
 configuration also accepts `"CONSTANT"` and `"IRREGULAR"`.
 
-HY-8 requires multiple user-flow entries. The writer already padded a single
-requested discharge with a helper flow. For irregular profiles it now supplies
-at least three distinct flows: the retained three-point overtopping case crashes
-in 8.0.1.2 with two entries and succeeds with three. Helpers are successively
-10% and 5% of the largest requested flow, as needed. Requested flows are preserved;
-labels identify added entries when labels are supplied. Additional rows and HY-8's
-road-activation row can appear in the saved project/report.
+HY-8 8.0.1.2 `-OpenRunSave` crashes in the tested irregular cases when roadway
+point count exceeds the active calculation-flow count. The writer now pads
+**only irregular profiles** to that count, adding exactly the missing flows.
+Six roadway points with three requested user flows therefore get three helpers;
+an already sufficient list gets none. All requested flows and labels are retained.
+Helpers split the largest flow interval, avoiding tiny discharges that collapse
+at HY-8's six-decimal English input precision. They are labelled `dummy flow`
+when the requested list has labels. Unrepresentable distinct padding raises an
+error instead of writing duplicate helper flows.
+
+Constant-profile serialization is unchanged, including its existing single-flow
+padding to two entries. Additional helper rows and HY-8's roadway-activation row
+can appear in saved reports, and remain subject to the selected overtopping policy.
+
+Two flow styles are supported. **User-defined** directly supplies the active flow
+list. **Min/design/max** writes native method 0: HY-8 expands the range to eleven
+calculation flows, retaining the design flow in the generated list. Native
+min/design/max succeeds for tested six- and eleven-point irregular roadways but
+crashes for twelve points. A twelve-point roadway succeeds with twelve explicit
+user flows. Both free and submerged conditions were checked. The separate
+road-activation result row does not make twelve-point min/design/max safe.
+Constant two-point roadways succeeded with both supported flow styles.
+
+For irregular profiles with **more than eleven points**, the writer changes native
+min/design/max to explicit user-defined mode in the emitted file. It starts with
+the three requested minimum/design/maximum values and pads to exactly the roadway
+point count. It does not add the native intermediate levels as well. Labels
+identify the three requests and the helpers. Smaller irregular profiles retain
+native min/design/max mode. The in-memory flow definition is not changed; loading
+the emitted file correctly reports user-defined mode when conversion occurred.
+
+`MIN_MAX_INCREMENT` exists as an enum member but is rejected by configuration
+parsing and model validation; it is not an implemented flow style. Detailed
+flow-style probe outcomes are saved in
+`docs/validation_data/hy8_8_0_1_2_roadway_flow_styles.csv`. These probe outcomes
+predate the workaround and describe the native executable's behavior.
 
 ## Accepting actual overtopping
 

@@ -13,6 +13,8 @@ from pathlib import Path
 import pytest
 
 from run_hy8 import (
+    FlowDefinition,
+    FlowMethod,
     Hy8Executable,
     Hy8FileWriter,
     Hy8Project,
@@ -308,3 +310,141 @@ def test_gui_fixture_roundtrip_when_supplied(tmp_path: Path) -> None:
     for a, b in zip(saved_original.crossings, saved_regenerated.crossings, strict=True):
         assert a.roadway.to_dict() == b.roadway.to_dict()
         assert a.tailwater.constant_elevation == b.tailwater.constant_elevation
+
+
+def test_floodway_gui_input_roundtrip(tmp_path: Path) -> None:
+    fixture = Path(__file__).with_name("floodway.hy8")
+    project = load_project_from_hy8(fixture)
+    crossing = project.crossings[0]
+    assert crossing.roadway.shape == RoadwayShape.IRREGULAR
+    assert len(crossing.roadway.stations) == 6
+    assert crossing.roadway.crest_elevation() == pytest.approx(19)
+    regenerated = Hy8FileWriter(project).write(tmp_path / "floodway.hy8")
+    saved = load_project_from_hy8(regenerated)
+    assert saved.crossings[0].roadway.to_dict() == crossing.roadway.to_dict()
+    assert saved.crossings[0].tailwater.constant_elevation == crossing.tailwater.constant_elevation
+
+
+@pytest.mark.requires_hy8
+@pytest.mark.parametrize("submerged", [False, True])
+def test_floodway_derived_executable_roundtrip(tmp_path: Path, *, submerged: bool) -> None:
+    project = load_project_from_hy8(Path(__file__).with_name("floodway.hy8"))
+    crossing = project.crossings[0]
+    # OpenRunSave crashes when the six roadway points exceed the flow count.
+    # Retain all GUI-authored geometry; add three smaller analysis discharges.
+    crossing.flow.user_values = [1, 2, 4, 8, 30, 100]
+    crossing.flow.user_value_labels = [f"Q{flow}" for flow in crossing.flow.user_values]
+    if submerged:
+        crossing.tailwater.constant_elevation = 19.2
+    original = Hy8FileWriter(project).write(tmp_path / "derived.hy8")
+    executable = Hy8Executable()
+    executable.open_run_save(original)
+    report = parse_rst(original.with_suffix(".rst"))
+    assert max(report[crossing.name]["roadway"]) > 0
+    if not submerged:
+        design_index = report[crossing.name]["flow"].index(100)
+        # Independently displayed in the user's GUI screenshot.
+        assert report[crossing.name]["headwater"][design_index] == 20.71
+        assert report[crossing.name]["roadway"][design_index] == 48.05
+    saved = load_project_from_hy8(original)
+    regenerated = Hy8FileWriter(saved).write(tmp_path / "regenerated.hy8")
+    executable.open_run_save(regenerated)
+    assert report == parse_rst(regenerated.with_suffix(".rst"))
+    assert load_project_from_hy8(regenerated).crossings[0].roadway.to_dict() == saved.crossings[0].roadway.to_dict()
+
+
+@pytest.mark.requires_hy8
+@pytest.mark.parametrize("point_count", [6, 11, 12])
+@pytest.mark.parametrize("submerged", [False, True])
+def test_min_design_max_irregular_executable(tmp_path: Path, point_count: int, *, submerged: bool) -> None:
+    project = load_project_from_hy8(Path(__file__).with_name("floodway.hy8"))
+    crossing = project.crossings[0]
+    if point_count != 6:
+        crossing.roadway.stations = [20 * index / (point_count - 1) for index in range(point_count)]
+        crossing.roadway.elevations = [19 + abs(station - 10) * 0.1 for station in crossing.roadway.stations]
+    crossing.flow = FlowDefinition(method=FlowMethod.MIN_DESIGN_MAX, minimum=8, design=30, maximum=100)
+    original_flow = crossing.flow.to_dict()
+    if submerged:
+        crossing.tailwater.constant_elevation = 19.2
+    original = Hy8FileWriter(project).write(tmp_path / "min-design-max.hy8")
+    assert crossing.flow.to_dict() == original_flow
+    executable = Hy8Executable()
+    executable.open_run_save(original)
+    report = parse_rst(original.with_suffix(".rst"))
+    flows = report[crossing.name]["flow"]
+    # Native mode expands to eleven flows; larger profiles use minimal padding.
+    assert len(flows) == max(11, point_count) + 1
+    assert all(flow in flows for flow in [8, 30, 100])
+    assert max(report[crossing.name]["roadway"]) > 0
+    saved = load_project_from_hy8(original)
+    expected_method = FlowMethod.USER_DEFINED if point_count > 11 else FlowMethod.MIN_DESIGN_MAX
+    assert saved.crossings[0].flow.method == expected_method
+    if point_count > 11:
+        assert saved.crossings[0].flow.user_value_labels.count(FlowDefinition.DUMMY_FLOW_LABEL) == point_count - 3
+    regenerated = Hy8FileWriter(saved).write(tmp_path / "regenerated.hy8")
+    executable.open_run_save(regenerated)
+    assert report == parse_rst(regenerated.with_suffix(".rst"))
+
+
+@pytest.mark.parametrize("point_count", [3, 6, 12, 100])
+def test_irregular_padding_is_minimal_and_preserves_requests(tmp_path: Path, point_count: int) -> None:
+    project = load_project_from_hy8(Path(__file__).with_name("floodway.hy8"))
+    crossing = project.crossings[0]
+    crossing.roadway.stations = list(range(point_count))
+    crossing.roadway.elevations = [19.0] * point_count
+    crossing.flow = FlowDefinition(user_values=[8, 30, 100], user_value_labels=["low", "design", "high"])
+    before = crossing.flow.to_dict()
+    output = Hy8FileWriter(project).write(tmp_path / "padded.hy8")
+    saved = load_project_from_hy8(output).crossings[0]
+    assert len(saved.flow.user_values) == point_count
+    assert crossing.flow.to_dict() == before
+    for flow, label in zip([8, 30, 100], ["low", "design", "high"], strict=True):
+        index = min(range(point_count), key=lambda index: abs(saved.flow.user_values[index] - flow))
+        assert saved.flow.user_values[index] == pytest.approx(flow, abs=2e-8)
+        assert saved.flow.user_value_labels[index] == label
+    assert saved.flow.user_value_labels.count(FlowDefinition.DUMMY_FLOW_LABEL) == point_count - 3
+
+
+def test_irregular_padding_leaves_sufficient_flows_unchanged(tmp_path: Path) -> None:
+    project = build_case("irregular-free")
+    project.crossings[0].flow = FlowDefinition(user_values=[1, 2, 3, 4, 5, 6])
+    saved = load_project_from_hy8(Hy8FileWriter(project).write(tmp_path / "enough.hy8"))
+    assert len(saved.crossings[0].flow.user_values) == 6
+
+
+@pytest.mark.parametrize("method", [FlowMethod.USER_DEFINED, FlowMethod.MIN_DESIGN_MAX])
+def test_constant_flow_serialization_is_unchanged(tmp_path: Path, method: FlowMethod) -> None:
+    project = build_case("constant-free")
+    project.crossings[0].flow = FlowDefinition(
+        method=method, minimum=8, design=30, maximum=100, user_values=[8, 30, 100]
+    )
+    saved = load_project_from_hy8(Hy8FileWriter(project).write(tmp_path / "constant.hy8"))
+    assert saved.crossings[0].flow.method == method
+    assert len(saved.crossings[0].flow.sequence()) == 3
+
+
+def test_irregular_padding_rejects_precision_collapse(tmp_path: Path) -> None:
+    project = build_case("irregular-free")
+    project.crossings[0].flow = FlowDefinition(user_values=[1e-15])
+    with pytest.raises(ValueError, match="six-decimal"):
+        Hy8FileWriter(project).write(tmp_path / "too-small.hy8")
+
+
+@pytest.mark.requires_hy8
+@pytest.mark.parametrize("submerged", [False, True])
+def test_original_six_point_geometry_runs_with_automatic_padding(tmp_path: Path, *, submerged: bool) -> None:
+    project = load_project_from_hy8(Path(__file__).with_name("floodway.hy8"))
+    crossing = project.crossings[0]
+    original_flow = crossing.flow.to_dict()
+    if submerged:
+        crossing.tailwater.constant_elevation = 19.2
+    file = Hy8FileWriter(project).write(tmp_path / "automatic.hy8")
+    Hy8Executable().open_run_save(file)
+    saved = load_project_from_hy8(file).crossings[0]
+    assert len(saved.flow.user_values) == 6
+    assert saved.roadway.to_dict() == crossing.roadway.to_dict()
+    assert crossing.flow.to_dict() == original_flow
+    report = parse_rst(file.with_suffix(".rst"))[crossing.name]
+    index = report["flow"].index(100)
+    assert report["headwater"][index] == (21.13 if submerged else 20.71)
+    assert report["roadway"][index] == (73.05 if submerged else 48.05)

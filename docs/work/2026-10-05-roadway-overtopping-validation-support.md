@@ -10,11 +10,17 @@ Baseline: `main` at `9d578a3a7045f0aa84698964f0fb64e7347fe309`
 
 ## Implementation status
 
-Adapter implementation and command-line input-parity evidence are available;
-the full issue remains open pending the user-supplied GUI-authored fixture and
-a build from a new committed source revision. The current base HEAD is
-`bd1d6e1f04388f0c70bc25e0226d65fbdb711a2d`. No files were staged, committed,
-pushed or published by this implementation run.
+Adapter implementation, executable validation and the irregular-profile flow
+padding workaround are complete for PR #3. The user supplied a GUI-authored
+six-point fixture; padded executable runs preserve its geometry and match the
+GUI-displayed hydraulic results. A separate multi-crossing GUI save remains an
+optional follow-up comparison. Exact user-defined submergence-law reconstruction
+and independent solver acceptance remain outside the demonstrated evidence.
+
+The final wheel has been rebuilt and verified against all 25 package source/type
+files, with isolated installation/import checks. Final committed source/wheel
+identity is recorded in `docs/validation_data/roadway_padding_build_provenance.json`.
+The original 24-case provenance below is retained as historical evidence.
 
 See [the implemented contract and exact commands](../roadway_overtopping.md),
 [24 retained adapter cases](../validation_data/hy8_8_0_1_2_roadway_adapter.csv)
@@ -141,7 +147,7 @@ Verify:
 
 - constant versus irregular roadway shape flags;
 - required station counts for each;
-- the manual's stated irregular-profile range, believed to be 3–15 points;
+- the manual's stated irregular-profile range, believed to be 3â€“15 points;
 - station ordering requirements;
 - duplicate-station behaviour;
 - allowed/required horizontal extent;
@@ -208,9 +214,9 @@ Preferred public concept:
 
 with three modes:
 
-- `ERROR` — unexpected non-trivial roadway discharge is treated as a failure;
-- `WARN` — return the valid HY-8 result and emit a clear warning;
-- `ALLOW` — return the result without an overtopping warning.
+- `ERROR` â€” unexpected non-trivial roadway discharge is treated as a failure;
+- `WARN` â€” return the valid HY-8 result and emit a clear warning;
+- `ALLOW` â€” return the result without an overtopping warning.
 
 Default high-level culvert-checking workflows to `ERROR` unless inspection of the current
 public API demonstrates that another default is required for compatibility.
@@ -255,7 +261,7 @@ Record:
 Prefer HY-8 8.0.1.2 where available.
 
 Create at least one GUI-authored reference project containing an irregular roadway and
-submerged-roadway condition. Use it to prove supported reader → writer → executable
+submerged-roadway condition. Use it to prove supported reader â†’ writer â†’ executable
 round-trip equivalence.
 
 ### 7. Focused test coverage
@@ -365,6 +371,129 @@ If a validation wheel is produced, run the isolated installed-wheel smoke check 
 the exact wheel hash.
 
 Do not claim checks were run unless they were actually executed.
+
+### User-provided GUI fixture, 2026-10-05
+
+The user supplied `tests/floodway.hy8`, saved from the GUI. Its SHA-256 is
+`3bc229d41091dddb77a914718dfd5bb8f1b6112f3d121c0aa4be5b01354419a7`.
+The original is preserved: six roadway points, paved surface, crest 19 m,
+tailwater 12 m, flows approximately 8/30/100 mÂ³/s, ten 0.9 m circular barrels.
+The reader/writer preserves its roadway and constant tailwater exactly in a
+file round-trip.
+
+HY-8 8.0.1.2 `-OpenRunSave` exits with `3221225477` (`0xC0000005`) on both
+an untouched copy and its adapter rewrite. A six-point submerged derivative
+also crashes. Changing bottom roughness to 0.012 and lowering flows to
+2/10/20 did not resolve the crash. These observations do not establish its cause.
+
+A separate adapter-derived three-point profile, stations 0/10/20 m and
+elevations 20/19/21 m, runs successfully with the original culverts, roughness
+and flows. Free flow uses the original 12 m tailwater; submerged flow uses
+19.2 m. Both produce roadway discharge and identical parsed executable reports
+after reader/writer round-trip. These derivatives are not GUI-authored fixtures
+and do not satisfy the original six-point executable validation requirement.
+Saved inputs and reports are retained locally under ignored
+`validation_artifacts/floodway-gui/`.
+
+Reproduce the maintained input and derived executable tests with:
+
+```powershell
+$env:PYTHONPATH = 'src'
+python -m pytest tests/test_roadway.py -k floodway -q
+```
+
+Executed result: three tests passed. No GUI interaction was used.
+
+### Follow-up investigation and GUI handoff
+
+The earlier three-point derivative was an incomplete workaround. A generated
+matrix varying roadway point counts (3/4/5/6/7) and discharge counts (3/6/8)
+showed `-OpenRunSave` success exactly when discharge count was at least roadway
+point count. The seven-point/six-flow case crashed; seven points/eight flows
+succeeded. On the unchanged six-point user geometry, five sorted discharges
+crashed, while six and seven succeeded. This strongly suggests an indexing or
+allocation defect in that automation path; it does not prove the internal cause.
+
+With six sorted discharges 1/2/4/8/30/100 mÂ³/s, the original geometry produces
+HW 20.71 m and roadway flow 48.05 mÂ³/s at 100 mÂ³/s, matching the user's GUI
+screenshot (culvert flow 51.95 mÂ³/s). The maintained executable tests now retain
+all six original roadway points and add three smaller flows. Submerged tailwater
+19.2 m produces HW 21.13 m and roadway flow 73.05 mÂ³/s. Both reports survive
+reader/writer executable round-trip unchanged.
+
+`-BuildFullReport` also succeeds on an untouched copy of the original three-flow
+fixture. Its generated `.rpt` crossing table contains the same HW 20.71 m,
+culvert 51.95 mÂ³/s and roadway 48.05 mÂ³/s. Thus the model can calculate correctly
+through another noninteractive executable command. `-OpenRunSavePlots` crashes
+like `-OpenRunSave`. The adapter's existing three-flow padding is insufficient
+for larger irregular profiles; automatic generalization remains separate work.
+
+One early raw-card flow insertion placed cards beyond their expected input
+block, producing zero flows and misleading zero overtopping. Those outputs are
+excluded from hydraulic evidence; the successful flow-count probes use the
+writer with validated, sorted flow lists.
+
+`scripts/make_roadway_gui_review.py` generates ten crossings in
+`tests/fixtures/roadway_gui_review.hy8`: original six-point geometry with three
+or six flows, user-defined coefficient and gravel variants, and constant-profile
+controls; each has free and submerged tailwater. Eight six-flow crossings ran
+individually and had identical reader/writer executable reports. The two original
+three-flow variants retain the failure for comparison in the GUI. No automated
+GUI interaction was performed. The user will save a separate GUI copy as
+described in `tests/fixtures/roadway_gui_review.md`.
+
+Raw matrix inputs, reports and JSON outcomes are retained under ignored
+`validation_artifacts/floodway-investigation/`.
+
+### Checks of both supported flow styles
+
+Twenty additional cases compared user-defined and native min/design/max flow
+inputs under free and submerged tailwater. Constant two-point profiles passed
+both styles. Three-point irregular profiles passed both styles. Six-point
+irregular profiles failed with three user flows but passed min/design/max, which
+HY-8 expands to eleven active calculation flows. Twelve-point irregular profiles
+failed with three user flows and with native min/design/max. Boundary follow-ups
+confirmed eleven-point min/design/max succeeds, and twelve-point user-defined
+with twelve explicit flows succeeds, under both tailwater conditions.
+
+Raw files and `matrix.json` are retained under ignored
+`validation_artifacts/flow-style-investigation/`; compact outcomes are recorded
+in `docs/validation_data/hy8_8_0_1_2_roadway_flow_styles.csv`. The observed condition
+concerns active calculation-flow count, not simply the number of flow values in
+the input. The extra overtopping activation row does not avoid the failure.
+Four maintained executable regression cases cover native min/design/max with
+six/eleven roadway points and free/submerged tailwater, checking flow expansion,
+method preservation, roadway discharge, and exact report round-trip.
+
+Configuration/model code rejects `min-max-increment`; its enum declaration does
+not indicate implemented support. Existing rejection coverage was also executed.
+
+### Minimal irregular-profile padding implemented
+
+The writer now supplies exactly as many explicit user flows as irregular roadway
+points when the requested list is shorter; sufficient lists are unchanged.
+Constant profiles retain their existing serialization. Helpers split the largest
+interval, preserving requested flows and labels and avoiding precision collapse.
+Distinctness is checked at emitted English six-decimal precision. The original
+in-memory flow definition is preserved.
+
+Native min/design/max stays unchanged through eleven irregular points. For more
+points, the emitted file switches to user-defined, retains the three requested
+minimum/design/maximum flows, and adds exactly enough helpers to reach the point
+count. It does not also generate the native eleven-level list. Loaded files
+truthfully report the serialized user-defined mode. Endpoint probes showed native
+HY-8 can replace the minimum with a nearby design flow, so conversion retains all
+three requests rather than reproducing that loss.
+
+The earlier generated GUI review fixture remains unchanged for native-failure
+comparison. Regenerating it now applies the workaround, so crossings named
+`Original-3Q` retain three requests but have six serialized calculation flows.
+
+Executed validation after this change: `python -m pytest tests -q` passed with
+153 passed, one optional GUI fixture skipped, and four legacy parity tests
+deselected. Ruff check/format, strict Pyright on `src/run_hy8`, and
+`git diff --check` passed. The user's staged wheel files were not modified;
+this source change is not included in the previously retained wheel.
 
 ## Definition of done
 
