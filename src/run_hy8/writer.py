@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from itertools import pairwise
 from pathlib import Path
 from typing import TextIO
 
@@ -20,9 +21,10 @@ from .type_helpers import (
     CulvertMaterial,
     CulvertShape,
     FlowMethod,
+    RoadwayShape,
     TailwaterType,
 )
-from .units import cms_to_cfs, metres_to_feet
+from .units import cms_to_cfs, metres_to_feet, weir_coefficient_to_english
 
 
 class Hy8FileWriter:
@@ -99,6 +101,13 @@ class Hy8FileWriter:
         """Serialize the discharge definition HY-8 expects."""
         flow: FlowDefinition = crossing.flow
         discharge_method: int = 0 if flow.method is FlowMethod.MIN_DESIGN_MAX else 1
+        irregular: bool = crossing.roadway.shape == RoadwayShape.IRREGULAR
+        point_count: int = len(crossing.roadway.stations)
+        # Native min/design/max calculates eleven flows. Larger irregular
+        # profiles need an explicit list to avoid OpenRunSave's indexing failure.
+        explicit_range = irregular and point_count > 11 and flow.method is FlowMethod.MIN_DESIGN_MAX
+        if explicit_range:
+            discharge_method = 1
         min_flow, design_flow, max_flow = self._flow_range_values(flow)
         self._write_card(
             handle,
@@ -111,12 +120,15 @@ class Hy8FileWriter:
         flow_values: list[float] = flow.sequence()
         has_user_labels: bool = bool(flow.user_value_labels)
         labels: list[str] = list(flow.user_value_labels)
-        flow_values, labels = self._ensure_minimum_user_defined_flows(
-            flow,
-            flow_values,
-            labels,
-            has_labels=has_user_labels,
-        )
+        if irregular and (flow.method is FlowMethod.USER_DEFINED or explicit_range):
+            if explicit_range:
+                labels = ["Minimum Flow", "Design Flow", "Maximum Flow"]
+                has_user_labels = True
+            flow_values, labels = self._pad_irregular_flows(flow_values, labels, minimum_count=point_count)
+        else:
+            flow_values, labels = self._ensure_minimum_user_defined_flows(
+                flow, flow_values, labels, has_labels=has_user_labels
+            )
         include_labels: bool = has_user_labels
         self._write_card(handle, "DISCHARGEXYUSER", len(flow_values))
         for idx, value in enumerate(flow_values):
@@ -125,6 +137,32 @@ class Hy8FileWriter:
                 label: str = labels[idx] if idx < len(labels) else ""
                 self._write_card(handle, "DISCHARGEXYUSER_NAME", f'"{label}"')
 
+    def _pad_irregular_flows(
+        self, flow_values: list[float], labels: list[str], *, minimum_count: int
+    ) -> tuple[list[float], list[str]]:
+        """Add exactly the missing flows, preserving requests and model state."""
+        if len(flow_values) >= minimum_count:
+            return flow_values, labels
+        entries: list[tuple[float, str]] = [
+            (value, labels[index] if labels else "") for index, value in enumerate(flow_values)
+        ]
+        while len(entries) < minimum_count:
+            entries.sort()
+            # Split the widest interval rather than accumulating helpers that
+            # round to duplicate zero-valued English cards.
+            bounds: list[tuple[float, float]] = [(0.0, entries[0][0]), *[(a[0], b[0]) for a, b in pairwise(entries)]]
+            lower, upper = max(bounds, key=lambda pair: pair[1] - pair[0])
+            candidate: float = lower + (upper - lower) / 2
+            if upper == 0:
+                candidate = 0.05
+            stored: str = f"{self._flow_value(candidate):.6f}"
+            if any(f"{self._flow_value(value):.6f}" == stored for value, _ in entries):
+                msg = "Cannot pad irregular roadway flows distinctly at HY-8's six-decimal input precision."
+                raise ValueError(msg)
+            entries.append((candidate, FlowDefinition.DUMMY_FLOW_LABEL if labels else ""))
+        entries.sort()
+        return [value for value, _ in entries], [label for _, label in entries] if labels else []
+
     def _ensure_minimum_user_defined_flows(
         self,
         flow: FlowDefinition,
@@ -132,19 +170,24 @@ class Hy8FileWriter:
         labels: list[str],
         *,
         has_labels: bool,
+        minimum_count: int = 2,
     ) -> tuple[list[float], list[str]]:
-        """Guarantee HY-8 sees two user flows, inserting a 10% value if needed."""
+        """Pad user flows for executable stability, keeping requested flows intact."""
         # The HY-8 GUI requires at least two points for a user-defined flow curve.
         # If only one is provided, we add a second point at 10% of the value.
-        if flow.method is not FlowMethod.USER_DEFINED or len(flow_values) != 1:
+        if flow.method is not FlowMethod.USER_DEFINED or len(flow_values) >= minimum_count:
             return flow_values, labels
-        base_value: float = flow_values[0]
-        generated_value: float = base_value * 0.1
-        entries: list[tuple[float, str | None]] = []
-        base_label: str | None = labels[0] if has_labels and labels else None
-        entries.append((base_value, base_label))
-        dummy_label: str | None = FlowDefinition.DUMMY_FLOW_LABEL if has_labels else None
-        entries.append((generated_value, dummy_label))
+        entries: list[tuple[float, str | None]] = [
+            (value, labels[idx] if has_labels and idx < len(labels) else None) for idx, value in enumerate(flow_values)
+        ]
+        base_value = max(flow_values)
+        generated_value = base_value * 0.1 if base_value > 0 else 0.05
+        while len(entries) < minimum_count:
+            if generated_value not in [value for value, _ in entries]:
+                dummy_label = FlowDefinition.DUMMY_FLOW_LABEL if has_labels else None
+                entries.append((generated_value, dummy_label))
+            # Avoid looping forever if tiny flows underflow to zero.
+            generated_value = generated_value * 0.5 if generated_value > 0 else 0.05
         entries.sort(key=lambda entry: entry[0])
         normalized_values: list[float] = [value for value, _ in entries]
         if not has_labels:
@@ -206,6 +249,8 @@ class Hy8FileWriter:
         roadway: RoadwayProfile = crossing.roadway
         self._write_card(handle, "ROADWAYSHAPE", roadway.shape)
         self._write_card(handle, "ROADWIDTH", self._length_value(roadway.width))
+        if roadway.discharge_coefficient is not None:
+            self._write_card(handle, "WEIRCOEFF", weir_coefficient_to_english(roadway.discharge_coefficient))
         self._write_card(handle, "SURFACE", roadway.surface.value)
         self._write_card(handle, "NUMSTATIONS", len(roadway.stations))
         card: str = "ROADWAYSECDATA"

@@ -107,6 +107,6 @@ def test_rst_diagnostics_accept_english_unit_labels(tmp_path: Path) -> None:
 
     row = Hy8Results(parse_rst(rst_path)["Two culverts"]).rows[0]
 
-    assert row.flow == pytest.approx(8.0)
-    assert row.culverts[0].inlet_control_depth == pytest.approx(0.92)
-    assert row.culverts[0].free_length == pytest.approx(25.0)
+    assert row.flow == pytest.approx(8.0 * 0.028316846592)
+    assert row.culverts[0].inlet_control_depth == pytest.approx(0.92 * 0.3048)
+    assert row.culverts[0].free_length == pytest.approx(25.0 * 0.3048)

@@ -14,5 +14,7 @@ nav:
   - API Reference: api.md
   - Headwater and Flow Helpers: headwater_helpers.md
   - HY-8 v8 Inlet Configurations: hy8_v8_inlet_configurations.md
+  - Roadway Overtopping: roadway_overtopping.md
+  - Roadway Overtopping Validation Work: work/2026-10-05-roadway-overtopping-validation-support.md
   - Development: CONTRIBUTING.md
   - Agent Notes: agents.md

@@ -5,3 +5,5 @@
 For the main project overview, please see the README.md.
 
 - [HY-8 v8 inlet-configuration research](hy8_v8_inlet_configurations.md)
+
+- [Roadway overtopping validation support work plan](work/2026-10-05-roadway-overtopping-validation-support.md)

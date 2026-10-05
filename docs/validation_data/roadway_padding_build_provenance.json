@@ -1,0 +1,98 @@
+{
+  "date": "2026-10-05",
+  "timezone": "Australia/Perth",
+  "status": "Rebuilt wheel verified against committed package source; ready for PR squash merge",
+  "source_git_revision": "7fc2b82faee1dacd05b8ba846578f88b8869846f",
+  "source_package_git_tree": "7dc15db6c945d6f200b81cbf658a117da0744264",
+  "wheel_artifact": "dist/run_hy8-2026.10.5.1-py3-none-any.whl",
+  "wheel_verification": {
+    "version": "2026.10.5.1",
+    "wheel_sha256": "e4becf71ccfd42255c60fadaec5fc3dd8efd8dd70d9a67f4270a3ebf04bf46b7",
+    "wheel_files_sha256": {
+      "run_hy8/__init__.py": "0c7607898dc73ac424911e9a7c975f2ad67183f16eb0c5de350706b1ba2fd2ba",
+      "run_hy8/__main__.py": "eba72e00274f38d5ca418eb29f622bb85f4cb4e3852edc9c4e265c949340e312",
+      "run_hy8/classes_references.py": "ba5aff50f127cfbd53b7143091dd5b22e0b851abe40532e089d5a513850d4e31",
+      "run_hy8/cli.py": "9c69572609167f2b01245f36f761a20d04ba3f918de28db2bf678edce68f93af",
+      "run_hy8/config.py": "5f1cd31b832f3765fe3c6042148cd6194d1bc8198bb845d685250c12e969d9e0",
+      "run_hy8/executor.py": "ba8722752f150cfbeb49588eb51f3a645a963e8213ccb562e795d6c8e13a00d0",
+      "run_hy8/hy8_path.py": "3ab38994d6f9ff86963e2868c17e981b3aa5d7fc253c9d1d2921e888ee438e4a",
+      "run_hy8/hydraulic_defaults.py": "e1c48d0f8d721312c38b97c03ceba51ed9e84fd9b63d9309cf75c6dce1e2f7b2",
+      "run_hy8/hydraulics.py": "73c4deda34c6041549e1e5edcd7e5154e4c8813dfccf44d1f164ba8d2ee75578",
+      "run_hy8/inlet_configurations.py": "ba270cfdd9f75c1ac8ac5419333410803abcf3dcc409da8ffefac429b7d33294",
+      "run_hy8/overtopping.py": "39cca705405e6503962f28f84c7b558020f5c072dcf6fdc36f736f16cfc18d87",
+      "run_hy8/py.typed": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "run_hy8/reader.py": "df80cba65d11b4ae57d50d47d9f405a340e156dfd411b6a4e576a5a49f9cffc1",
+      "run_hy8/results.py": "a238298b55fb13014af8a1f64c901a7e878f795ecdf83422b10573252e9c27e1",
+      "run_hy8/type_helpers.py": "9d2285c867650f4270e856137d90d3f3b8ce373caab7b11dd957f35502ed4914",
+      "run_hy8/units.py": "6cb7c20f608d9a7bf7bdfee569bc0b1959208c70f0433766db804afc264f0220",
+      "run_hy8/writer.py": "a0f7bcdddc5d8bed8806fc7ce6a72544847480af417eb51e19149cd9f565a2d2",
+      "run_hy8/models/__init__.py": "1c96bb3950185a8043033538eab7a3209dd2f5ef7954d2ce8da72f4d25268e42",
+      "run_hy8/models/base.py": "6df667a8fe3f389a0f32dc08f088a4ec68d93d6db4d58f535614da54d8a9afbd",
+      "run_hy8/models/culvert_barrel.py": "2a3958d8593cd6adbe67bcccbcde05fded68f0aa239564f2c2f84d36b00a2acb",
+      "run_hy8/models/culvert_crossing.py": "8cca34be4341d7fa876483be5640e7b7817179af73b695b73dfe731826fcb50c",
+      "run_hy8/models/flow_definition.py": "0d7af21df1f0258a9e2ce329b6f84795b5f444ff83a4cf58f1338c57df51474c",
+      "run_hy8/models/project.py": "269c046ab2690cbab6a2007d92d00b6254f4ec2822815e3feb884a351c49e2af",
+      "run_hy8/models/roadway_profile.py": "dcc7c2abdce51a2fa5b54270f9aabcf6fce0234d22b2f701c9844556f6176d76",
+      "run_hy8/models/tailwater_definition.py": "1258e00d179a68d80ff6363842976f440f207546c0d330a1493567ae74c958e1"
+    },
+    "source_text_matches_wheel": true,
+    "installed_text_matches_wheel": true,
+    "isolated_import_verified": true,
+    "isolated_mode": 1
+  },
+  "hy8_file_version": "8.0.1.2",
+  "hy8_executable_sha256": "0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806",
+  "gui_fixture": "tests/floodway.hy8",
+  "gui_fixture_sha256": "3bc229d41091dddb77a914718dfd5bb8f1b6112f3d121c0aa4be5b01354419a7",
+  "gui_reference": "User screenshot: at Q=100 m3/s, HW=20.71 m, culvert=51.95 m3/s; roadway=48.05 m3/s inferred by closure and confirmed in BuildFullReport",
+  "installed_wheel_executable_cases": [
+    {
+      "points": 6,
+      "submerged": false,
+      "serialized_flow_count": 6,
+      "serialized_method": "user-defined",
+      "headwater_at_100": 20.71,
+      "roadway_at_100": 48.05
+    },
+    {
+      "points": 6,
+      "submerged": true,
+      "serialized_flow_count": 6,
+      "serialized_method": "user-defined",
+      "headwater_at_100": 21.13,
+      "roadway_at_100": 73.05
+    },
+    {
+      "points": 12,
+      "submerged": false,
+      "serialized_flow_count": 12,
+      "serialized_method": "user-defined",
+      "headwater_at_100": 20.74,
+      "roadway_at_100": 47.97
+    },
+    {
+      "points": 12,
+      "submerged": true,
+      "serialized_flow_count": 12,
+      "serialized_method": "user-defined",
+      "headwater_at_100": 21.15,
+      "roadway_at_100": 72.97
+    }
+  ],
+  "checks": {
+    "source_pytest": "153 passed, 1 optional GUI skip, 4 legacy parity deselected",
+    "ruff": "All 70 maintained Python files passed check and format",
+    "pyright": "0 errors, 0 warnings",
+    "isolated_install_with_dependencies": "passed",
+    "installed_wheel_source_identity": "25 package files matched source and isolated install",
+    "installed_wheel_executable": "4 cases passed",
+    "mkdocs_strict": "passed",
+    "git_diff_check": "passed; native HY-8 fixture spacing preserved via path-specific attributes"
+  },
+  "limitations": [
+    "Multi-crossing GUI save comparison is a pending optional follow-up.",
+    "Exact USER_DEFINED submergence law remains unresolved.",
+    "No independent hydraulic solver acceptance or calibration is claimed."
+  ],
+  "historical_adapter_matrix_provenance": "docs/validation_data/roadway_adapter_provenance.json"
+}

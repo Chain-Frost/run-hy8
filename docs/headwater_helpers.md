@@ -6,6 +6,13 @@ helper clones the input model, writes a temporary HY-8 project, runs HY-8,
 parses the result files, and returns a `HydraulicsResult`. The original model is
 not modified.
 
+All three helpers accept `roadway_overtopping=RoadwayOvertoppingPolicy.ERROR`
+by default. Use `WARN` or `ALLOW` for intentional overtopping, including all
+intermediate inverse-search runs. See [roadway contracts](roadway_overtopping.md).
+Computed result quantities are SI; requested values and flow hints follow the
+input project's geometry/flow unit convention. HY-8's HW/D profile value is
+exposed as a ratio, rather than a depth in metres.
+
 HY-8 must be installed and configured before using these methods. By default,
 the helpers use the path resolved by `Hy8Executable`; pass `hy8=Path(...)` or an
 existing `Hy8Executable` to override it for a call.

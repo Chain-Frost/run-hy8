@@ -167,7 +167,11 @@ class Hy8Executable:
             msg = f"HY-8 project not found: {hy8_file}"
             raise FileNotFoundError(msg)
         command: list[str] = [str(self.exe_path), *args, str(hy8_file)]
-        return subprocess.run(command, check=check, capture_output=True, text=True)
+        # Automation runs should not interrupt the desktop with HY-8 windows.
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = subprocess.SW_HIDE
+        return subprocess.run(command, check=check, capture_output=True, text=True, startupinfo=startup)
 
     @staticmethod
     def _ensure_windows() -> None:

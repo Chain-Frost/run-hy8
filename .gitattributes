@@ -6,3 +6,7 @@
 # Build and test fixtures are binary and must never be line-normalized.
 *.whl binary -eol
 *.xlsx binary -eol
+
+# Preserve native HY-8 fixture bytes and their padded cards for provenance.
+tests/floodway.hy8 -text whitespace=-blank-at-eol
+tests/fixtures/*.hy8 -text whitespace=-blank-at-eol

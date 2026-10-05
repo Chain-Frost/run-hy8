@@ -25,11 +25,11 @@ def test_tailwater_must_be_constant(tmp_path: Path) -> None:
         Hy8FileWriter(project=project).write(tmp_path / "invalid.hy8")
 
 
-def test_tailwater_cannot_reach_roadway() -> None:
+def test_submerged_tailwater_is_valid() -> None:
     project: Hy8Project = build_sample_project()
     project.crossings[0].tailwater.constant_elevation = 102.5  # higher than crest (101.5)
     errors: list[str] = project.crossings[0].validate("Sample Crossing: ")
-    assert any("roadway crest" in message for message in errors)
+    assert errors == []
 
 
 def test_assert_valid_only_raises_for_invalid_models() -> None:

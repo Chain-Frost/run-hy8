@@ -21,6 +21,7 @@ from .models import (
     RoadwayProfile,
     TailwaterDefinition,
 )
+from .overtopping import RoadwayOvertoppingError, RoadwayOvertoppingWarning, check_roadway_overtopping
 from .reader import culvert_dataframe, load_project_from_hy8
 from .results import Hy8CulvertResult, Hy8ResultRow, Hy8Results, parse_rsql, parse_rst
 from .type_helpers import (
@@ -31,6 +32,8 @@ from .type_helpers import (
     InletEdgeType,
     InletEdgeType71,
     InletType,
+    RoadwayOvertoppingPolicy,
+    RoadwayShape,
     RoadwaySurface,
     TailwaterType,
 )
@@ -59,12 +62,17 @@ __all__: list[str] = [
     "InletEdgeType71",
     "InletType",
     "LegacyInletConfigurationWarning",
+    "RoadwayOvertoppingError",
+    "RoadwayOvertoppingPolicy",
+    "RoadwayOvertoppingWarning",
     "RoadwayProfile",
+    "RoadwayShape",
     "RoadwaySurface",
     "SupportedInletConfiguration",
     "TailwaterDefinition",
     "TailwaterType",
     "UnitSystem",
+    "check_roadway_overtopping",
     "culvert_dataframe",
     "load_project_from_hy8",
     "load_project_from_json",

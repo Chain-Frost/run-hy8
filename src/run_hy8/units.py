@@ -1,5 +1,7 @@
 """Unit conversion helpers shared across the run-hy8 domain."""
 
+import math
+
 FT_TO_METRES = 0.3048
 METRES_TO_FEET: float = 1 / FT_TO_METRES
 FT_TO_MM = 304.8
@@ -10,6 +12,16 @@ CFS_TO_CMS = 0.028316846592
 CMS_TO_CFS: float = 1 / CFS_TO_CMS
 FTS_TO_MS = 0.3048
 MS_TO_FTS: float = 1 / FTS_TO_MS
+
+
+def weir_coefficient_to_si(value: float) -> float:
+    """Convert Q=C L H**1.5 coefficient from ft**0.5/s to m**0.5/s."""
+    return value * math.sqrt(FT_TO_METRES)
+
+
+def weir_coefficient_to_english(value: float) -> float:
+    """Convert SI roadway coefficient to HY-8's English storage units."""
+    return value / math.sqrt(FT_TO_METRES)
 
 
 def feet_to_metres(value: float) -> float:
