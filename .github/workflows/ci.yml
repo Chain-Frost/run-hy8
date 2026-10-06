@@ -16,6 +16,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Verify pinned ShapeDB reference
+        shell: pwsh
+        run: |
+          $path = "reference_docs/ShapeDB.dat"
+          if (-not (Test-Path $path)) { throw "ShapeDB.dat was not materialized by Git LFS." }
+          $size = (Get-Item $path).Length
+          if ($size -ne 4370624) { throw "Unexpected ShapeDB.dat size: $size" }
+          $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne "2479e9444feaff529313e18a1b26fc2de4f6b6c541db58477da6bebc602164a7") {
+            throw "Unexpected ShapeDB.dat SHA-256: $hash"
+          }
 
       - name: Set up Python 3.14
         uses: actions/setup-python@v5
