@@ -78,14 +78,6 @@ class EllipticalConcreteInlet(StrEnum):
     GROOVED_EDGE_PROJECTING = "grooved-edge-projecting"
 
 
-class EllipticalConcreteInlet(StrEnum):
-    """Straight inlet configurations for HY-8 concrete elliptical pipe."""
-
-    SQUARE_EDGE_WITH_HEADWALL = "square-edge-with-headwall"
-    GROOVED_EDGE_WITH_HEADWALL = "grooved-edge-with-headwall"
-    GROOVED_EDGE_PROJECTING = "grooved-edge-projecting"
-
-
 class ConcreteBoxInlet(StrEnum):
     """Straight inlet configurations for conventional concrete boxes."""
 
@@ -226,15 +218,6 @@ HY8_V8_INLET_SPECS: dict[InletConfigurationKey, Hy8V8InletSpec] = {
     _inlet_key(EllipticalConcreteInlet.GROOVED_EDGE_PROJECTING): _spec(
         CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 2, "Grooved Edge Projecting"
     ),
-    _inlet_key(EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL): _spec(
-        CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 0, "Square Edge with Headwall"
-    ),
-    _inlet_key(EllipticalConcreteInlet.GROOVED_EDGE_WITH_HEADWALL): _spec(
-        CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 1, "Grooved Edge with Headwall"
-    ),
-    _inlet_key(EllipticalConcreteInlet.GROOVED_EDGE_PROJECTING): _spec(
-        CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 2, "Grooved Edge Projecting"
-    ),
 }
 
 _ALL_INLET_CONFIGURATIONS: tuple[SupportedInletConfiguration, ...] = (
@@ -242,7 +225,6 @@ _ALL_INLET_CONFIGURATIONS: tuple[SupportedInletConfiguration, ...] = (
     *tuple(CircularCorrugatedSteelInlet),
     *tuple(CircularHdpeInlet),
     *tuple(ConcreteBoxInlet),
-    *tuple(EllipticalConcreteInlet),
     *tuple(EllipticalConcreteInlet),
 )
 
