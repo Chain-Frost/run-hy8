@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -190,7 +191,7 @@ def test_ellipse_unsupported_material_fails_closed(tmp_path: Path) -> None:
     path = tmp_path / "unsupported.json"
     path.write_text(json.dumps(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="ELLIPTICAL/CORRUGATED_STEEL"):
+    with pytest.raises(ValueError, match=r"ELLIPTICAL.*CORRUGATED_STEEL"):
         load_project_from_json(path)
 
 
@@ -219,7 +220,29 @@ def test_ellipse_hy8_v8_executable_round_trip(
     assert barrel.rise == pytest.approx(rise, abs=2e-6)
 
     rst = parse_rst(path.with_suffix(".rst"))
-    rsql = parse_rsql(path.with_suffix(".rsql"))
-    assert rst["Sample Crossing"]["headwater"]
-    assert rst["Sample Crossing"]["culverts"]
-    assert rsql["Sample Crossing"]
+    series = rst["Sample Crossing"]
+    headwaters = series["headwater"]
+    assert headwaters
+    assert all(math.isfinite(value) for value in headwaters)
+
+    culverts = series["culverts"]
+    assert len(culverts) == 1
+    culvert = culverts[0]
+    for key in (
+        "discharge",
+        "inlet_control_depth",
+        "outlet_control_depth",
+        "full_length",
+        "free_length",
+        "outlet_velocity",
+    ):
+        values = culvert[key]
+        assert values
+        assert all(math.isfinite(value) for value in values)
+    assert culvert["flow_type"]
+
+    profiles = parse_rsql(path.with_suffix(".rsql"))["Sample Crossing"]
+    assert profiles
+    assert all(math.isfinite(profile.flow) for profile in profiles)
+    assert all(math.isfinite(profile.headwater_to_depth_ratio) for profile in profiles)
+    assert all(profile.flow_type for profile in profiles)
