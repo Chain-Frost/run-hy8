@@ -313,7 +313,6 @@ __all__: list[str] = [
     "CircularHdpeInlet",
     "ConcreteBoxInlet",
     "EllipticalConcreteInlet",
-    "EllipticalConcreteInlet",
     "Hy8V8InletSpec",
     "SupportedInletConfiguration",
     "default_inlet_configuration",
