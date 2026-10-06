@@ -10,6 +10,7 @@ from .inlet_configurations import (
     CircularCorrugatedSteelInlet,
     CircularHdpeInlet,
     ConcreteBoxInlet,
+    EllipticalConcreteInlet,
     SupportedInletConfiguration,
 )
 from .models import (
@@ -48,6 +49,7 @@ __all__: list[str] = [
     "CulvertCrossing",
     "CulvertMaterial",
     "CulvertShape",
+    "EllipticalConcreteInlet",
     "FlowDefinition",
     "FlowMethod",
     "Hy8CulvertResult",
