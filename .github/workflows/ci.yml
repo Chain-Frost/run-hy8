@@ -165,69 +165,23 @@ jobs:
         run: |
           curl --fail --location --retry 2 --output hy8-8.0.1.2.zip \
             https://www.fhwa.dot.gov/engineering/hydraulics/software/hy8/HY88.00.2Setup.zip
-          python - <<'PY'
-          from __future__ import annotations
-
-          import zipfile
-          from pathlib import Path
-
-          archive = Path("hy8-8.0.1.2.zip")
-          with zipfile.ZipFile(archive) as zf:
-              names = zf.namelist()
-              print(f"OFFICIAL_ZIP_FILES={len(names)}")
-              for name in names:
-                  lower = name.casefold()
-                  if lower.endswith((".hy8", ".msi", ".exe", ".dll", "shapedb.dat")):
-                      print(f"OFFICIAL_ZIP_MATCH {name}")
-              zf.extractall("official-hy8")
-          PY
-          echo "OFFICIAL_PACKAGE_TREE_BEGIN"
-          find official-hy8 -maxdepth 3 -type f -printf '%p\n' | head -200
-          echo "OFFICIAL_PACKAGE_TREE_END"
-          while IFS= read -r -d '' project; do
-            echo "OFFICIAL_HY8_PROJECT $project"
-            grep -E '^(STARTCULVERT|CULVERTSHAPE|CULVERTMATERIAL|BARRELDATA|INLETEDGETYPE71)' "$project" | head -120
-          done < <(find official-hy8 -type f -iname '*.hy8' -print0)
-          while IFS= read -r -d '' setup; do
-            echo "SETUP_ARCHIVE $setup"
-            7z l "$setup" 2>/dev/null | grep -Ei "hy8|dat|dll|exe|msi" | head -200 || true
-            rm -rf official-extracted
-            mkdir -p official-extracted
-            file "$setup" || true
-            echo "SETUP_SIGNATURE_STRINGS_BEGIN"
-            strings -a "$setup" | grep -Ei "inno|nullsoft|nsis|installshield|advanced installer|wix|msiexec|hy864|shapedb|culvertshape" | head -200 || true
-            strings -el "$setup" | grep -Ei "inno|nullsoft|nsis|installshield|advanced installer|wix|msiexec|hy864|shapedb|culvertshape" | head -200 || true
-            echo "SETUP_SIGNATURE_STRINGS_END"
-            python -m pip install --disable-pip-version-check pefile
-            python - "$setup" <<'PY'
-            from __future__ import annotations
-
-            import sys
-            from pathlib import Path
-
-            import pefile
-
-            source = Path(sys.argv[1])
-            pe = pefile.PE(str(source), fast_load=True)
-            offset = pe.get_overlay_data_start_offset()
-            print(f"PE_OVERLAY_OFFSET={offset}")
-            if offset is not None:
-                overlay = source.read_bytes()[offset:]
-                target = Path("setup-overlay.bin")
-                target.write_bytes(overlay)
-                print(f"PE_OVERLAY_SIZE={len(overlay)}")
-            PY
-            if [ -f setup-overlay.bin ]; then
-              file setup-overlay.bin || true
-              7z l setup-overlay.bin 2>/dev/null | head -200 || true
-            fi
-            7z x "$setup" -oofficial-extracted -y >/tmp/hy8-setup-extract.log 2>&1 || true
-            echo "SETUP_EXTRACT_MATCHES_BEGIN"
-            find official-extracted -type f | grep -Ei "hy8|dat|dll|exe|msi|cab" | head -300 || true
-            echo "SETUP_EXTRACT_MATCHES_END"
-            while IFS= read -r -d '' project; do
-              echo "EXTRACTED_HY8_PROJECT $project"
-              grep -E '^(STARTCULVERT|CULVERTSHAPE|CULVERTMATERIAL|BARRELDATA|INLETEDGETYPE71)' "$project" | head -160
-            done < <(find official-extracted -type f -iname '*.hy8' -print0)
-            grep -RIna --binary-files=without-match 'CULVERTSHAPE' official-extracted | head -100 || true
-          done < <(find official-hy8 -maxdepth 2 -type f \( -iname '*.exe' -o -iname '*.msi' \) -print0)
+          python -c "import zipfile; zipfile.ZipFile('hy8-8.0.1.2.zip').extractall('official-hy8')"
+          setup="official-hy8/HY88.00.2Setup.exe"
+          file "$setup" || true
+          echo "SETUP_SIGNATURE_STRINGS_BEGIN"
+          strings -a "$setup" | grep -Ei "inno|nullsoft|nsis|installshield|advanced installer|wix|msiexec|hy864|shapedb|culvertshape" | head -200 || true
+          strings -el "$setup" | grep -Ei "inno|nullsoft|nsis|installshield|advanced installer|wix|msiexec|hy864|shapedb|culvertshape" | head -200 || true
+          echo "SETUP_SIGNATURE_STRINGS_END"
+          python -m pip install --disable-pip-version-check pefile
+          python -c "import pathlib,pefile,sys; p=pathlib.Path(sys.argv[1]); pe=pefile.PE(str(p),fast_load=True); o=pe.get_overlay_data_start_offset(); print(f'PE_OVERLAY_OFFSET={o}'); data=p.read_bytes()[o:] if o is not None else b''; pathlib.Path('setup-overlay.bin').write_bytes(data); print(f'PE_OVERLAY_SIZE={len(data)}')" "$setup"
+          file setup-overlay.bin || true
+          echo "OVERLAY_ARCHIVE_LIST_BEGIN"
+          7z l setup-overlay.bin 2>/dev/null | head -240 || true
+          echo "OVERLAY_ARCHIVE_LIST_END"
+          rm -rf official-extracted
+          mkdir -p official-extracted
+          7z x "$setup" -oofficial-extracted -y >/tmp/hy8-setup-extract.log 2>&1 || true
+          echo "SETUP_EXTRACT_MATCHES_BEGIN"
+          find official-extracted -type f | grep -Ei "hy8|dat|dll|exe|msi|cab" | head -300 || true
+          echo "SETUP_EXTRACT_MATCHES_END"
+          grep -RIna --binary-files=without-match "CULVERTSHAPE" official-extracted | head -100 || true
