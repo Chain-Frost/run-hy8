@@ -201,7 +201,8 @@ def test_concrete_ellipse_round_trip_preserves_orientation(
     barrel_line = next(line for line in lines if line.startswith("BARRELDATA"))
 
     assert shape_line.split()[-1] == "3"
-    assert barrel_line.split()[1:3] == pytest.approx([span / 0.3048, rise / 0.3048])
+    barrel_dimensions = [float(value) for value in barrel_line.split()[1:3]]
+    assert barrel_dimensions == pytest.approx([span / 0.3048, rise / 0.3048])
 
     restored = load_project_from_hy8(output)
     restored_barrel = restored.crossings[0].culverts[0]
