@@ -189,10 +189,13 @@ jobs:
 
   hy8-windows-package-probe:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
-      - name: Download official HY-8 8.0.1.2 package
+      - name: Checkout run-hy8
+        uses: actions/checkout@v4
+
+      - name: Extract official HY-8 8.0.1.2 package
         shell: pwsh
         run: |
           $zip = Join-Path $env:RUNNER_TEMP "hy8.zip"
@@ -200,47 +203,33 @@ jobs:
           $outer = Join-Path $env:RUNNER_TEMP "hy8-outer"
           Expand-Archive -Path $zip -DestinationPath $outer -Force
           $setup = Join-Path $outer "HY88.00.2Setup.exe"
-          Write-Host "SETUP_PATH=$setup"
 
-          $layout = Join-Path $env:RUNNER_TEMP "hy8-layout"
-          New-Item -ItemType Directory -Path $layout -Force | Out-Null
-          $process = Start-Process -FilePath $setup -ArgumentList @("/layout", $layout, "/quiet", "/norestart") -Wait -PassThru
-          Write-Host "LAYOUT_EXIT=$($process.ExitCode)"
-          Write-Host "LAYOUT_FILES_BEGIN"
-          Get-ChildItem -Path $layout -Recurse -File | ForEach-Object { $_.FullName }
-          Write-Host "LAYOUT_FILES_END"
+          $msiDir = Join-Path $env:RUNNER_TEMP "hy8-msi"
+          New-Item -ItemType Directory -Path $msiDir -Force | Out-Null
+          $p = Start-Process -FilePath $setup -ArgumentList @("/extract", ('"' + $msiDir + '"'), "/exenoui") -Wait -PassThru
+          Write-Host "EXTRACT_EXIT=$($p.ExitCode)"
+          Write-Host "EXTRACTED_BOOTSTRAPPER_FILES_BEGIN"
+          Get-ChildItem -Path $msiDir -Recurse -File | ForEach-Object { $_.FullName }
+          Write-Host "EXTRACTED_BOOTSTRAPPER_FILES_END"
 
-          $extract = Join-Path $env:RUNNER_TEMP "hy8-admin"
-          New-Item -ItemType Directory -Path $extract -Force | Out-Null
-          $msis = @(Get-ChildItem -Path $layout -Recurse -Filter *.msi -File)
+          $admin = Join-Path $env:RUNNER_TEMP "hy8-admin"
+          New-Item -ItemType Directory -Path $admin -Force | Out-Null
+          $msis = @(Get-ChildItem -Path $msiDir -Recurse -Filter *.msi -File)
           Write-Host "MSI_COUNT=$($msis.Count)"
           foreach ($msi in $msis) {
             Write-Host "MSI=$($msi.FullName)"
-            $args = @("/a", ('"' + $msi.FullName + '"'), "/qn", "TARGETDIR=$extract")
-            $p = Start-Process -FilePath "msiexec.exe" -ArgumentList $args -Wait -PassThru
-            Write-Host "MSI_ADMIN_EXIT=$($p.ExitCode)"
+            $args = @("/a", ('"' + $msi.FullName + '"'), "/qn", ('TARGETDIR="' + $admin + '"'))
+            $q = Start-Process -FilePath "msiexec.exe" -ArgumentList $args -Wait -PassThru
+            Write-Host "MSI_ADMIN_EXIT=$($q.ExitCode)"
           }
 
-          Write-Host "ADMIN_MATCHES_BEGIN"
-          Get-ChildItem -Path $extract -Recurse -File |
-            Where-Object { $_.Name -match "HY8|ShapeDB|\.dll$|\.exe$|\.hy8$|\.dat$" } |
-            ForEach-Object { $_.FullName }
-          Write-Host "ADMIN_MATCHES_END"
-
-          $hy8exe = Get-ChildItem -Path $extract -Recurse -Filter HY864.exe -File | Select-Object -First 1
-          $shapeDb = Get-ChildItem -Path $extract -Recurse -Filter ShapeDB.dat -File | Select-Object -First 1
+          Write-Host "ADMIN_FILES_BEGIN"
+          Get-ChildItem -Path $admin -Recurse -File | ForEach-Object { $_.FullName }
+          Write-Host "ADMIN_FILES_END"
+          $hy8exe = Get-ChildItem -Path $admin -Recurse -Filter HY864.exe -File | Select-Object -First 1
+          $shapeDb = Get-ChildItem -Path $admin -Recurse -Filter ShapeDB.dat -File | Select-Object -First 1
           if ($hy8exe) { Write-Host "HY8_EXE=$($hy8exe.FullName)" }
           if ($shapeDb) {
             Write-Host "SHAPEDB_PATH=$($shapeDb.FullName)"
             Write-Host "SHAPEDB_SHA256=$((Get-FileHash -Path $shapeDb.FullName -Algorithm SHA256).Hash.ToLowerInvariant())"
           }
-
-          Write-Host "TEXT_ENUM_EVIDENCE_BEGIN"
-          Get-ChildItem -Path $extract -Recurse -File |
-            Where-Object { $_.Extension -in @(".config", ".xml", ".txt", ".ini", ".json", ".hy8") } |
-            ForEach-Object {
-              Select-String -Path $_.FullName -Pattern "Elliptical|CULVERTSHAPE" -SimpleMatch -ErrorAction SilentlyContinue
-            } |
-            Select-Object -First 200 |
-            ForEach-Object { "$($_.Path):$($_.LineNumber):$($_.Line)" }
-          Write-Host "TEXT_ENUM_EVIDENCE_END"
