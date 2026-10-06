@@ -134,10 +134,11 @@ class ImprovedInletEdgeType(_DescribedIntEnum):
 
 
 class CulvertShape(int, Enum):
-    """Culvert barrel shapes supported by HY-8."""
+    """Culvert barrel shapes supported by HY-8 v8 project files."""
 
     CIRCLE = 1
     BOX = 2
+    ELLIPTICAL = 3
 
 
 class CulvertMaterial(int, Enum):
