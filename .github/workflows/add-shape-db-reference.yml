@@ -1,0 +1,72 @@
+name: Add pinned ShapeDB reference
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  add-reference:
+    if: github.event.pull_request.head.ref == 'feature/issue-5-elliptical-support'
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/issue-5-elliptical-support
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Extract, verify and commit ShapeDB.dat through Git LFS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $expectedHash = "2479e9444feaff529313e18a1b26fc2de4f6b6c541db58477da6bebc602164a7"
+          $expectedSize = 4370624
+
+          $zip = Join-Path $env:RUNNER_TEMP "hy8.zip"
+          $outer = Join-Path $env:RUNNER_TEMP "hy8-outer"
+          $payload = Join-Path $env:RUNNER_TEMP "hy8-payload"
+
+          Invoke-WebRequest -Uri "https://www.fhwa.dot.gov/engineering/hydraulics/software/hy8/HY88.00.2Setup.zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $outer -Force
+
+          New-Item -ItemType Directory -Path $payload -Force | Out-Null
+          $setup = Join-Path $outer "HY88.00.2Setup.exe"
+          $extract = Start-Process -FilePath $setup -ArgumentList @("/extract", ('"' + $payload + '"'), "/exenoui") -Wait -PassThru
+          if ($extract.ExitCode -ne 0) {
+            throw "HY-8 installer extraction failed with exit code $($extract.ExitCode)."
+          }
+
+          $source = Get-ChildItem -Path $payload -Recurse -Filter ShapeDB.dat -File | Select-Object -First 1
+          if (-not $source) {
+            throw "ShapeDB.dat was not found in the official HY-8 8.0.1.2 installer."
+          }
+
+          $size = $source.Length
+          if ($size -ne $expectedSize) {
+            throw "Unexpected ShapeDB.dat size: $size"
+          }
+          $hash = (Get-FileHash -Path $source.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne $expectedHash) {
+            throw "Unexpected ShapeDB.dat SHA-256: $hash"
+          }
+
+          New-Item -ItemType Directory -Path "reference_docs" -Force | Out-Null
+          Copy-Item -Path $source.FullName -Destination "reference_docs/ShapeDB.dat" -Force
+
+          git lfs install --local
+          git lfs track "reference_docs/ShapeDB.dat"
+          git add .gitattributes reference_docs/ShapeDB.dat
+          git rm ".github/workflows/add-shape-db-reference.yml"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add pinned HY-8 ShapeDB reference"
+
+          git lfs push origin HEAD
+          git push origin HEAD:feature/issue-5-elliptical-support
