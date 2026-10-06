@@ -18,12 +18,14 @@ The same byte-identical database is retained through Git LFS in
 re-extracted from the official HY-8 package during the issue #5 ellipse audit
 and matched the recorded hash.
 
-The binary is not currently mirrored in this repository. If it is added later,
-it must be uploaded through Git LFS and match the hash above; committing only an
-LFS pointer without the corresponding repository LFS object leaves checkout
-broken. Do not commit a normal Git blob for the 4.37 MB HDF5 database. The hash
-file in this directory is the maintained pin used to verify any local or
-mirrored copy.
+The binary is mirrored in this repository through Git LFS at
+`reference_docs/ShapeDB.dat`. The LFS object was uploaded from a fresh
+extraction of the official HY-8 8.0.1.2 installer after verifying both its size
+and SHA-256. The accompanying `ShapeDB.dat.sha256` file is the maintained pin
+for independent verification.
+
+Keep this file under Git LFS. Do not replace it with a normal Git blob or commit
+an LFS pointer without uploading the corresponding LFS object.
 
 A typical local verification on Windows is:
 
