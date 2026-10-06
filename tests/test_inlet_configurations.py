@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
@@ -309,6 +310,32 @@ def test_concrete_ellipse_executes_in_hy8_8_0_1_2(
     assert parsed_barrel.shape is CulvertShape.ELLIPTICAL
     assert parsed_barrel.span == pytest.approx(span, abs=2e-6)
     assert parsed_barrel.rise == pytest.approx(rise, abs=2e-6)
+
+    rst = parse_rst(output.with_suffix(".rst"))
+    series = rst["Sample Crossing"]
+    assert series["headwater"]
+    assert all(math.isfinite(value) for value in series["headwater"])
+    culverts = series["culverts"]
+    assert len(culverts) == 1
+    culvert = culverts[0]
+    for key in (
+        "discharge",
+        "inlet_control_depth",
+        "outlet_control_depth",
+        "full_length",
+        "free_length",
+        "outlet_velocity",
+    ):
+        values = culvert[key]
+        assert values
+        assert all(math.isfinite(value) for value in values)
+    assert culvert["flow_type"]
+
+    profiles = parse_rsql(output.with_suffix(".rsql"))["Sample Crossing"]
+    assert profiles
+    assert all(math.isfinite(profile.flow) for profile in profiles)
+    assert all(math.isfinite(profile.headwater_to_depth_ratio) for profile in profiles)
+    assert all(profile.flow_type for profile in profiles)
 
 
 @pytest.mark.requires_hy8
