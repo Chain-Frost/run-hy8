@@ -59,6 +59,7 @@ _SUPPORTED_CONTEXT_NAMES: dict[tuple[CulvertShape, CulvertMaterial], Hy8ShapeMat
     ),
     (CulvertShape.CIRCLE, CulvertMaterial.HDPE): ("Circular", "Smooth HDPE"),
     (CulvertShape.BOX, CulvertMaterial.CONCRETE): ("Concrete Box", "Concrete"),
+    (CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE): ("Elliptical", "Concrete"),
 }
 
 
