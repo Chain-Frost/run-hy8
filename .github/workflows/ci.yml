@@ -233,3 +233,65 @@ jobs:
             Write-Host "SHAPEDB_PATH=$($shapeDb.FullName)"
             Write-Host "SHAPEDB_SHA256=$((Get-FileHash -Path $shapeDb.FullName -Algorithm SHA256).Hash.ToLowerInvariant())"
           }
+
+          if (-not $hy8exe) { throw "HY864.exe was not extracted from the official package." }
+
+          @'
+          from __future__ import annotations
+
+          import re
+          from pathlib import Path
+
+          source = Path("tests/example_crossings.hy8").read_text(encoding="utf-8")
+          pattern = re.compile(
+              r'(STARTCROSSING\s+"RCP 900x10 outlet".*?ENDCROSSING\s+"RCP 900x10 outlet")',
+              re.DOTALL,
+          )
+          match = pattern.search(source)
+          if match is None:
+              raise SystemExit("Reference crossing not found")
+
+          def make_case(name: str, span_ft: float, rise_ft: float) -> None:
+              block = match.group(1)
+              block = block.replace("RCP 900x10 outlet", name)
+              block = re.sub(r"(?m)^CULVERTSHAPE\s+1\s*$", "CULVERTSHAPE         3", block, count=1)
+              block = re.sub(
+                  r"(?m)^BARRELDATA\s+[^\r\n]+$",
+                  f"BARRELDATA           {span_ft:.6f}   {rise_ft:.6f}   0.012000   0.012000",
+                  block,
+                  count=1,
+              )
+              project = pattern.sub(block, source, count=1)
+              Path(f"{name}.hy8").write_text(project, encoding="utf-8")
+
+          make_case("ellipse_horizontal_60x38", 5.0, 38.0 / 12.0)
+          make_case("ellipse_vertical_38x60", 38.0 / 12.0, 5.0)
+          '@ | python -
+
+          foreach ($name in @("ellipse_horizontal_60x38", "ellipse_vertical_38x60")) {
+            $project = (Resolve-Path "$name.hy8").Path
+            Write-Host "PROBE_BEGIN=$name"
+            & $hy8exe.FullName -OpenRunSave $project
+            $exit = $LASTEXITCODE
+            Write-Host "HY8_EXIT=$exit"
+            Write-Host "RST_EXISTS=$([IO.File]::Exists([IO.Path]::ChangeExtension($project, '.rst')))"
+            Write-Host "RSQL_EXISTS=$([IO.File]::Exists([IO.Path]::ChangeExtension($project, '.rsql')))"
+            $text = Get-Content -Raw -Path $project
+            $m = [regex]::Match(
+              $text,
+              'STARTCROSSING\s+"' + [regex]::Escape($name) + '".*?ENDCROSSING\s+"' + [regex]::Escape($name) + '"',
+              [Text.RegularExpressions.RegexOptions]::Singleline
+            )
+            if ($m.Success) {
+              $m.Value -split "\r?\n" |
+                Where-Object { $_ -match '^(CULVERTSHAPE|CULVERTMATERIAL|INLETEDGETYPE71|BARRELDATA)' } |
+                ForEach-Object { Write-Host "SAVED_CARD $_" }
+            }
+            $rst = [IO.Path]::ChangeExtension($project, ".rst")
+            if (Test-Path $rst) {
+              Select-String -Path $rst -Pattern "Ellipt|Pipe.Arch|Culvert Shape|Culvert Summary|Flow Type" |
+                Select-Object -First 80 |
+                ForEach-Object { Write-Host "RST_EVIDENCE $($_.Line)" }
+            }
+            Write-Host "PROBE_END=$name"
+          }
