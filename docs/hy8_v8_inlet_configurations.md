@@ -118,6 +118,12 @@ The observed file contract is:
 These probes establish the project-file/orchestration contract only. They do
 not make `run-hy8` an authority for elliptical hydraulic equations.
 
+The generated ellipse reports were also parsed through the existing `.rst` and
+`.rsql` readers. Crossing headwater, per-culvert discharge, inlet/outlet
+control depth, full/free barrel length, outlet velocity, flow type, profile
+flow, and HW/D were all available without a parser change. This is the result
+surface used by the external `ryan-culverts` comparison tooling.
+
 ## Supported contextual lists
 
 The index is zero-based within each list.
