@@ -159,3 +159,36 @@ jobs:
                   ellipse.visititems(lambda name, obj: visitor(f"Elliptical/{name}", obj))
                   print("ELLIPTICAL_TREE_END")
           PY
+
+      - name: Inspect official HY-8 8.0.1.2 package for project evidence
+        shell: bash
+        run: |
+          curl --fail --location --retry 2 --output hy8-8.0.1.2.zip \
+            https://www.fhwa.dot.gov/engineering/hydraulics/software/hy8/HY88.00.2Setup.zip
+          python - <<'PY'
+          from __future__ import annotations
+
+          import zipfile
+          from pathlib import Path
+
+          archive = Path("hy8-8.0.1.2.zip")
+          with zipfile.ZipFile(archive) as zf:
+              names = zf.namelist()
+              print(f"OFFICIAL_ZIP_FILES={len(names)}")
+              for name in names:
+                  lower = name.casefold()
+                  if lower.endswith((".hy8", ".msi", ".exe", ".dll", "shapedb.dat")):
+                      print(f"OFFICIAL_ZIP_MATCH {name}")
+              zf.extractall("official-hy8")
+          PY
+          echo "OFFICIAL_PACKAGE_TREE_BEGIN"
+          find official-hy8 -maxdepth 3 -type f -printf '%p\n' | head -200
+          echo "OFFICIAL_PACKAGE_TREE_END"
+          while IFS= read -r -d '' project; do
+            echo "OFFICIAL_HY8_PROJECT $project"
+            grep -E '^(STARTCULVERT|CULVERTSHAPE|CULVERTMATERIAL|BARRELDATA|INLETEDGETYPE71)' "$project" | head -120
+          done < <(find official-hy8 -type f -iname '*.hy8' -print0)
+          while IFS= read -r -d '' setup; do
+            echo "SETUP_ARCHIVE $setup"
+            7z l "$setup" 2>/dev/null | grep -Ei '\.(hy8|dat|dll|exe|msi)$' | head -200 || true
+          done < <(find official-hy8 -maxdepth 2 -type f \( -iname '*.exe' -o -iname '*.msi' \) -print0)
