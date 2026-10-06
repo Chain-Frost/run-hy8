@@ -220,14 +220,20 @@ isolated import path/version, and runs a coefficient smoke test. Runtime
 dependencies are explicitly exposed from the existing user site; the source
 checkout is excluded from the import path.
 
-The current artifact identifies an **uncommitted source snapshot**, not a release
-built from a new committed revision. The [provenance record](validation_data/roadway_adapter_provenance.json)
-records the base HEAD, exact source/wheel hashes and this limit. Commit/rebuild
-identity and the GUI-authored reference fixture remain pending. The user will
-create the latter separately; no GUI controls or interactive GUI automation form
-part of this implementation. Once supplied:
+The retained `2026.10.5.1` wheel has been rebuilt from committed package
+source and verified against the package Git tree. The current source/wheel
+fingerprints and validation results are recorded in
+[roadway_review_fix_build_provenance.json](validation_data/roadway_review_fix_build_provenance.json).
+Earlier provenance files are retained as historical evidence for the validation
+steps that preceded the final review fixes.
+
+A generated GUI-review project is retained under `tests/fixtures/` for inspection.
+The optional external GUI-authored fixture test remains available for an
+independently supplied HY-8 project:
 
 ```powershell
 $env:HY8_ROADWAY_GUI_FIXTURE='C:\path\to\irregular-submerged.hy8'
 python -m pytest tests/test_roadway.py -k gui_fixture -m requires_hy8 -q
 ```
+
+No interactive HY-8 GUI automation is part of the package.
