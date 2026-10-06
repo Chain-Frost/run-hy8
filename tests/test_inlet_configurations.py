@@ -14,6 +14,7 @@ from run_hy8 import (
     CulvertBarrel,
     CulvertMaterial,
     CulvertShape,
+    EllipticalConcreteInlet,
     Hy8Executable,
     Hy8FileWriter,
     InletEdgeType,
@@ -50,6 +51,7 @@ def test_default_barrel_is_thin_edge_corrugated_steel_pipe() -> None:
         (CulvertShape.CIRCLE, CulvertMaterial.CORRUGATED_STEEL, 0.024),
         (CulvertShape.CIRCLE, CulvertMaterial.HDPE, 0.012),
         (CulvertShape.BOX, CulvertMaterial.CONCRETE, 0.012),
+        (CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 0.012),
     ],
 )
 def test_hy8_v8_default_manning_values(
@@ -135,7 +137,35 @@ def test_duplicate_slugs_remain_context_specific() -> None:
     assert concrete.v8_index == 0
     assert steel.v8_index == 2
     assert hdpe.v8_index == 0
-    assert len(HY8_V8_INLET_SPECS) == 24
+    assert len(HY8_V8_INLET_SPECS) == 27
+
+
+@pytest.mark.parametrize(
+    ("configuration", "expected_index"),
+    [
+        (EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL, 0),
+        (EllipticalConcreteInlet.GROOVED_EDGE_WITH_HEADWALL, 1),
+        (EllipticalConcreteInlet.GROOVED_EDGE_PROJECTING, 2),
+    ],
+)
+def test_concrete_ellipse_v8_indices(
+    configuration: EllipticalConcreteInlet,
+    expected_index: int,
+) -> None:
+    spec = resolve_v8_inlet_spec(configuration)
+
+    assert spec.shape is CulvertShape.ELLIPTICAL
+    assert spec.material is CulvertMaterial.CONCRETE
+    assert spec.v8_index == expected_index
+    assert (
+        resolve_v8_inlet_configuration(
+            shape=CulvertShape.ELLIPTICAL,
+            material=CulvertMaterial.CONCRETE,
+            inlet_type=spec.inlet_type,
+            v8_index=expected_index,
+        )
+        is configuration
+    )
 
 
 def test_invalid_shape_material_configuration_is_rejected() -> None:
@@ -146,6 +176,56 @@ def test_invalid_shape_material_configuration_is_rejected() -> None:
     )
 
     assert any("not valid" in error for error in barrel.validate())
+
+
+@pytest.mark.parametrize(
+    ("span", "rise"),
+    [(1.5, 0.95), (0.95, 1.5)],
+)
+def test_concrete_ellipse_round_trip_preserves_orientation(
+    tmp_path: Path,
+    span: float,
+    rise: float,
+) -> None:
+    project = build_sample_project()
+    barrel = project.crossings[0].culverts[0]
+    barrel.shape = CulvertShape.ELLIPTICAL
+    barrel.material = CulvertMaterial.CONCRETE
+    barrel.inlet_configuration = EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    barrel.span = span
+    barrel.rise = rise
+
+    output = Hy8FileWriter(project).write(tmp_path / "ellipse.hy8")
+    lines = output.read_text(encoding="utf-8").splitlines()
+    shape_line = next(line for line in lines if line.startswith("CULVERTSHAPE"))
+    barrel_line = next(line for line in lines if line.startswith("BARRELDATA"))
+
+    assert shape_line.split()[-1] == "3"
+    assert barrel_line.split()[1:3] == pytest.approx([span / 0.3048, rise / 0.3048])
+
+    restored = load_project_from_hy8(output)
+    restored_barrel = restored.crossings[0].culverts[0]
+    assert restored_barrel.shape is CulvertShape.ELLIPTICAL
+    assert restored_barrel.material is CulvertMaterial.CONCRETE
+    assert restored_barrel.inlet_configuration is EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    assert restored_barrel.span == pytest.approx(span)
+    assert restored_barrel.rise == pytest.approx(rise)
+
+
+def test_concrete_ellipse_rejects_nonconcrete_inlet_context() -> None:
+    barrel = CulvertBarrel(
+        shape=CulvertShape.ELLIPTICAL,
+        material=CulvertMaterial.CORRUGATED_STEEL,
+        span=1.5,
+        rise=0.95,
+        inlet_configuration=CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING,
+        manning_n_top=0.034,
+        manning_n_bottom=0.034,
+    )
+
+    errors = barrel.validate()
+
+    assert any("not valid" in error for error in errors)
 
 
 def test_writer_uses_v8_contextual_index_and_neutral_legacy_card(tmp_path: Path) -> None:
@@ -195,6 +275,39 @@ def test_reader_rejects_pre_v8_header(tmp_path: Path) -> None:
 def test_writer_rejects_non_v8_header_request() -> None:
     with pytest.raises(ValueError, match="supports version 8 only"):
         Hy8FileWriter(build_sample_project(), version=71)
+
+
+@pytest.mark.requires_hy8
+@pytest.mark.parametrize(
+    ("span", "rise"),
+    [(1.524, 0.9652), (0.9652, 1.524)],
+)
+def test_concrete_ellipse_executes_in_hy8_8_0_1_2(
+    tmp_path: Path,
+    span: float,
+    rise: float,
+) -> None:
+    project = build_sample_project()
+    barrel = project.crossings[0].culverts[0]
+    barrel.shape = CulvertShape.ELLIPTICAL
+    barrel.material = CulvertMaterial.CONCRETE
+    barrel.inlet_configuration = EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    barrel.span = span
+    barrel.rise = rise
+
+    output = Hy8FileWriter(project).write(tmp_path / f"ellipse-{span:.4f}x{rise:.4f}.hy8")
+    executable = Hy8Executable()
+    completed = executable.open_run_save(output)
+
+    assert completed.returncode == 0
+    assert output.with_suffix(".rst").exists()
+    assert output.with_suffix(".rsql").exists()
+
+    parsed = load_project_from_hy8(output)
+    parsed_barrel = parsed.crossings[0].culverts[0]
+    assert parsed_barrel.shape is CulvertShape.ELLIPTICAL
+    assert parsed_barrel.span == pytest.approx(span, abs=2e-6)
+    assert parsed_barrel.rise == pytest.approx(rise, abs=2e-6)
 
 
 @pytest.mark.requires_hy8
