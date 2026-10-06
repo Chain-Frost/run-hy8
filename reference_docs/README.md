@@ -18,9 +18,12 @@ The same byte-identical database is retained through Git LFS in
 re-extracted from the official HY-8 package during the issue #5 ellipse audit
 and matched the recorded hash.
 
-The binary itself should be tracked with Git LFS if mirrored in this repository.
-Do not commit a normal Git blob for the 4.37 MB HDF5 database. The hash file in
-this directory is the maintained pin used to verify any local or mirrored copy.
+The binary is not currently mirrored in this repository. If it is added later,
+it must be uploaded through Git LFS and match the hash above; committing only an
+LFS pointer without the corresponding repository LFS object leaves checkout
+broken. Do not commit a normal Git blob for the 4.37 MB HDF5 database. The hash
+file in this directory is the maintained pin used to verify any local or
+mirrored copy.
 
 A typical local verification on Windows is:
 
