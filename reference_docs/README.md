@@ -1,7 +1,8 @@
 # HY-8 reference evidence
 
 This directory records version-pinned evidence used to maintain `run-hy8`.
-Reference evidence is not a runtime dependency.
+Reference evidence is not a runtime dependency and is not included in the
+published `run-hy8` wheel.
 
 ## `ShapeDB.dat`
 
