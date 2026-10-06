@@ -193,6 +193,34 @@ jobs:
             7z l "$setup" 2>/dev/null | grep -Ei "hy8|dat|dll|exe|msi" | head -200 || true
             rm -rf official-extracted
             mkdir -p official-extracted
+            file "$setup" || true
+            echo "SETUP_SIGNATURE_STRINGS_BEGIN"
+            strings -a "$setup" | grep -Ei "inno|nullsoft|nsis|installshield|advanced installer|wix|msiexec|hy864|shapedb|culvertshape" | head -200 || true
+            strings -el "$setup" | grep -Ei "inno|nullsoft|nsis|installshield|advanced installer|wix|msiexec|hy864|shapedb|culvertshape" | head -200 || true
+            echo "SETUP_SIGNATURE_STRINGS_END"
+            python -m pip install --disable-pip-version-check pefile
+            python - "$setup" <<'PY'
+            from __future__ import annotations
+
+            import sys
+            from pathlib import Path
+
+            import pefile
+
+            source = Path(sys.argv[1])
+            pe = pefile.PE(str(source), fast_load=True)
+            offset = pe.get_overlay_data_start_offset()
+            print(f"PE_OVERLAY_OFFSET={offset}")
+            if offset is not None:
+                overlay = source.read_bytes()[offset:]
+                target = Path("setup-overlay.bin")
+                target.write_bytes(overlay)
+                print(f"PE_OVERLAY_SIZE={len(overlay)}")
+            PY
+            if [ -f setup-overlay.bin ]; then
+              file setup-overlay.bin || true
+              7z l setup-overlay.bin 2>/dev/null | head -200 || true
+            fi
             7z x "$setup" -oofficial-extracted -y >/tmp/hy8-setup-extract.log 2>&1 || true
             echo "SETUP_EXTRACT_MATCHES_BEGIN"
             find official-extracted -type f | grep -Ei "hy8|dat|dll|exe|msi|cab" | head -300 || true
