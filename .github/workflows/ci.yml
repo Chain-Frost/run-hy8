@@ -55,3 +55,75 @@ jobs:
           python scripts/verify_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/smoke_test_installed_wheel.py
+
+
+  shape-db-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout run-hy8
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned reference repository with LFS
+        uses: actions/checkout@v4
+        with:
+          repository: Chain-Frost/ryan-culverts
+          ref: 662eae7e07eab540c015bc72f194a206dbdef5da
+          path: reference-ryan-culverts
+          lfs: true
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Inspect HY-8 ShapeDB ellipse metadata
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check h5py
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          from pathlib import Path
+
+          import h5py
+
+          path = Path("reference-ryan-culverts/reference_docs/ShapeDB.dat")
+          data = path.read_bytes()
+          print(f"SHAPEDB_SHA256={hashlib.sha256(data).hexdigest()}")
+          print(f"SHAPEDB_SIZE={len(data)}")
+
+          def display(value: object) -> object:
+              if hasattr(value, "tolist"):
+                  value = value.tolist()
+              if isinstance(value, bytes):
+                  return value.decode("utf-8", errors="replace")
+              if isinstance(value, list):
+                  return [display(item) for item in value]
+              return value
+
+          with h5py.File(path, "r") as database:
+              print("ROOT_KEYS=" + repr(list(database.keys())))
+
+              def visitor(name: str, obj: h5py.Group | h5py.Dataset) -> None:
+                  if "ellipt" not in name.casefold() and name.count("/") == 0:
+                      return
+                  print(f"OBJECT {name} TYPE={type(obj).__name__}")
+                  for key, value in obj.attrs.items():
+                      print(f"  ATTR {key}={display(value)!r}")
+                  if isinstance(obj, h5py.Dataset):
+                      try:
+                          print(f"  DATA={display(obj[()])!r}")
+                      except Exception as exc:
+                          print(f"  DATA_ERROR={exc!r}")
+
+              database.visititems(visitor)
+
+              ellipse = database.get("Elliptical")
+              if ellipse is not None:
+                  print("ELLIPTICAL_TREE_BEGIN")
+                  ellipse.visititems(lambda name, obj: visitor(f"Elliptical/{name}", obj))
+                  print("ELLIPTICAL_TREE_END")
+          PY
