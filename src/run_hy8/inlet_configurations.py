@@ -9,6 +9,7 @@ database beneath paths such as::
 
     Concrete Box/Concrete/Entrance Types/Straight/Inlet Names
     Circular/Concrete/Entrance Types/Straight/Inlet Names
+    Elliptical/Concrete/Entrance Types/Straight/Inlet Names
 
 That order is the contextual index stored in the unfortunately named
 ``INLETEDGETYPE71`` project card. Executed probes with HY-8 8.0.1.2 established
@@ -69,6 +70,14 @@ class CircularHdpeInlet(StrEnum):
     MITERED_TO_CONFORM_TO_SLOPE = "mitered-to-conform-to-slope"
 
 
+class EllipticalConcreteInlet(StrEnum):
+    """Straight inlet configurations for concrete elliptical culverts."""
+
+    SQUARE_EDGE_WITH_HEADWALL = "square-edge-with-headwall"
+    GROOVED_EDGE_WITH_HEADWALL = "grooved-edge-with-headwall"
+    GROOVED_EDGE_PROJECTING = "grooved-edge-projecting"
+
+
 class ConcreteBoxInlet(StrEnum):
     """Straight inlet configurations for conventional concrete boxes."""
 
@@ -83,7 +92,11 @@ class ConcreteBoxInlet(StrEnum):
 
 
 type SupportedInletConfiguration = (
-    CircularConcreteInlet | CircularCorrugatedSteelInlet | CircularHdpeInlet | ConcreteBoxInlet
+    CircularConcreteInlet
+    | CircularCorrugatedSteelInlet
+    | CircularHdpeInlet
+    | ConcreteBoxInlet
+    | EllipticalConcreteInlet
 )
 
 
@@ -196,6 +209,15 @@ HY8_V8_INLET_SPECS: dict[InletConfigurationKey, Hy8V8InletSpec] = {
     _inlet_key(ConcreteBoxInlet.BEVEL_1_TO_1_45_DEG_WINGWALL): _spec(
         CulvertShape.BOX, CulvertMaterial.CONCRETE, 7, "1:1 Bevel (45 deg flare) Wingwall"
     ),
+    _inlet_key(EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL): _spec(
+        CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 0, "Square Edge with Headwall"
+    ),
+    _inlet_key(EllipticalConcreteInlet.GROOVED_EDGE_WITH_HEADWALL): _spec(
+        CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 1, "Grooved Edge with Headwall"
+    ),
+    _inlet_key(EllipticalConcreteInlet.GROOVED_EDGE_PROJECTING): _spec(
+        CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 2, "Grooved Edge Projecting"
+    ),
 }
 
 _ALL_INLET_CONFIGURATIONS: tuple[SupportedInletConfiguration, ...] = (
@@ -203,6 +225,7 @@ _ALL_INLET_CONFIGURATIONS: tuple[SupportedInletConfiguration, ...] = (
     *tuple(CircularCorrugatedSteelInlet),
     *tuple(CircularHdpeInlet),
     *tuple(ConcreteBoxInlet),
+    *tuple(EllipticalConcreteInlet),
 )
 
 HY8_V8_INLET_BY_CONTEXT: dict[tuple[CulvertShape, CulvertMaterial, InletType, int], SupportedInletConfiguration] = {
@@ -260,16 +283,14 @@ def parse_inlet_configuration(
     material: CulvertMaterial,
 ) -> SupportedInletConfiguration:
     """Parse a public configuration slug in the supplied shape/material context."""
-    candidates: list[CircularConcreteInlet | CircularCorrugatedSteelInlet | CircularHdpeInlet | ConcreteBoxInlet] = [
+    candidates: list[SupportedInletConfiguration] = [
         configuration
         for configuration in _ALL_INLET_CONFIGURATIONS
         for spec in (HY8_V8_INLET_SPECS[_inlet_key(configuration)],)
         if spec.shape is shape and spec.material is material
     ]
     if isinstance(value, StrEnum):
-        typed_value: CircularConcreteInlet | CircularCorrugatedSteelInlet | CircularHdpeInlet | ConcreteBoxInlet = cast(
-            SupportedInletConfiguration, value
-        )
+        typed_value: SupportedInletConfiguration = cast(SupportedInletConfiguration, value)
         for candidate in candidates:
             if _inlet_key(configuration=typed_value) == _inlet_key(configuration=candidate):
                 return candidate
@@ -291,6 +312,7 @@ __all__: list[str] = [
     "CircularCorrugatedSteelInlet",
     "CircularHdpeInlet",
     "ConcreteBoxInlet",
+    "EllipticalConcreteInlet",
     "Hy8V8InletSpec",
     "SupportedInletConfiguration",
     "default_inlet_configuration",
