@@ -149,7 +149,8 @@ for culvert in best_design.culverts:
 HY-8 occasionally appends `*` or `**` to a reported control depth. The numeric
 portion remains available as a float and the marker is retained separately in
 `inlet_control_depth_qualifier` or `outlet_control_depth_qualifier`. Numeric
-values remain in the unit system used by the HY-8 report. See the
+hydraulic result values are normalized to SI, including values parsed from
+English-unit HY-8 reports. See the
 [HY-8 control-depth qualifier legend](docs/headwater_helpers.md#hy-8-control-depth-qualifiers)
 for the meaning and limitations of `*` and `**`.
 
@@ -241,7 +242,7 @@ python -m pytest tests
 The repository includes Windows batch helpers so packaging can happen without remembering long commands.
 
 1. `build_package.bat` installs/updates the [`build`](https://pypi.org/project/build/) backend and then runs `python -m build --wheel`, replacing the current wheel under `dist\`.
-2. `install_package.bat` installs the most recently built artifact (wheel if present, otherwise the source distribution) via `pip install --force-reinstall`.
+2. `install_package.bat` installs or upgrades to the most recently built artifact (wheel if present, otherwise the source distribution) via `pip install --upgrade`.
 3. `run_tests.bat` runs `python -m pytest`. Pass any additional pytest arguments after the script name (for example `run_tests.bat -k culvert`).
 
 Before running tests locally, install the development extras once per virtual environment:
@@ -282,12 +283,14 @@ project-wide expectation for explicit type hints and `pyright`-clean changes.
 ## Current Limitations
 
 - Constant tailwater elevation only: other HY-8 tailwater definitions are flagged so the user can finish in the GUI.
-- Roadway crest protection: if the constant tailwater elevation reaches the roadway elevation we abort with a clear error.
+- Intentional roadway overtopping is supported for constant and irregular roadway profiles. The high-level hydraulic
+  helpers default to `RoadwayOvertoppingPolicy.ERROR`, which rejects actual parsed roadway discharge unless the caller
+  explicitly selects `WARN` or `ALLOW`. Tailwater at or above the roadway crest is therefore not, by itself, a
+  model-validation error.
+- The exact HY-8 submergence law for a user-defined roadway discharge coefficient has not been independently
+  reconstructed. The adapter behavior is validated against HY-8, but this is not an independent solver calibration.
 - The JSON loader currently supports HY-8 fundamentals (flow ranges, roadway geometry, culvert barrels). More exotic
-  features (rating curves, irregular channels, etc.) are intentionally deferred until the new structure solidifies.
-
-Once these constraints are proven in downstream workflows we can extend the parser/CLI and add regression tests around
-validation and serialization behaviors.
+  features (rating curves, irregular channels, etc.) remain intentionally deferred.
 
 ## Legacy hy8runner
 
