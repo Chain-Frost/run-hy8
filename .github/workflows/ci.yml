@@ -190,5 +190,18 @@ jobs:
           done < <(find official-hy8 -type f -iname '*.hy8' -print0)
           while IFS= read -r -d '' setup; do
             echo "SETUP_ARCHIVE $setup"
-            7z l "$setup" 2>/dev/null | grep -Ei '\.(hy8|dat|dll|exe|msi)$' | head -200 || true
+            7z l "$setup" 2>/dev/null | grep -Ei '\.(hy8|dat|dll|exe|msi)
+ | head -200 || true
+            rm -rf official-extracted
+            mkdir -p official-extracted
+            7z x "$setup" -oofficial-extracted -y >/tmp/hy8-setup-extract.log 2>&1 || true
+            echo "SETUP_EXTRACT_MATCHES_BEGIN"
+            find official-extracted -type f | grep -Ei '\.(hy8|dat|dll|exe|msi|cab)
+ | head -300 || true
+            echo "SETUP_EXTRACT_MATCHES_END"
+            while IFS= read -r -d '' project; do
+              echo "EXTRACTED_HY8_PROJECT $project"
+              grep -E '^(STARTCULVERT|CULVERTSHAPE|CULVERTMATERIAL|BARRELDATA|INLETEDGETYPE71)' "$project" | head -160
+            done < <(find official-extracted -type f -iname '*.hy8' -print0)
+            grep -RIna --binary-files=without-match 'CULVERTSHAPE' official-extracted | head -100 || true
           done < <(find official-hy8 -maxdepth 2 -type f \( -iname '*.exe' -o -iname '*.msi' \) -print0)
