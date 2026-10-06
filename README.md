@@ -79,9 +79,26 @@ box = CulvertBarrel(
 )
 ```
 
+Concrete elliptical culverts are also supported. HY-8 uses one elliptical shape code and preserves
+`span` and `rise` independently, so horizontal and vertical orientations are represented by their dimensions:
+
+```python
+from run_hy8 import CulvertBarrel, CulvertMaterial, CulvertShape, EllipticalConcreteInlet
+
+ellipse = CulvertBarrel(
+    name="Ellipse 1",
+    shape=CulvertShape.ELLIPTICAL,
+    material=CulvertMaterial.CONCRETE,
+    span=1.5,
+    rise=0.95,
+    inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
+)
+```
+
 Inlet configurations are separated by HY-8 shape and material: `CircularConcreteInlet`,
-`CircularCorrugatedSteelInlet`, `CircularHdpeInlet`, and `ConcreteBoxInlet`. The package supports HY-8 version 8
-project files only. The older context-free `InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
+`CircularCorrugatedSteelInlet`, `CircularHdpeInlet`, `ConcreteBoxInlet`, and
+`EllipticalConcreteInlet`. The package supports HY-8 version 8 project files only. The older context-free
+`InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
 `LegacyInletConfigurationWarning` when translated.
 
 The empirical file-format findings and extension guidance are recorded in
