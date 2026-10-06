@@ -121,6 +121,38 @@ jobs:
 
               database.visititems(visitor)
 
+              print("SHAPE_IDENTIFIER_EVIDENCE_BEGIN")
+              for key in ("Shape Names", "File Type", "File Version"):
+                  obj = database.get(key)
+                  if obj is not None:
+                      try:
+                          print(f"ROOT_DATASET {key}={display(obj[()])!r}")
+                      except Exception as exc:
+                          print(f"ROOT_DATASET_ERROR {key}={exc!r}")
+              for key, value in database.attrs.items():
+                  print(f"ROOT_ATTR {key}={display(value)!r}")
+              for shape_name in database.keys():
+                  obj = database.get(shape_name)
+                  if isinstance(obj, h5py.Group):
+                      for key, value in obj.attrs.items():
+                          print(f"TOP_GROUP_ATTR {shape_name}/{key}={display(value)!r}")
+
+              def identifier_visitor(name: str, obj: h5py.Group | h5py.Dataset) -> None:
+                  leaf = name.rsplit("/", 1)[-1].casefold()
+                  if not any(token in leaf for token in ("shape", "code", "index", "number", "type", "id")):
+                      return
+                  if isinstance(obj, h5py.Dataset):
+                      try:
+                          value = obj[()]
+                          size = getattr(value, "size", 1)
+                          if size <= 100:
+                              print(f"IDENTIFIER_DATASET {name}={display(value)!r}")
+                      except Exception as exc:
+                          print(f"IDENTIFIER_DATASET_ERROR {name}={exc!r}")
+
+              database.visititems(identifier_visitor)
+              print("SHAPE_IDENTIFIER_EVIDENCE_END")
+
               ellipse = database.get("Elliptical")
               if ellipse is not None:
                   print("ELLIPTICAL_TREE_BEGIN")
