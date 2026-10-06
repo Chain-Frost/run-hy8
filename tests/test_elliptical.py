@@ -15,6 +15,7 @@ from run_hy8 import (
     EllipticalConcreteInlet,
     Hy8Executable,
     Hy8FileWriter,
+    Hy8Project,
     load_project_from_hy8,
     load_project_from_json,
     parse_rsql,
@@ -29,7 +30,7 @@ from run_hy8.inlet_configurations import (
 from .sample_data import CONFIG_JSON, build_sample_project
 
 
-def _ellipse_project(*, span: float, rise: float):
+def _ellipse_project(*, span: float, rise: float) -> Hy8Project:
     project = build_sample_project()
     barrel = project.crossings[0].culverts[0]
     barrel.shape = CulvertShape.ELLIPTICAL
