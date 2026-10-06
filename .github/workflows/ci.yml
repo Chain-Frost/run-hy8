@@ -240,8 +240,8 @@ jobs:
           Copy-Item $baselinePath $baselineCopy
           Push-Location $admin
           try {
-            & $hy8exe.FullName -OpenRunSave $baselineCopy
-            Write-Host "BASELINE_EXIT=$LASTEXITCODE"
+            $baselineProcess = Start-Process -FilePath $hy8exe.FullName -ArgumentList @("-OpenRunSave", ('"' + $baselineCopy + '"')) -Wait -PassThru
+            Write-Host "BASELINE_EXIT=$($baselineProcess.ExitCode)"
           }
           finally {
             Pop-Location
@@ -287,8 +287,8 @@ jobs:
             Write-Host "PROBE_BEGIN=$name"
             Push-Location $admin
             try {
-              & $hy8exe.FullName -OpenRunSave $project
-              $exit = $LASTEXITCODE
+              $probeProcess = Start-Process -FilePath $hy8exe.FullName -ArgumentList @("-OpenRunSave", ('"' + $project + '"')) -Wait -PassThru
+              $exit = $probeProcess.ExitCode
             }
             finally {
               Pop-Location
