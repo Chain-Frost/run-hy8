@@ -90,6 +90,17 @@ The empirical file-format findings and extension guidance are recorded in
 Once an `.hy8` file exists you can run HY-8 with `run_hy8.executor.Hy8Executable`. Each high-level action returns
 a `CompletedProcess` so scripting layers can inspect stdout/stderr or retry with different parameters.
 
+## TUFLOW integration ownership
+
+TUFLOW-specific culvert ingestion and batch evaluation live in
+[ryan-tools](https://github.com/Chain-Frost/ryan-tools), not in this package.
+
+The former `scripts/culvert_demo-from-tuflow.py` and
+`scripts/culvert_demo-from-1d_nwk.py` workflows have been migrated downstream in
+[ryan-tools PR #100](https://github.com/Chain-Frost/ryan-tools/pull/100), where they
+support explicit `hy8` or `ryan-culverts` engine selection. `run-hy8` remains
+responsible for generic HY-8 project construction, execution and result parsing.
+
 ## Reading existing HY-8 projects
 
 Existing HY-8 files can be parsed back into the same object model via `run_hy8.reader.load_project_from_hy8`. The
