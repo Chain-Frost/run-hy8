@@ -10,6 +10,3 @@
 # Preserve native HY-8 fixture bytes and their padded cards for provenance.
 tests/floodway.hy8 -text whitespace=-blank-at-eol
 tests/fixtures/*.hy8 -text whitespace=-blank-at-eol
-
-# Pinned HY-8 reference database; research/test evidence only.
-reference_docs/ShapeDB.dat filter=lfs diff=lfs merge=lfs -text
