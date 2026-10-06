@@ -226,39 +226,26 @@ jobs:
           Write-Host "ADMIN_FILES_BEGIN"
           Get-ChildItem -Path $admin -Recurse -File | ForEach-Object { $_.FullName }
           Write-Host "ADMIN_FILES_END"
-          $msi = $msis | Select-Object -First 1
-          if (-not $msi) { throw "HY-8 MSI was not extracted from the official package." }
-          $installArgs = @("/i", ('"' + $msi.FullName + '"'), "/qn", "/norestart")
-          $install = Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
-          Write-Host "MSI_INSTALL_EXIT=$($install.ExitCode)"
-          if ($install.ExitCode -notin @(0, 3010)) { throw "HY-8 silent install failed." }
-
-          $programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
-          $searchRoots = @($env:ProgramFiles, $programFilesX86, $env:LOCALAPPDATA) |
-            Where-Object { $_ -and (Test-Path $_) }
-          $hy8exe = $null
-          $shapeDb = $null
-          foreach ($root in $searchRoots) {
-            if (-not $hy8exe) {
-              $hy8exe = Get-ChildItem -Path $root -Recurse -Filter HY864.exe -File -ErrorAction SilentlyContinue |
-                Select-Object -First 1
-            }
-            if (-not $shapeDb) {
-              $shapeDb = Get-ChildItem -Path $root -Recurse -Filter ShapeDB.dat -File -ErrorAction SilentlyContinue |
-                Select-Object -First 1
-            }
-          }
+          $hy8exe = Get-ChildItem -Path $admin -Recurse -Filter HY864.exe -File | Select-Object -First 1
+          $shapeDb = Get-ChildItem -Path $admin -Recurse -Filter ShapeDB.dat -File | Select-Object -First 1
           if ($hy8exe) { Write-Host "HY8_EXE=$($hy8exe.FullName)" }
           if ($shapeDb) {
             Write-Host "SHAPEDB_PATH=$($shapeDb.FullName)"
             Write-Host "SHAPEDB_SHA256=$((Get-FileHash -Path $shapeDb.FullName -Algorithm SHA256).Hash.ToLowerInvariant())"
           }
+          if (-not $hy8exe) { throw "HY864.exe was not extracted from the official package." }
 
-          if (-not $hy8exe) { throw "HY864.exe was not found after installing the official MSI." }
-
-          Copy-Item "tests/example_crossings.hy8" "baseline.hy8"
-          & $hy8exe.FullName -OpenRunSave (Resolve-Path "baseline.hy8").Path
-          Write-Host "BASELINE_EXIT=$LASTEXITCODE"
+          $baselinePath = (Resolve-Path "tests/example_crossings.hy8").Path
+          $baselineCopy = Join-Path (Get-Location) "baseline.hy8"
+          Copy-Item $baselinePath $baselineCopy
+          Push-Location $admin
+          try {
+            & $hy8exe.FullName -OpenRunSave $baselineCopy
+            Write-Host "BASELINE_EXIT=$LASTEXITCODE"
+          }
+          finally {
+            Pop-Location
+          }
           Write-Host "BASELINE_RST_EXISTS=$(Test-Path 'baseline.rst')"
           Write-Host "BASELINE_RSQL_EXISTS=$(Test-Path 'baseline.rsql')"
           if (-not (Test-Path "baseline.rst")) { throw "Known-good HY-8 project did not create baseline.rst." }
@@ -298,8 +285,14 @@ jobs:
           foreach ($name in @("ellipse_horizontal_60x38", "ellipse_vertical_38x60")) {
             $project = (Resolve-Path "$name.hy8").Path
             Write-Host "PROBE_BEGIN=$name"
-            & $hy8exe.FullName -OpenRunSave $project
-            $exit = $LASTEXITCODE
+            Push-Location $admin
+            try {
+              & $hy8exe.FullName -OpenRunSave $project
+              $exit = $LASTEXITCODE
+            }
+            finally {
+              Pop-Location
+            }
             Write-Host "HY8_EXIT=$exit"
             Write-Host "RST_EXISTS=$([IO.File]::Exists([IO.Path]::ChangeExtension($project, '.rst')))"
             Write-Host "RSQL_EXISTS=$([IO.File]::Exists([IO.Path]::ChangeExtension($project, '.rsql')))"
