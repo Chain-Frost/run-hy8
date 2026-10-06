@@ -185,3 +185,62 @@ jobs:
           find official-extracted -type f | grep -Ei "hy8|dat|dll|exe|msi|cab" | head -300 || true
           echo "SETUP_EXTRACT_MATCHES_END"
           grep -RIna --binary-files=without-match "CULVERTSHAPE" official-extracted | head -100 || true
+
+
+  hy8-windows-package-probe:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Download official HY-8 8.0.1.2 package
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP "hy8.zip"
+          Invoke-WebRequest -Uri "https://www.fhwa.dot.gov/engineering/hydraulics/software/hy8/HY88.00.2Setup.zip" -OutFile $zip
+          $outer = Join-Path $env:RUNNER_TEMP "hy8-outer"
+          Expand-Archive -Path $zip -DestinationPath $outer -Force
+          $setup = Join-Path $outer "HY88.00.2Setup.exe"
+          Write-Host "SETUP_PATH=$setup"
+
+          $layout = Join-Path $env:RUNNER_TEMP "hy8-layout"
+          New-Item -ItemType Directory -Path $layout -Force | Out-Null
+          $process = Start-Process -FilePath $setup -ArgumentList @("/layout", $layout, "/quiet", "/norestart") -Wait -PassThru
+          Write-Host "LAYOUT_EXIT=$($process.ExitCode)"
+          Write-Host "LAYOUT_FILES_BEGIN"
+          Get-ChildItem -Path $layout -Recurse -File | ForEach-Object { $_.FullName }
+          Write-Host "LAYOUT_FILES_END"
+
+          $extract = Join-Path $env:RUNNER_TEMP "hy8-admin"
+          New-Item -ItemType Directory -Path $extract -Force | Out-Null
+          $msis = @(Get-ChildItem -Path $layout -Recurse -Filter *.msi -File)
+          Write-Host "MSI_COUNT=$($msis.Count)"
+          foreach ($msi in $msis) {
+            Write-Host "MSI=$($msi.FullName)"
+            $args = @("/a", ('"' + $msi.FullName + '"'), "/qn", "TARGETDIR=$extract")
+            $p = Start-Process -FilePath "msiexec.exe" -ArgumentList $args -Wait -PassThru
+            Write-Host "MSI_ADMIN_EXIT=$($p.ExitCode)"
+          }
+
+          Write-Host "ADMIN_MATCHES_BEGIN"
+          Get-ChildItem -Path $extract -Recurse -File |
+            Where-Object { $_.Name -match "HY8|ShapeDB|\.dll$|\.exe$|\.hy8$|\.dat$" } |
+            ForEach-Object { $_.FullName }
+          Write-Host "ADMIN_MATCHES_END"
+
+          $hy8exe = Get-ChildItem -Path $extract -Recurse -Filter HY864.exe -File | Select-Object -First 1
+          $shapeDb = Get-ChildItem -Path $extract -Recurse -Filter ShapeDB.dat -File | Select-Object -First 1
+          if ($hy8exe) { Write-Host "HY8_EXE=$($hy8exe.FullName)" }
+          if ($shapeDb) {
+            Write-Host "SHAPEDB_PATH=$($shapeDb.FullName)"
+            Write-Host "SHAPEDB_SHA256=$((Get-FileHash -Path $shapeDb.FullName -Algorithm SHA256).Hash.ToLowerInvariant())"
+          }
+
+          Write-Host "TEXT_ENUM_EVIDENCE_BEGIN"
+          Get-ChildItem -Path $extract -Recurse -File |
+            Where-Object { $_.Extension -in @(".config", ".xml", ".txt", ".ini", ".json", ".hy8") } |
+            ForEach-Object {
+              Select-String -Path $_.FullName -Pattern "Elliptical|CULVERTSHAPE" -SimpleMatch -ErrorAction SilentlyContinue
+            } |
+            Select-Object -First 200 |
+            ForEach-Object { "$($_.Path):$($_.LineNumber):$($_.Line)" }
+          Write-Host "TEXT_ENUM_EVIDENCE_END"
