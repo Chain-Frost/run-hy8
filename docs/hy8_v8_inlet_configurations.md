@@ -6,9 +6,10 @@ project cards.
 
 ## Scope and evidence
 
-The findings were recorded on 13 August 2026 against HY-8 executable version
-8.0.1.2. They apply to the straight circular and conventional concrete-box
-shapes currently supported by `run-hy8`.
+The original findings were recorded on 13 August 2026 against HY-8 executable
+version 8.0.1.2. The concrete elliptical context was audited on 7 October 2026
+against the same executable/database pair. The maintained mappings now cover
+straight circular, conventional concrete-box, and concrete elliptical culverts.
 
 Three sources were used:
 
@@ -22,7 +23,11 @@ Three sources were used:
 
 `ShapeDB.dat` is evidence used to maintain the checked-in registry. It is not a
 runtime dependency: callers must be able to create projects without a local
-HY-8 installation.
+HY-8 installation. The audited database is 4,370,624 bytes with SHA-256
+`2479e9444feaff529313e18a1b26fc2de4f6b6c541db58477da6bebc602164a7`.
+The same hash was obtained from the installed copy, the retained
+`ryan-culverts` Git LFS reference, and a fresh extraction from the official
+HY-8 8.0.1.2 installer. See `reference_docs/README.md`.
 
 The same database also supplies the default Manning's n values. All observed
 HY-8 8.0.1.2 values are preserved in `hydraulic_defaults.py`, including shapes
@@ -93,6 +98,26 @@ For that reason the writer emits a neutral zero for `INLETEDGETYPE` and derives
 `INLETEDGETYPE71` from the semantic configuration registry. The reader ignores
 the older card and requires the contextual one.
 
+## Elliptical project-card evidence
+
+A Windows execution probe used the official HY-8 8.0.1.2 installer payload,
+including its byte-identical `ShapeDB.dat`, and exercised `-OpenRunSave`
+against deliberately modified project files.
+
+The observed file contract is:
+
+- `CULVERTSHAPE 3` is the HY-8 v8 elliptical shape code.
+- `CULVERTMATERIAL 1` is concrete.
+- `BARRELDATA` preserves span and rise independently.
+- A 5.0 ft × 3.166667 ft horizontal ellipse and the reversed
+  3.166667 ft × 5.0 ft vertical ellipse both completed with exit code 0,
+  generated `.rst` and `.rsql`, and retained `CULVERTSHAPE 3`.
+- HY-8 therefore does not use separate horizontal/vertical shape codes; the
+  orientation is represented by the span/rise relationship.
+
+These probes establish the project-file/orchestration contract only. They do
+not make `run-hy8` an authority for elliptical hydraulic equations.
+
 ## Supported contextual lists
 
 The index is zero-based within each list.
@@ -128,6 +153,18 @@ The index is zero-based within each list.
 | 3 | Thin Edge Projecting |
 | 4 | Mitered to Conform to Slope |
 
+### Concrete elliptical
+
+| Index | HY-8 configuration |
+| ---: | --- |
+| 0 | Square Edge with Headwall |
+| 1 | Grooved Edge with Headwall |
+| 2 | Grooved Edge Projecting |
+
+These names and their zero-based order come directly from
+`Elliptical/Concrete/Entrance Types/Straight/Inlet Names` in the pinned
+HY-8 8.0.1.2 `ShapeDB.dat`.
+
 ### Conventional concrete box
 
 | Index | HY-8 configuration |
@@ -153,6 +190,11 @@ mapping does not belong in `run-hy8`.
   only in `HY8_V8_INLET_SPECS`.
 - `CulvertBarrel` validation rejects a configuration from the wrong
   shape/material context.
+- Concrete ellipses use `CulvertShape.ELLIPTICAL` (file code 3) with
+  `EllipticalConcreteInlet`; unsupported ellipse material/inlet contexts
+  remain fail-closed.
+- Horizontal and vertical elliptical orientations use the same shape code and
+  retain `span` and `rise` independently through JSON and `.hy8` round trips.
 - Old `InletEdgeType` and `InletEdgeType71` inputs are migration-only and emit
   `LegacyInletConfigurationWarning`.
 - Pre-v8 project headers are unsupported and rejected; there is no attempt to
