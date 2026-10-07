@@ -199,7 +199,6 @@ def test_failed_ellipse_write_preserves_existing_file(tmp_path: Path) -> None:
     assert destination.read_text(encoding="utf-8") == "existing valid project\n"
 
 
-
 def test_writer_uses_size_specific_steel_or_aluminum_manning(tmp_path: Path) -> None:
     project = _project_with_steel_or_aluminum_ellipse(
         252.0 * 0.0254,
@@ -224,7 +223,6 @@ def test_writer_accepts_catalogued_steel_or_aluminum_english_units(tmp_path: Pat
 
     assert path.exists()
     assert "CULVERTMATERIAL      1" in path.read_text(encoding="utf-8")
-
 
 
 def test_writer_defaults_ellipse_barrel_data_fourth_field_to_zero(tmp_path: Path) -> None:
