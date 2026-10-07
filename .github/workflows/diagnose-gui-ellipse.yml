@@ -1,0 +1,148 @@
+name: Diagnose GUI ellipse contract
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  diagnose:
+    if: github.event.pull_request.head.ref == 'feature/issue-5-elliptical-support'
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/issue-5-elliptical-support
+          lfs: true
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install project
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Extract official HY-8 8.0.1.2
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $zip = Join-Path $env:RUNNER_TEMP "hy8.zip"
+          $outer = Join-Path $env:RUNNER_TEMP "hy8-outer"
+          $payload = Join-Path $env:RUNNER_TEMP "hy8-payload"
+          Invoke-WebRequest -Uri "https://www.fhwa.dot.gov/engineering/hydraulics/software/hy8/HY88.00.2Setup.zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $outer -Force
+          New-Item -ItemType Directory -Path $payload -Force | Out-Null
+          $setup = Join-Path $outer "HY88.00.2Setup.exe"
+          $extract = Start-Process -FilePath $setup -ArgumentList @("/extract", ('"' + $payload + '"'), "/exenoui") -Wait -PassThru
+          if ($extract.ExitCode -ne 0) { throw "HY-8 installer extraction failed: $($extract.ExitCode)" }
+          $exe = Get-ChildItem -Path $payload -Recurse -Filter HY864.exe -File | Select-Object -First 1
+          if (-not $exe) { throw "HY864.exe not found" }
+          "RUN_HY8_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Compare GUI fixture with writer and card mutations
+        shell: pwsh
+        run: |
+          @'
+          from __future__ import annotations
+
+          import math
+          import os
+          import re
+          import shutil
+          from pathlib import Path
+
+          from run_hy8 import Hy8Executable, Hy8FileWriter, load_project_from_hy8, parse_rst
+
+          root = Path.cwd()
+          fixture = root / "reference_docs" / "example-ellipse.hy8"
+          work = Path(os.environ["RUNNER_TEMP"]) / "ellipse-gui-contract"
+          work.mkdir(parents=True, exist_ok=True)
+          hy8 = Hy8Executable(executable=Path(os.environ["RUN_HY8_EXE"]))
+
+          def result(path: Path) -> tuple[int, float | None]:
+              completed = hy8.open_run_save(path, check=False)
+              rst = path.with_suffix(".rst")
+              max_q = None
+              if rst.exists():
+                  try:
+                      series = parse_rst(rst)["Ellipse"]
+                      culverts = series.get("culverts", [])
+                      if culverts:
+                          values = culverts[0]["discharge"]
+                          finite = [value for value in values if math.isfinite(value)]
+                          if finite:
+                              max_q = max(finite)
+                  except Exception as exc:
+                      print("PARSE_ERROR", path.name, repr(exc))
+              print("CASE", path.stem, "exit", completed.returncode, "max_q", max_q)
+              return completed.returncode, max_q
+
+          base = work / "gui-base.hy8"
+          shutil.copy2(fixture, base)
+          result(base)
+
+          gui_text = fixture.read_text(encoding="utf-8")
+          project = load_project_from_hy8(fixture)
+          writer_path = Hy8FileWriter(project).write(work / "writer-roundtrip.hy8")
+          print("WRITER_CARDS_BEGIN")
+          for line in writer_path.read_text(encoding="utf-8").splitlines():
+              if line.startswith((
+                  "CULVERTSHAPE", "CULVERTMATERIAL", "LOWERCULVERTMATERIAL",
+                  "BROKENCULVERT", "INLETTYPE", "INLETEDGETYPE",
+                  "INLETEDGETYPE71", "IMPINLETEDGETYPE", "IMPROVEDINDATA",
+                  "BARRELDATA", "LOWERCULVERTMANNING", "LOWERCULVERTMANNINGB",
+                  "IRREGSIZE", "EMBEDDEPTH", "BARRELGEOMETRY",
+                  "DEPRESSIONDATA", "TAPEREDDATA", "DEPRESSION", "MITERED",
+                  "EMBANKMENTTYPE", "NUMBEROFBARRELS", "EMBANKDATA",
+                  "INVERTDATA", "BREAK", "UPPERBREAK", "LOWERBREAK",
+                  "NUMSHAPECOORDS", "EMBEDEDGEOMETRY", "ROADCULVSTATION",
+                  "BARRELSPACING",
+              )):
+                  print(line)
+          print("WRITER_CARDS_END")
+          result(writer_path)
+
+          def variant(name: str, transforms: list[tuple[str, str]]) -> None:
+              text = gui_text
+              for pattern, replacement in transforms:
+                  text, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+                  if count != 1:
+                      raise RuntimeError(f"{name}: expected one match for {pattern!r}, got {count}")
+              path = work / f"{name}.hy8"
+              path.write_text(text, encoding="utf-8")
+              result(path)
+
+          span = 20.083333
+          rise = 13.0
+          writer_area = math.pi * span * rise / 4.0
+
+          variant("legacy-inlet-zero", [
+              (r"^INLETEDGETYPE\s+\d+\s*$", "INLETEDGETYPE        0"),
+              (r"^IMPINLETEDGETYPE\s+\d+\s*$", "IMPINLETEDGETYPE     0"),
+          ])
+          variant("irregsize-zero", [
+              (r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 0"),
+          ])
+          variant("barrelgeometry-writer", [
+              (
+                  r"^BARRELGEOMETRY\s+.*$",
+                  f"BARRELGEOMETRY       0.000000   0.000000   0.000000   0.000000   {writer_area:.6f}",
+              ),
+          ])
+          variant("legacy-and-geometry-writer", [
+              (r"^INLETEDGETYPE\s+\d+\s*$", "INLETEDGETYPE        0"),
+              (r"^IMPINLETEDGETYPE\s+\d+\s*$", "IMPINLETEDGETYPE     0"),
+              (r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 0"),
+              (
+                  r"^BARRELGEOMETRY\s+.*$",
+                  f"BARRELGEOMETRY       0.000000   0.000000   0.000000   0.000000   {writer_area:.6f}",
+              ),
+          ])
+          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\diagnose_gui_ellipse.py"
+          python "$env:RUNNER_TEMP\diagnose_gui_ellipse.py"
