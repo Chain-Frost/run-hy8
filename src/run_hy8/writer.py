@@ -6,7 +6,7 @@ import tempfile
 from enum import Enum
 from itertools import pairwise
 from pathlib import Path
-from typing import TextIO
+from typing import TextIO, cast
 
 from .classes_references import UnitSystem
 from .ellipse_catalogue import EllipticalCatalogueSize, find_ellipse_catalogue_size
@@ -76,7 +76,7 @@ class Hy8FileWriter:
                 delete=False,
             ) as handle:
                 temp_path = Path(handle.name)
-                self._write_project(handle)
+                self._write_project(cast(TextIO, handle))
             temp_path.replace(output_path)
         except BaseException:
             if temp_path is not None:
