@@ -18,9 +18,9 @@ from run_hy8 import (
     Hy8Executable,
     Hy8FileWriter,
     Hy8Project,
+    find_concrete_ellipse_catalogue_size,
     load_project_from_hy8,
     load_project_from_json,
-    find_concrete_ellipse_catalogue_size,
     parse_rsql,
     parse_rst,
 )
