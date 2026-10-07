@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+import run_hy8.hydraulics as hydraulics_module
 from run_hy8 import (
     CulvertBarrel,
     CulvertMaterial,
@@ -193,6 +194,25 @@ def test_ellipse_unsupported_material_fails_closed(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match=r"ELLIPTICAL.*CORRUGATED_STEEL"):
         load_project_from_json(path)
+
+
+@pytest.mark.parametrize(
+    ("span", "rise"),
+    [
+        (1.524, 0.9652),
+        (0.9652, 1.524),
+    ],
+)
+def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float) -> None:
+    project = _ellipse_project(span=span, rise=rise)
+    crossing = project.crossings[0]
+    crossing.culverts[0].number_of_barrels = 2
+
+    characteristic_depth = hydraulics_module._characteristic_diameter(crossing)  # noqa: SLF001
+    seed_flow = hydraulics_module._simple_flow_estimate(crossing)  # noqa: SLF001
+
+    assert characteristic_depth == pytest.approx(rise)
+    assert seed_flow == pytest.approx(2.0 * math.pi * span * rise / 4.0)
 
 
 @pytest.mark.requires_hy8
