@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from run_hy8.material_codes import (
-    hy8_v8_material_code,
-    material_from_hy8_v8_code,
-)
+from run_hy8.material_codes import hy8_v8_material_code, material_from_hy8_v8_code
 from run_hy8.type_helpers import CulvertMaterial, CulvertShape
 
 
@@ -31,7 +28,7 @@ def test_material_code_is_shape_contextual(
 
 
 def test_ellipse_material_code_one_is_not_concrete() -> None:
-    with pytest.raises(ValueError, match="material code 1.*ELLIPTICAL"):
+    with pytest.raises(ValueError, match=r"material code 1.*ELLIPTICAL"):
         material_from_hy8_v8_code(CulvertShape.ELLIPTICAL, 1)
 
 
