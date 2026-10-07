@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TextIO
 
 from .classes_references import UnitSystem
-from .ellipse_catalogue import find_ellipse_catalogue_size
+from .ellipse_catalogue import EllipticalCatalogueSize, find_ellipse_catalogue_size
 from .inlet_configurations import resolve_v8_inlet_spec
 from .material_codes import hy8_v8_material_code
 from .models import (
@@ -54,6 +54,7 @@ class Hy8FileWriter:
         """Validate the project and write it to a .hy8 file on disk."""
         output_path = output_path.with_suffix(".hy8")
         errors: list[str] = self.project.validate()
+        errors.extend(self._serialization_validation_errors())
         if errors:
             message: str = "HY-8 project validation failed:\n" + "\n".join(errors)
             raise ValueError(message)
@@ -82,6 +83,32 @@ class Hy8FileWriter:
                 temp_path.unlink(missing_ok=True)
             raise
         return output_path
+
+    def _serialization_validation_errors(self) -> list[str]:
+        """Return writer-specific validation errors that require project units."""
+        errors: list[str] = []
+        for crossing_index, crossing in enumerate(self.project.crossings, start=1):
+            for culvert_index, culvert in enumerate(crossing.culverts, start=1):
+                if culvert.shape is not CulvertShape.ELLIPTICAL:
+                    continue
+                try:
+                    self._ellipse_catalogue_size(culvert)
+                except ValueError as exc:
+                    errors.append(
+                        f"Crossing #{crossing_index} ({crossing.name}), "
+                        f"culvert #{culvert_index} ({culvert.name}): {exc}"
+                    )
+        return errors
+
+    def _ellipse_catalogue_size(self, culvert: CulvertBarrel) -> EllipticalCatalogueSize:
+        """Resolve an ellipse catalogue row using the parent project's units."""
+        span_m = feet_to_metres(culvert.span) if self.project.units is UnitSystem.ENGLISH else culvert.span
+        rise_m = feet_to_metres(culvert.rise) if self.project.units is UnitSystem.ENGLISH else culvert.rise
+        return find_ellipse_catalogue_size(
+            span_m,
+            rise_m,
+            material=culvert.material,
+        )
 
     def _write_project(self, handle: TextIO) -> None:
         """Write top-level project metadata and each crossing."""
@@ -285,7 +312,14 @@ class Hy8FileWriter:
         culvert_material: int = hy8_v8_material_code(culvert.shape, culvert.material)
         self._write_card(handle, "CULVERTSHAPE", culvert_shape)
         self._write_card(handle, "CULVERTMATERIAL", culvert_material)
-        n_top, n_bottom = culvert.resolved_manning_values()
+        catalogue_size: EllipticalCatalogueSize | None = None
+        if culvert.shape is CulvertShape.ELLIPTICAL:
+            catalogue_size = self._ellipse_catalogue_size(culvert)
+            default_n = catalogue_size.manning_n
+            n_top = culvert.manning_n_top if culvert.manning_n_top is not None else default_n
+            n_bottom = culvert.manning_n_bottom if culvert.manning_n_bottom is not None else default_n
+        else:
+            n_top, n_bottom = culvert.resolved_manning_values()
         self._write_card(handle, "INLETTYPE", culvert.inlet_type)
         inlet_spec = resolve_v8_inlet_spec(culvert.resolved_inlet_configuration())
         # HY-8 v8 still requires the pre-7.1 compatibility card, but current
@@ -313,13 +347,9 @@ class Hy8FileWriter:
             # OpenRunSave, so the source catalogue area is used as the
             # source-backed input value without treating the rewritten value as
             # a persistent catalogue parameter.
-            span_m = feet_to_metres(culvert.span) if self.project.units is UnitSystem.ENGLISH else culvert.span
-            rise_m = feet_to_metres(culvert.rise) if self.project.units is UnitSystem.ENGLISH else culvert.rise
-            catalogue_size = find_ellipse_catalogue_size(
-                span_m,
-                rise_m,
-                material=culvert.material,
-            )
+            if catalogue_size is None:  # pragma: no cover - guarded above
+                msg = "Missing HY-8 ellipse catalogue selection."
+                raise RuntimeError(msg)
             br_file, tr_file, cr_file, b_file = catalogue_size.geometry_prefix_ft
             self._write_card(handle, "LOWERCULVERTMANNING", 0.0)
             self._write_card(handle, "LOWERCULVERTMANNINGB", 0.0)
