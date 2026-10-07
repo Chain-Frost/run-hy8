@@ -126,6 +126,13 @@ inverse helpers, writer/reader round trips, and `.rst`/`.rsql` parsing. Record
 the executable path/version and the local result in the PR handoff. Hosted CI
 does not replace that local HY-8 executable validation.
 
+From a Python 3.14 environment with HY-8 8.0.1.2 installed and discoverable by
+`Hy8Executable`, the focused handoff command is:
+
+```powershell
+python -m pytest -m requires_hy8 -q tests/test_elliptical.py
+```
+
 The generated ellipse reports were also parsed through the existing `.rst` and
 `.rsql` readers. Crossing headwater, per-culvert discharge, inlet/outlet
 control depth, full/free barrel length, outlet velocity, flow type, profile
