@@ -88,3 +88,47 @@ jobs:
               }
             } catch {}
           }
+
+          python -m pip install -e .
+          @'
+          from pathlib import Path
+          import math
+          from tests.test_elliptical import _ellipse_project
+          from run_hy8 import Hy8FileWriter
+
+          out = Path(r"$env:RUNNER_TEMP") / "ellipse-area-probe.hy8"
+          project = _ellipse_project(span=1.524, rise=0.9652)
+          Hy8FileWriter(project).write(out)
+          text = out.read_text(encoding="utf-8")
+          span_ft = 1.524 / 0.3048
+          rise_ft = 0.9652 / 0.3048
+          area_ft2 = math.pi * span_ft * rise_ft / 4.0
+          needle = "BARRELDATA"
+          lines = text.splitlines()
+          updated = []
+          inserted = False
+          for line in lines:
+              updated.append(line)
+              if line.startswith(needle):
+                  updated.append(
+                      f"BARRELGEOMETRY       0.000000   0.000000   0.000000   0.000000   {area_ft2:.6f}"
+                  )
+                  inserted = True
+          if not inserted:
+              raise RuntimeError("BARRELDATA not found")
+          out.write_text("\n".join(updated) + "\n", encoding="utf-8")
+          print("AREA_PROBE_FILE", out)
+          print("AREA_FT2", f"{area_ft2:.6f}")
+          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\make_area_probe.py"
+          python "$env:RUNNER_TEMP\make_area_probe.py"
+
+          $hy8 = Get-ChildItem -Path $payload -Recurse -Filter HY864.exe -File | Select-Object -First 1
+          $probe = Join-Path $env:RUNNER_TEMP "ellipse-area-probe.hy8"
+          Push-Location $hy8.DirectoryName
+          try {
+            $run = Start-Process -FilePath $hy8.FullName -ArgumentList @("-OpenRunSave", ('"' + $probe + '"')) -Wait -PassThru
+            Write-Host "AREA_PROBE_EXIT $($run.ExitCode)"
+          } finally {
+            Pop-Location
+          }
+          python -c "from pathlib import Path; from run_hy8 import parse_rst; p=Path(r'$env:RUNNER_TEMP')/'ellipse-area-probe.rst'; print('AREA_PROBE_RST', p.exists()); print('AREA_PROBE_RESULTS', parse_rst(p) if p.exists() else None)"
