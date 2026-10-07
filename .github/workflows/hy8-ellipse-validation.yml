@@ -47,59 +47,7 @@ jobs:
           "HY8_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Using HY8_EXE=$($exe.FullName)"
 
-      - name: Diagnose remaining ellipse executable edge cases
+      - name: Run focused ellipse executable tests
         shell: pwsh
         run: |
-          @'
-          from __future__ import annotations
-
-          import math
-          import sys
-          from pathlib import Path
-
-          sys.path.insert(0, str(Path.cwd()))
-
-          from run_hy8 import (
-              FlowDefinition,
-              FlowMethod,
-              Hy8Executable,
-              Hy8FileWriter,
-              parse_rst,
-          )
-          from tests.test_elliptical import _ellipse_project
-
-          root = Path.cwd() / "ellipse-edge-probes"
-          root.mkdir(exist_ok=True)
-          hy8 = Hy8Executable()
-
-          batches = [
-              [0.05, 0.1],
-              [0.1, 0.25],
-              [0.25, 0.5],
-              [0.5, 0.5776, 1.0],
-              [0.1, 0.25, 0.5, 0.5776, 1.0],
-              [0.05, 0.1, 0.25, 0.5, 0.5776, 1.0],
-              [0.2, 0.5, 1.0],
-          ]
-          for index, flows in enumerate(batches, start=1):
-              project = _ellipse_project(span=1.524, rise=0.9652)
-              project.crossings[0].flow = FlowDefinition(
-                  method=FlowMethod.USER_DEFINED,
-                  user_values=flows,
-              )
-              path = Hy8FileWriter(project).write(root / f"horizontal-batch-{index}.hy8")
-              completed = hy8.open_run_save(path, check=False)
-              print(f"BATCH {flows}: exit={completed.returncode}; rst={path.with_suffix('.rst').exists()}")
-
-          project = _ellipse_project(span=0.9652, rise=1.524)
-          path = Hy8FileWriter(project).write(root / "vertical.hy8")
-          completed = hy8.open_run_save(path, check=False)
-          print(f"VERTICAL exit={completed.returncode}")
-          if path.with_suffix(".rst").exists():
-              series = parse_rst(path.with_suffix(".rst"))["Sample Crossing"]
-              print("VERTICAL headwater", repr(series.get("headwater")))
-              for culvert in series.get("culverts", []):
-                  for key, values in culvert.items():
-                      print("VERTICAL FIELD", key, repr(values))
-          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\probe_edge_cases.py"
-          python "$env:RUNNER_TEMP\probe_edge_cases.py"
+          python -m pytest -m requires_hy8 -q tests/test_elliptical.py -vv
