@@ -317,7 +317,9 @@ class Hy8FileWriter:
             catalogue_size = self._ellipse_catalogue_size(culvert)
             default_n = catalogue_size.manning_n
             n_top = culvert.manning_n_top if culvert.manning_n_top is not None else default_n
-            n_bottom = culvert.manning_n_bottom if culvert.manning_n_bottom is not None else default_n
+            # ShapeDB supplies one ellipse Manning value and the retained
+            # GUI-created ellipse writes BARRELDATA's fourth field as zero.
+            n_bottom = culvert.manning_n_bottom if culvert.manning_n_bottom is not None else 0.0
         else:
             n_top, n_bottom = culvert.resolved_manning_values()
         self._write_card(handle, "INLETTYPE", culvert.inlet_type)
