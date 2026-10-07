@@ -363,10 +363,10 @@ def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     diameter: float
     if shape is CulvertShape.CIRCLE:
         diameter = reference.span
-    elif shape is CulvertShape.BOX:
+    elif shape in (CulvertShape.BOX, CulvertShape.ELLIPTICAL):
         diameter = reference.rise
     else:
-        msg = "Headwater ratio lookup is only supported for circle/box culverts."
+        msg = "Headwater ratio lookup is only supported for circle/box/elliptical culverts."
         raise NotImplementedError(msg)
     if diameter <= 0:
         msg = "Characteristic diameter must be greater than zero."
@@ -379,11 +379,25 @@ def _characteristic_diameter(crossing: CulvertCrossing) -> float:
 
 
 def _simple_flow_estimate(crossing: CulvertCrossing) -> float:
-    """Return a quick discharge estimate used to seed the flow search."""
-    diameter: float = _characteristic_diameter(crossing=crossing)
-    barrels: int = _total_barrels(crossing=crossing)
-    area: float = math.pi * (diameter**2) / 4.0
-    return area * barrels
+    """Return a full-section-area scale used to seed the flow search."""
+    if not crossing.culverts:
+        msg = "At least one culvert barrel is required."
+        raise ValueError(msg)
+
+    total_area = 0.0
+    for barrel in crossing.culverts:
+        count = barrel.number_of_barrels if barrel.number_of_barrels > 0 else 1
+        if barrel.shape is CulvertShape.CIRCLE:
+            area = math.pi * (barrel.span**2) / 4.0
+        elif barrel.shape is CulvertShape.BOX:
+            area = barrel.span * barrel.rise
+        elif barrel.shape is CulvertShape.ELLIPTICAL:
+            area = math.pi * barrel.span * barrel.rise / 4.0
+        else:
+            msg = f"Flow-search area is not supported for culvert shape {barrel.shape!r}."
+            raise NotImplementedError(msg)
+        total_area += area * count
+    return total_area
 
 
 def crossing_hw_from_q(
