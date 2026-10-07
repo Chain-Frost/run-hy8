@@ -10,6 +10,7 @@ from typing import TextIO
 
 from .classes_references import UnitSystem
 from .inlet_configurations import resolve_v8_inlet_spec
+from .material_codes import hy8_v8_material_code
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -265,10 +266,7 @@ class Hy8FileWriter:
         """Write geometric and hydraulic properties for a barrel."""
         self._write_card(handle, "STARTCULVERT", f'"{culvert.name}"')
         culvert_shape: int = culvert.shape.value
-        culvert_material: int = culvert.material.value
-        if culvert.shape is CulvertShape.BOX:
-            # HY-8 expects boxes to be flagged as concrete, even if the user set a different material.
-            culvert_material = CulvertMaterial.CONCRETE.value
+        culvert_material: int = hy8_v8_material_code(culvert.shape, culvert.material)
         self._write_card(handle, "CULVERTSHAPE", culvert_shape)
         self._write_card(handle, "CULVERTMATERIAL", culvert_material)
         n_top, n_bottom = culvert.resolved_manning_values()
