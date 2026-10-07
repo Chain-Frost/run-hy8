@@ -93,10 +93,11 @@ jobs:
           @'
           from pathlib import Path
           import math
+          import os
           from tests.test_elliptical import _ellipse_project
           from run_hy8 import Hy8FileWriter
 
-          out = Path(r"$env:RUNNER_TEMP") / "ellipse-area-probe.hy8"
+          out = Path(os.environ["RUNNER_TEMP"]) / "ellipse-area-probe.hy8"
           project = _ellipse_project(span=1.524, rise=0.9652)
           Hy8FileWriter(project).write(out)
           text = out.read_text(encoding="utf-8")
