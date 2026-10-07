@@ -145,8 +145,13 @@ def test_ellipse_writer_reader_preserves_catalogue_dimensions(
     assert "INLETEDGETYPE71      0" in text
     geometry_line = next(line for line in text.splitlines() if line.startswith("BARRELGEOMETRY"))
     geometry_values = [float(value) for value in geometry_line.split()[1:]]
-    expected_area_ft2 = math.pi * (span / 0.3048) * (rise / 0.3048) / 4.0
-    assert geometry_values == pytest.approx([0.0, 0.0, 0.0, 0.0, expected_area_ft2], abs=1e-6)
+    catalogue_size = find_concrete_ellipse_catalogue_size(span, rise)
+    expected_geometry = [
+        *catalogue_size.geometry_prefix_ft,
+        catalogue_size.area_ft2,
+    ]
+    assert geometry_values == pytest.approx(expected_geometry, abs=1e-6)
+    assert "IRREGSIZE            0 0 1" in text
 
     restored = load_project_from_hy8(output)
     barrel = restored.crossings[0].culverts[0]
