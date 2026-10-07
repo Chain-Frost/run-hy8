@@ -57,6 +57,6 @@ Steel-or-Aluminum ellipse reference. It is retained as independent
 project-file evidence. Its selected 241 in x 156 in size is present in the
 Steel-or-Aluminum ShapeDB catalogue.
 
-The runtime concrete-ellipse table in `src/run_hy8/ellipse_catalogue.py` is a
-version-pinned snapshot of the 23 concrete rows. The runtime package does not
-depend on the HDF5 reference database.
+The runtime tables in `src/run_hy8/ellipse_catalogue.py` are version-pinned
+snapshots of all 23 Concrete and 40 Steel-or-Aluminum ellipse rows. The runtime
+package does not depend on the HDF5 reference database.
