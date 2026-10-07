@@ -296,16 +296,8 @@ class Hy8FileWriter:
             # OpenRunSave, so the source catalogue area is used as the
             # source-backed input value without treating the rewritten value as
             # a persistent catalogue parameter.
-            span_m = (
-                feet_to_metres(culvert.span)
-                if self.project.units is UnitSystem.ENGLISH
-                else culvert.span
-            )
-            rise_m = (
-                feet_to_metres(culvert.rise)
-                if self.project.units is UnitSystem.ENGLISH
-                else culvert.rise
-            )
+            span_m = feet_to_metres(culvert.span) if self.project.units is UnitSystem.ENGLISH else culvert.span
+            rise_m = feet_to_metres(culvert.rise) if self.project.units is UnitSystem.ENGLISH else culvert.rise
             catalogue_size = find_concrete_ellipse_catalogue_size(
                 span_m,
                 rise_m,
