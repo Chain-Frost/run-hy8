@@ -35,3 +35,28 @@ Get-FileHash "C:\Program Files\HY-8 8.00\ShapeDB.dat" -Algorithm SHA256
 ```
 
 The expected hash is the value in `ShapeDB.dat.sha256`.
+
+
+## Elliptical catalogue evidence
+
+The reproducible extraction under `reference_docs/catalogue/` is generated
+from the pinned database above by `scripts/extract_shape_catalogue.py`.
+For HY-8 8.0.1.2 it records:
+
+- `Shape Names[2] = "Elliptical"`, corresponding to project-file
+  `CULVERTSHAPE 3`;
+- elliptical material index 1 = `Steel or Aluminum`;
+- elliptical material index 2 = `Concrete`;
+- 23 concrete ellipse catalogue sizes;
+- 40 Steel-or-Aluminum ellipse catalogue sizes;
+- per-size `Span`, `Rise`, `Area`, `Mannings n`, `Br`, `Tr`, `Cr`,
+  and `B` values plus raw geometry datasets.
+
+`reference_docs/example-ellipse.hy8` is a GUI-created HY-8 8.0.1.2
+Steel-or-Aluminum ellipse reference. It is retained as independent
+project-file evidence. Its selected 241 in x 156 in size is present in the
+Steel-or-Aluminum ShapeDB catalogue.
+
+The runtime concrete-ellipse table in `src/run_hy8/ellipse_catalogue.py` is a
+version-pinned snapshot of the 23 concrete rows. The runtime package does not
+depend on the HDF5 reference database.
