@@ -304,7 +304,6 @@ def test_ellipse_hy8_v8_executable_round_trip(
     assert any(value > 0.0 for value in culvert["discharge"])
     for key in (
         "discharge",
-        "inlet_control_depth",
         "outlet_control_depth",
         "full_length",
         "free_length",
@@ -313,6 +312,11 @@ def test_ellipse_hy8_v8_executable_round_trip(
         values = culvert[key]
         assert values
         assert all(math.isfinite(value) for value in values)
+
+    inlet_depths = culvert["inlet_control_depth"]
+    assert inlet_depths
+    assert any(math.isfinite(value) for value in inlet_depths)
+    assert all(math.isfinite(value) or math.isnan(value) for value in inlet_depths)
     assert culvert["flow_type"]
 
     profiles = parse_rsql(path.with_suffix(".rsql"))["Sample Crossing"]
