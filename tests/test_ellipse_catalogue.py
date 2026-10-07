@@ -210,7 +210,7 @@ def test_writer_uses_size_specific_steel_or_aluminum_manning(tmp_path: Path) -> 
     barrel_data = next(line for line in text.splitlines() if line.startswith("BARRELDATA"))
     values = [float(value) for value in barrel_data.split()[1:]]
 
-    assert values[2:] == pytest.approx([0.033, 0.033], abs=1e-6)
+    assert values[2:] == pytest.approx([0.033, 0.0], abs=1e-6)
 
 
 def test_writer_accepts_catalogued_steel_or_aluminum_english_units(tmp_path: Path) -> None:
@@ -224,3 +224,28 @@ def test_writer_accepts_catalogued_steel_or_aluminum_english_units(tmp_path: Pat
 
     assert path.exists()
     assert "CULVERTMATERIAL      1" in path.read_text(encoding="utf-8")
+
+
+
+def test_writer_defaults_ellipse_barrel_data_fourth_field_to_zero(tmp_path: Path) -> None:
+    project = _project_with_concrete_ellipse(60.0 * 0.0254, 38.0 * 0.0254)
+
+    text = Hy8FileWriter(project).write(tmp_path / "concrete-ellipse-n.hy8").read_text(encoding="utf-8")
+    barrel_data = next(line for line in text.splitlines() if line.startswith("BARRELDATA"))
+    values = [float(value) for value in barrel_data.split()[1:]]
+
+    assert values[2:] == pytest.approx([0.012, 0.0], abs=1e-6)
+
+
+def test_writer_preserves_explicit_ellipse_bottom_manning_override(tmp_path: Path) -> None:
+    project = _project_with_steel_or_aluminum_ellipse(
+        241.0 * 0.0254,
+        156.0 * 0.0254,
+    )
+    project.crossings[0].culverts[0].manning_n_bottom = 0.041
+
+    text = Hy8FileWriter(project).write(tmp_path / "steel-ellipse-n-override.hy8").read_text(encoding="utf-8")
+    barrel_data = next(line for line in text.splitlines() if line.startswith("BARRELDATA"))
+    values = [float(value) for value in barrel_data.split()[1:]]
+
+    assert values[2:] == pytest.approx([0.034, 0.041], abs=1e-6)
