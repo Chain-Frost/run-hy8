@@ -59,7 +59,10 @@ jobs:
           from __future__ import annotations
 
           import re
+          import sys
           from pathlib import Path
+
+          sys.path.insert(0, str(Path.cwd()))
 
           from run_hy8 import Hy8Executable, Hy8FileWriter, parse_rst
           from tests.test_elliptical import _ellipse_project
