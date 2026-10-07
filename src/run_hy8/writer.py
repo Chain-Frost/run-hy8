@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import math
 from enum import Enum
 from itertools import pairwise
 from pathlib import Path
 from typing import TextIO
 
 from .classes_references import UnitSystem
+from .ellipse_catalogue import find_concrete_ellipse_catalogue_size
 from .inlet_configurations import resolve_v8_inlet_spec
 from .material_codes import hy8_v8_material_code
 from .models import (
@@ -290,17 +290,31 @@ class Hy8FileWriter:
             n_bottom,
         )
         if culvert.shape is CulvertShape.ELLIPTICAL:
-            # HY-8 GUI-saved elliptical barrels carry the standard geometry
-            # state block explicitly. In particular, BARRELGEOMETRY's fifth
-            # value is the full cross-sectional area in project-file units.
-            # Omitting this block can yield finite reports with zero culvert
-            # discharge even though the shape/dimensions round-trip.
-            area_file = math.pi * span_file * rise_file / 4.0
+            # HY-8 ellipses are catalogue shapes rather than arbitrary
+            # mathematical ellipses. Br/Tr/Cr/B from the matching ShapeDB row
+            # are hydraulically significant: zeroing them produces zero barrel
+            # discharge. HY-8 rewrites BARRELGEOMETRY's fifth field during
+            # OpenRunSave, so the source catalogue area is used as the
+            # source-backed input value without treating the rewritten value as
+            # a persistent catalogue parameter.
+            catalogue_size = find_concrete_ellipse_catalogue_size(
+                culvert.span,
+                culvert.rise,
+            )
+            br_file, tr_file, cr_file, b_file = catalogue_size.geometry_prefix_ft
             self._write_card(handle, "LOWERCULVERTMANNING", 0.0)
             self._write_card(handle, "LOWERCULVERTMANNINGB", 0.0)
-            self._write_card(handle, "IRREGSIZE", 0, 0, 0)
+            self._write_card(handle, "IRREGSIZE", 0, 0, 1)
             self._write_card(handle, "EMBEDDEPTH", 0.0)
-            self._write_card(handle, "BARRELGEOMETRY", 0.0, 0.0, 0.0, 0.0, area_file)
+            self._write_card(
+                handle,
+                "BARRELGEOMETRY",
+                br_file,
+                tr_file,
+                cr_file,
+                b_file,
+                catalogue_size.area_ft2,
+            )
             self._write_card(handle, "DEPRESSIONDATA", 0.0, 0.0, 0.0)
             self._write_card(handle, "TAPEREDDATA", 0.0, 0.0, 0.0, 0.0, 0.0)
             self._write_card(handle, "DEPRESSION", 0)
