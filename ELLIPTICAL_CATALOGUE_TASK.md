@@ -77,3 +77,19 @@ The catalogue investigation has now established and implemented the following:
   sizes and all three supported concrete inlet configurations, including the
   inverse helpers. Final local Windows/HY-8 acceptance is still required before
   the PR leaves draft status.
+
+
+## Final hosted validation state
+
+The catalogue-backed implementation passed the hosted Windows HY-8 8.0.1.2
+executable regression suite for two confirmed concrete catalogue sizes and all
+three supported inlet configurations: **8 passed, 12 deselected**.
+
+The retained wheel was rebuilt from the final source tree and verified with
+SHA-256:
+
+`5075f675f7ea330ff95bd530ca5ef38764ade8163c9fd609df45616377040230`
+
+The remaining acceptance gate is the independent local Windows/HY-8 8.0.1.2
+run described in `ELLIPTICAL_VALIDATION_FEEDBACK.md`. The PR stays draft and
+must not be merged until that local handoff is recorded.
