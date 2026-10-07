@@ -20,6 +20,7 @@ from run_hy8 import (
     Hy8Project,
     load_project_from_hy8,
     load_project_from_json,
+    find_concrete_ellipse_catalogue_size,
     parse_rsql,
     parse_rst,
 )
@@ -127,10 +128,10 @@ def test_elliptical_concrete_defaults_are_context_specific() -> None:
     ("span", "rise"),
     [
         (1.524, 0.9652),
-        (0.9652, 1.524),
+        (1.7272, 1.0922),
     ],
 )
-def test_ellipse_writer_reader_preserves_orientation(
+def test_ellipse_writer_reader_preserves_catalogue_dimensions(
     tmp_path: Path,
     span: float,
     rise: float,
@@ -161,10 +162,10 @@ def test_ellipse_writer_reader_preserves_orientation(
     ("span", "rise"),
     [
         (1.524, 0.9652),
-        (0.9652, 1.524),
+        (1.7272, 1.0922),
     ],
 )
-def test_ellipse_json_config_preserves_orientation(
+def test_ellipse_json_config_preserves_catalogue_dimensions(
     tmp_path: Path,
     span: float,
     rise: float,
@@ -214,7 +215,7 @@ def test_ellipse_unsupported_material_fails_closed(tmp_path: Path) -> None:
     ("span", "rise"),
     [
         (1.524, 0.9652),
-        (0.9652, 1.524),
+        (1.7272, 1.0922),
     ],
 )
 def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float) -> None:
@@ -225,8 +226,10 @@ def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float
     characteristic_depth = hydraulics_module._characteristic_diameter(crossing)
     seed_flow = hydraulics_module._simple_flow_estimate(crossing)
 
+    catalogue_size = find_concrete_ellipse_catalogue_size(span, rise)
+
     assert characteristic_depth == pytest.approx(rise)
-    assert seed_flow == pytest.approx(2.0 * math.pi * span * rise / 4.0)
+    assert seed_flow == pytest.approx(2.0 * catalogue_size.area_m2)
 
 
 @pytest.mark.requires_hy8
@@ -234,7 +237,7 @@ def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float
     ("span", "rise"),
     [
         (1.524, 0.9652),
-        (0.9652, 1.524),
+        (1.7272, 1.0922),
     ],
 )
 def test_ellipse_inverse_helpers_with_local_hy8(
@@ -269,7 +272,7 @@ def test_ellipse_inverse_helpers_with_local_hy8(
     ("span", "rise"),
     [
         (1.524, 0.9652),
-        (0.9652, 1.524),
+        (1.7272, 1.0922),
     ],
 )
 def test_ellipse_hy8_v8_executable_round_trip(
