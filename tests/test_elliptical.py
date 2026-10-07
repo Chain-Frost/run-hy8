@@ -151,7 +151,8 @@ def test_ellipse_writer_reader_preserves_catalogue_dimensions(
         catalogue_size.area_ft2,
     ]
     assert geometry_values == pytest.approx(expected_geometry, abs=1e-6)
-    assert "IRREGSIZE            0 0 1" in text
+    irreg_line = next(line for line in text.splitlines() if line.startswith("IRREGSIZE"))
+    assert irreg_line.split()[1:] == ["0", "0", "1"]
 
     restored = load_project_from_hy8(output)
     barrel = restored.crossings[0].culverts[0]
