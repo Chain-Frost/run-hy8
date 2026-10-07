@@ -7,6 +7,8 @@ from _collections_abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..classes_references import UnitSystem
+from ..ellipse_catalogue import find_ellipse_catalogue_size
 from ..hydraulic_defaults import default_manning_values
 from ..inlet_configurations import (
     CircularCorrugatedSteelInlet,
@@ -27,6 +29,7 @@ from ..type_helpers import (
     InletType,
     coerce_enum,
 )
+from ..units import feet_to_metres
 from .base import Validatable
 
 
@@ -216,25 +219,40 @@ class CulvertBarrel(Validatable):
             errors.append(f"{prefix}{exc}")
         return errors
 
-    def manning_values(self) -> tuple[float, float]:
-        """Return the audited HY-8 v8 shape/material Manning defaults.
+    def manning_values(
+        self,
+        *,
+        units: UnitSystem = UnitSystem.SI,
+    ) -> tuple[float, float]:
+        """Return the HY-8 v8 default BARRELDATA Manning pair.
 
-        Elliptical catalogue rows can refine this value by size. That
-        unit-aware selection is performed by the HY-8 writer because a barrel
-        does not know the parent project's unit system.
+        Elliptical defaults are selected from the exact material-specific
+        catalogue row. Because barrel dimensions follow the parent project's
+        unit system, callers with English dimensions must pass
+        units=UnitSystem.ENGLISH. ShapeDB supplies no ellipse
+        Mannings Bottom dataset, and the retained GUI ellipse writes the
+        fourth BARRELDATA field as zero.
         """
+        if self.shape is CulvertShape.ELLIPTICAL:
+            span_m = feet_to_metres(self.span) if units is UnitSystem.ENGLISH else self.span
+            rise_m = feet_to_metres(self.rise) if units is UnitSystem.ENGLISH else self.rise
+            catalogue_size = find_ellipse_catalogue_size(
+                span_m,
+                rise_m,
+                material=self.material,
+            )
+            return catalogue_size.manning_n, 0.0
         return default_manning_values(shape=self.shape, material=self.material)
 
-    def resolved_manning_values(self) -> tuple[float, float]:
-        """Return explicit Manning values with per-side HY-8 defaults.
-
-        Supplying both values bypasses the default registry entirely. Supplying
-        only one preserves that override and uses the researched HY-8 default
-        for the other side.
-        """
+    def resolved_manning_values(
+        self,
+        *,
+        units: UnitSystem = UnitSystem.SI,
+    ) -> tuple[float, float]:
+        """Return explicit Manning values with per-field HY-8 defaults."""
         if self.manning_n_top is not None and self.manning_n_bottom is not None:
             return self.manning_n_top, self.manning_n_bottom
-        default_top, default_bottom = self.manning_values()
+        default_top, default_bottom = self.manning_values(units=units)
         top: float = self.manning_n_top if self.manning_n_top is not None else default_top
         bottom: float = self.manning_n_bottom if self.manning_n_bottom is not None else default_bottom
         return top, bottom
