@@ -52,6 +52,37 @@ jobs:
         run: |
           python -m pytest -m requires_hy8 -q tests/test_elliptical.py -vv
 
+      - name: Inspect ShapeDB shape ordering
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check h5py
+          @'
+          from __future__ import annotations
+
+          from pathlib import Path
+
+          import h5py
+
+          path = Path("reference_docs/ShapeDB.dat")
+          with h5py.File(path, "r") as database:
+              print("SHAPEDB_ROOT_BEGIN")
+              for index, name in enumerate(database.keys(), start=1):
+                  obj = database[name]
+                  print(f"SHAPEDB_ROOT index={index} name={name!r} type={type(obj).__name__}")
+                  for key, value in obj.attrs.items():
+                      if hasattr(value, "tolist"):
+                          value = value.tolist()
+                      print(f"SHAPEDB_ATTR shape={name!r} key={key!r} value={value!r}")
+              print("SHAPEDB_ROOT_END")
+
+              ellipse = database["Elliptical"]
+              print("ELLIPSE_CHILDREN_BEGIN")
+              for name in ellipse.keys():
+                  print("ELLIPSE_CHILD", repr(name))
+              print("ELLIPSE_CHILDREN_END")
+          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\shape_db_probe.py"
+          python "$env:RUNNER_TEMP\shape_db_probe.py"
+
       - name: Verify canonical HY-8 ellipse shape code
         shell: pwsh
         run: |
