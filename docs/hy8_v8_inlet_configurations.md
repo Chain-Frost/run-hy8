@@ -100,74 +100,76 @@ the older card and requires the contextual one.
 
 ## Elliptical project-card evidence
 
-### Local validation on 7 October 2026
+### Local and catalogue investigation on 7 October 2026
 
-Local execution against `C:\Program Files\HY-8 8.00\HY864.exe`, file and
-product version **8.0.1.2**, did not establish working elliptical hydraulics.
-The installed and retained `ShapeDB.dat` files both matched the SHA-256 above.
+Local Windows testing against `C:\\Program Files\\HY-8 8.00\\HY864.exe`,
+file/product version **8.0.1.2**, first exposed two defects in the original
+ellipse implementation. A zero-length test fixture caused HY-8 to terminate
+with `0xC0000005`; after giving the barrel a non-zero length, the generated
+projects completed but reported zero culvert discharge. The detailed local
+handoff is retained in `ELLIPTICAL_VALIDATION_FEEDBACK.md`.
 
-The initial four executable tests crashed with exit status `3221225477`
-(`0xC0000005`). Their fixture inherited identical inlet/outlet stations and
-therefore a zero-length barrel. Giving the fixture a 20 m length prevented
-the crash. The revised fixture uses tailwater 0.2 m above the outlet invert
-and a 0.2/1.0/2.0 m3/s min/design/max flow range.
+The retained `ShapeDB.dat` and the GUI-created
+`reference_docs/example-ellipse.hy8` then established the actual file
+contract:
 
-Both orientations and all three concrete inlet configurations preserved their
-project cards and produced finite reports, but reported **zero culvert
-discharge**. Finite output alone is therefore insufficient acceptance evidence.
-The round-trip tests now also require positive culvert discharge. The forward
-helper at 1.0 m3/s raises `RoadwayOvertoppingError`, with HY-8 reporting all
-discharge over the roadway. Separate user-defined-flow and narrower
-min/design/max probes reproduced zero culvert discharge.
+- `Shape Names` maps project-file code **3** to `Elliptical`. Code 6 is
+  `Arch, Open Bottom`; the earlier code-6 positive-flow probe was therefore
+  a false positive and is not ellipse evidence.
+- HY-8 material codes are **shape-contextual**. For ellipses,
+  `Material Names` is `["Steel or Aluminum", "Concrete", ...]`, so
+  `CULVERTMATERIAL 1` means Steel or Aluminum and
+  `CULVERTMATERIAL 2` means Concrete. This differs from the circular
+  material list.
+- HY-8 exposes ellipse sizes as catalogue entries. The pinned database contains
+  23 concrete sizes and 40 Steel-or-Aluminum sizes under
+  `/Elliptical/<material>/Categories/Category 1/Sub Category 1`.
+- Concrete catalogue row 8 is **60 in x 38 in** (1.524 m x 0.9652 m).
+  The reversed 38 in x 60 in pair is not a separate concrete catalogue entry,
+  so the library does not invent a vertical orientation by swapping dimensions.
+- Each catalogue row contains `Span`, `Rise`, `Area`, `Mannings n`,
+  `Br`, `Tr`, `Cr`, and `B`. The `Br/Tr/Cr/B` values are required
+  HY-8 geometry state, not values that can be replaced with zeros or derived
+  from a generic mathematical ellipse.
 
-Elliptical hydraulic execution and inverse helpers remain unvalidated. The
-cause of the zero-discharge reports needs investigation before engineering
-use; successful serialization and executable exit status do not resolve it.
+A controlled HY-8 8.0.1.2 probe demonstrated the hydraulic significance of
+that catalogue geometry. For the concrete 60 in x 38 in case:
 
-The first Windows probe treated successful `-OpenRunSave` round-tripping as
-evidence that `CULVERTSHAPE 3` represented an ellipse. Local hydraulic
-validation disproved that assumption: code 3 opens and saves but produces zero
-culvert discharge for the ellipse test cases.
+- writing material code 2 but zero `Br/Tr/Cr/B` produced **zero** barrel flow;
+- changing `IRREGSIZE` alone did not fix the result;
+- writing `Br=Tr=51.6 in`, `Cr=16.43 in`, and `B=19 in` from the
+  ShapeDB catalogue produced positive flow up to the requested 2.0 m3/s;
+- changing the legacy inlet compatibility flags did not affect that positive
+  flow result.
 
-A direct HY-8 8.0.1.2 executable probe then held the project geometry and
-boundary conditions constant while varying `CULVERTSHAPE`. Code **6** was the
-first candidate that produced positive culvert discharge for the
-5.0 ft × 3.166667 ft concrete ellipse, and it is consistent with the
-GUI-authored ellipse project used for follow-up comparison.
+The fifth `BARRELGEOMETRY` field is not treated as a persisted catalogue
+parameter. HY-8 rewrites it during `-OpenRunSave`. The writer supplies the
+source catalogue `Area` as a version-pinned input value, while the first four
+fields are sourced directly from `Br/Tr/Cr/B` and are the demonstrated
+hydraulically significant values.
 
-The corrected project-file contract is therefore:
+Accordingly, current concrete-ellipse execution is fail-closed:
 
-- `CULVERTSHAPE 6` is the HY-8 v8 elliptical shape code used by this branch.
-- `CULVERTMATERIAL 1` is concrete.
-- `BARRELDATA` preserves span and rise independently.
-- Horizontal and vertical orientation are represented by the span/rise
-  relationship rather than separate shape codes.
-- Successful file round-tripping alone is not sufficient evidence; executable
-  tests must also demonstrate positive culvert discharge.
+- `CULVERTSHAPE 3`;
+- contextual concrete `CULVERTMATERIAL 2`;
+- dimensions must match an HY-8 8.0.1.2 concrete catalogue row within the
+  documented project-file round-trip tolerance;
+- no nearest-size substitution and no synthetic rotated size;
+- `BARRELGEOMETRY` is populated from that same catalogue row.
 
-These probes establish the project-file/orchestration contract only. They do
-not make `run-hy8` an authority for elliptical hydraulic equations.
-
-The hosted Windows probe is retained as implementation evidence, but it is not
-the final local acceptance run. Before merge/engineering use, another agent with
-access to an installed HY-8 8.0.1.2 environment should rerun the
-`@pytest.mark.requires_hy8` ellipse tests locally, including both orientations,
-inverse helpers, writer/reader round trips, and `.rst`/`.rsql` parsing. Record
-the executable path/version and the local result in the PR handoff. Hosted CI
-does not replace that local HY-8 executable validation.
-
-From a Python 3.14 environment with HY-8 8.0.1.2 installed and discoverable by
-`Hy8Executable`, the focused handoff command is:
+The hosted probes are implementation evidence, not the final acceptance run.
+After the catalogue-backed writer and normal CI are clean, another local
+Windows agent with installed HY-8 8.0.1.2 must rerun the focused executable
+suite and record the result before merge/engineering use:
 
 ```powershell
 python -m pytest -m requires_hy8 -q tests/test_elliptical.py
 ```
 
-The generated ellipse reports were also parsed through the existing `.rst` and
-`.rsql` readers. Crossing headwater, per-culvert discharge, inlet/outlet
-control depth, full/free barrel length, outlet velocity, flow type, profile
-flow, and HW/D were all available without a parser change. This is the result
-surface used by the external `ryan-culverts` comparison tooling.
+The existing `.rst` and `.rsql` parsers expose crossing headwater,
+per-culvert discharge, inlet/outlet control depth, full/free barrel length,
+outlet velocity, flow type, profile flow, and HW/D for the external
+`ryan-culverts` comparison tooling.
 
 ## Supported contextual lists
 
@@ -241,11 +243,12 @@ mapping does not belong in `run-hy8`.
   only in `HY8_V8_INLET_SPECS`.
 - `CulvertBarrel` validation rejects a configuration from the wrong
   shape/material context.
-- Concrete ellipses use `CulvertShape.ELLIPTICAL` (file code 6) with
-  `EllipticalConcreteInlet`; unsupported ellipse material/inlet contexts
-  remain fail-closed.
-- Horizontal and vertical elliptical orientations use the same shape code and
-  retain `span` and `rise` independently through JSON and `.hy8` round trips.
+- Concrete ellipses use `CulvertShape.ELLIPTICAL` (file code 3) with
+  contextual material code 2 and `EllipticalConcreteInlet`; unsupported
+  ellipse material/inlet contexts remain fail-closed.
+- Concrete ellipse dimensions must match the version-pinned HY-8 catalogue.
+  Arbitrary or merely reversed `span`/`rise` pairs are rejected rather than
+  synthesized or snapped to a nearby size.
 - Old `InletEdgeType` and `InletEdgeType71` inputs are migration-only and emit
   `LegacyInletConfigurationWarning`.
 - Pre-v8 project headers are unsupported and rejected; there is no attempt to
