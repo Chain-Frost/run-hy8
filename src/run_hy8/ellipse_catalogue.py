@@ -13,9 +13,8 @@ into a vertical one.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
-
+import math
 
 INCH_TO_METRE = 0.0254
 INCH_TO_FOOT = 1.0 / 12.0
@@ -26,9 +25,7 @@ SQUARE_FOOT_TO_SQUARE_METRE = 0.09290304
 # write/read round trip while remaining far below catalogue size spacing.
 ELLIPSE_CATALOGUE_MATCH_TOLERANCE_M = 2e-6
 
-ELLIPSE_CONCRETE_SOURCE_PATH = (
-    "/Elliptical/Concrete/Categories/Category 1/Sub Category 1"
-)
+ELLIPSE_CONCRETE_SOURCE_PATH = "/Elliptical/Concrete/Categories/Category 1/Sub Category 1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,14 +44,17 @@ class EllipticalCatalogueSize:
 
     @property
     def span_m(self) -> float:
+        """Return the catalogue span in metres."""
         return self.span_in * INCH_TO_METRE
 
     @property
     def rise_m(self) -> float:
+        """Return the catalogue rise in metres."""
         return self.rise_in * INCH_TO_METRE
 
     @property
     def area_m2(self) -> float:
+        """Return the catalogue full-section area in square metres."""
         return self.area_ft2 * SQUARE_FOOT_TO_SQUARE_METRE
 
     @property
@@ -346,16 +346,12 @@ def find_concrete_ellipse_catalogue_size(
     matches = [
         entry
         for entry in CONCRETE_ELLIPSE_CATALOGUE
-        if abs(entry.span_m - span_m) <= tolerance_m
-        and abs(entry.rise_m - rise_m) <= tolerance_m
+        if abs(entry.span_m - span_m) <= tolerance_m and abs(entry.rise_m - rise_m) <= tolerance_m
     ]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:  # pragma: no cover - protected by catalogue uniqueness
-        msg = (
-            "Ambiguous HY-8 concrete ellipse catalogue match for "
-            f"span={span_m:.9g} m, rise={rise_m:.9g} m."
-        )
+        msg = f"Ambiguous HY-8 concrete ellipse catalogue match for span={span_m:.9g} m, rise={rise_m:.9g} m."
         raise ValueError(msg)
 
     nearest = min(
