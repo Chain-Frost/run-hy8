@@ -45,7 +45,7 @@ jobs:
           if (-not $exe) { throw "HY864.exe not found" }
           "RUN_HY8_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Compare GUI fixture with writer and card mutations
+      - name: Compare GUI fixture with catalogue-backed mutations
         shell: pwsh
         run: |
           @'
@@ -55,94 +55,174 @@ jobs:
           import os
           import re
           import shutil
+          import sys
           from pathlib import Path
 
-          from run_hy8 import Hy8Executable, Hy8FileWriter, load_project_from_hy8, parse_rst
+          sys.path.insert(0, str(Path.cwd()))
+
+          from run_hy8 import Hy8Executable, Hy8FileWriter, parse_rst
+          from tests.test_elliptical import _ellipse_project
 
           root = Path.cwd()
           fixture = root / "reference_docs" / "example-ellipse.hy8"
           work = Path(os.environ["RUNNER_TEMP"]) / "ellipse-gui-contract"
           work.mkdir(parents=True, exist_ok=True)
-          hy8 = Hy8Executable(executable=Path(os.environ["RUN_HY8_EXE"]))
+          hy8 = Hy8Executable(exe_path=Path(os.environ["RUN_HY8_EXE"]))
 
-          def result(path: Path) -> tuple[int, float | None]:
+          CARD_PREFIXES = (
+              "CULVERTSHAPE",
+              "CULVERTMATERIAL",
+              "LOWERCULVERTMATERIAL",
+              "BROKENCULVERT",
+              "INLETTYPE",
+              "INLETEDGETYPE",
+              "INLETEDGETYPE71",
+              "IMPINLETEDGETYPE",
+              "BARRELDATA",
+              "LOWERCULVERTMANNING",
+              "LOWERCULVERTMANNINGB",
+              "IRREGSIZE",
+              "EMBEDDEPTH",
+              "BARRELGEOMETRY",
+              "EMBANKMENTTYPE",
+              "NUMBEROFBARRELS",
+              "INVERTDATA",
+          )
+
+          def report(path: Path) -> tuple[int, float | None]:
               completed = hy8.open_run_save(path, check=False)
               rst = path.with_suffix(".rst")
               max_q = None
               if rst.exists():
                   try:
-                      series = parse_rst(rst)["Ellipse"]
-                      culverts = series.get("culverts", [])
-                      if culverts:
-                          values = culverts[0]["discharge"]
-                          finite = [value for value in values if math.isfinite(value)]
-                          if finite:
-                              max_q = max(finite)
+                      parsed = parse_rst(rst)
+                      if parsed:
+                          series = next(iter(parsed.values()))
+                          culverts = series.get("culverts", [])
+                          if culverts:
+                              values = culverts[0]["discharge"]
+                              finite = [value for value in values if math.isfinite(value)]
+                              if finite:
+                                  max_q = max(finite)
                   except Exception as exc:
                       print("PARSE_ERROR", path.name, repr(exc))
               print("CASE", path.stem, "exit", completed.returncode, "max_q", max_q)
+              if path.exists():
+                  for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                      if line.startswith(CARD_PREFIXES):
+                          print("CARD", path.stem, line)
               return completed.returncode, max_q
 
-          base = work / "gui-base.hy8"
-          shutil.copy2(fixture, base)
-          result(base)
-
-          gui_text = fixture.read_text(encoding="utf-8")
-          project = load_project_from_hy8(fixture)
-          writer_path = Hy8FileWriter(project).write(work / "writer-roundtrip.hy8")
-          print("WRITER_CARDS_BEGIN")
-          for line in writer_path.read_text(encoding="utf-8").splitlines():
-              if line.startswith((
-                  "CULVERTSHAPE", "CULVERTMATERIAL", "LOWERCULVERTMATERIAL",
-                  "BROKENCULVERT", "INLETTYPE", "INLETEDGETYPE",
-                  "INLETEDGETYPE71", "IMPINLETEDGETYPE", "IMPROVEDINDATA",
-                  "BARRELDATA", "LOWERCULVERTMANNING", "LOWERCULVERTMANNINGB",
-                  "IRREGSIZE", "EMBEDDEPTH", "BARRELGEOMETRY",
-                  "DEPRESSIONDATA", "TAPEREDDATA", "DEPRESSION", "MITERED",
-                  "EMBANKMENTTYPE", "NUMBEROFBARRELS", "EMBANKDATA",
-                  "INVERTDATA", "BREAK", "UPPERBREAK", "LOWERBREAK",
-                  "NUMSHAPECOORDS", "EMBEDEDGEOMETRY", "ROADCULVSTATION",
-                  "BARRELSPACING",
-              )):
-                  print(line)
-          print("WRITER_CARDS_END")
-          result(writer_path)
-
-          def variant(name: str, transforms: list[tuple[str, str]]) -> None:
-              text = gui_text
+          def mutate(
+              source_text: str,
+              name: str,
+              transforms: list[tuple[str, str]],
+          ) -> Path:
+              text = source_text
               for pattern, replacement in transforms:
                   text, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
                   if count != 1:
                       raise RuntimeError(f"{name}: expected one match for {pattern!r}, got {count}")
               path = work / f"{name}.hy8"
               path.write_text(text, encoding="utf-8")
-              result(path)
+              return path
 
-          span = 20.083333
-          rise = 13.0
-          writer_area = math.pi * span * rise / 4.0
+          # Authoritative GUI-created Steel or Aluminum catalogue selection:
+          # 241 in x 156 in, ShapeDB row index 1.
+          gui = work / "gui-base.hy8"
+          shutil.copy2(fixture, gui)
+          report(gui)
+          gui_text = fixture.read_text(encoding="utf-8")
 
-          variant("legacy-inlet-zero", [
-              (r"^INLETEDGETYPE\s+\d+\s*$", "INLETEDGETYPE        0"),
-              (r"^IMPINLETEDGETYPE\s+\d+\s*$", "IMPINLETEDGETYPE     0"),
-          ])
-          variant("irregsize-zero", [
-              (r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 0"),
-          ])
-          variant("barrelgeometry-writer", [
-              (
-                  r"^BARRELGEOMETRY\s+.*$",
-                  f"BARRELGEOMETRY       0.000000   0.000000   0.000000   0.000000   {writer_area:.6f}",
-              ),
-          ])
-          variant("legacy-and-geometry-writer", [
-              (r"^INLETEDGETYPE\s+\d+\s*$", "INLETEDGETYPE        0"),
-              (r"^IMPINLETEDGETYPE\s+\d+\s*$", "IMPINLETEDGETYPE     0"),
-              (r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 0"),
-              (
-                  r"^BARRELGEOMETRY\s+.*$",
-                  f"BARRELGEOMETRY       0.000000   0.000000   0.000000   0.000000   {writer_area:.6f}",
-              ),
-          ])
+          report(
+              mutate(
+                  gui_text,
+                  "gui-irregsize-zero",
+                  [(r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 0")],
+              )
+          )
+          report(
+              mutate(
+                  gui_text,
+                  "gui-geometry-zero",
+                  [
+                      (
+                          r"^BARRELGEOMETRY\s+.*$",
+                          "BARRELGEOMETRY       0.000000   0.000000   0.000000   0.000000   0.000000",
+                      )
+                  ],
+              )
+          )
+          report(
+              mutate(
+                  gui_text,
+                  "gui-catalogue-area",
+                  [
+                      (
+                          r"^BARRELGEOMETRY\s+.*$",
+                          "BARRELGEOMETRY       13.083333  13.083333  4.500000   6.500000   201.850006",
+                      )
+                  ],
+              )
+          )
+          report(
+              mutate(
+                  gui_text,
+                  "gui-legacy-inlet-zero",
+                  [
+                      (r"^INLETEDGETYPE\s+\d+\s*$", "INLETEDGETYPE        0"),
+                      (r"^IMPINLETEDGETYPE\s+\d+\s*$", "IMPINLETEDGETYPE     0"),
+                  ],
+              )
+          )
+
+          # Concrete catalogue row 8: 60 in x 38 in.
+          project = _ellipse_project(span=1.524, rise=0.9652)
+          generated = Hy8FileWriter(project).write(work / "concrete-generated.hy8")
+          generated_text = generated.read_text(encoding="utf-8")
+          report(generated)
+
+          material2 = [(r"^CULVERTMATERIAL\s+\d+\s*$", "CULVERTMATERIAL      2")]
+          report(mutate(generated_text, "concrete-material2", material2))
+          report(
+              mutate(
+                  generated_text,
+                  "concrete-material2-irreg1",
+                  [
+                      *material2,
+                      (r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 1"),
+                  ],
+              )
+          )
+          report(
+              mutate(
+                  generated_text,
+                  "concrete-catalogue-geometry",
+                  [
+                      *material2,
+                      (r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 1"),
+                      (
+                          r"^BARRELGEOMETRY\s+.*$",
+                          "BARRELGEOMETRY       4.300000   4.300000   1.369167   1.583333   12.850000",
+                      ),
+                  ],
+              )
+          )
+          report(
+              mutate(
+                  generated_text,
+                  "concrete-catalogue-gui-flags",
+                  [
+                      *material2,
+                      (r"^INLETEDGETYPE\s+\d+\s*$", "INLETEDGETYPE        1"),
+                      (r"^IMPINLETEDGETYPE\s+\d+\s*$", "IMPINLETEDGETYPE     1"),
+                      (r"^IRREGSIZE\s+.*$", "IRREGSIZE            0 0 1"),
+                      (
+                          r"^BARRELGEOMETRY\s+.*$",
+                          "BARRELGEOMETRY       4.300000   4.300000   1.369167   1.583333   12.850000",
+                      ),
+                  ],
+              )
+          )
           '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\diagnose_gui_ellipse.py"
           python "$env:RUNNER_TEMP\diagnose_gui_ellipse.py"
