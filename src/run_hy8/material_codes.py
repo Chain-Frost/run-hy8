@@ -19,6 +19,7 @@ HY8_V8_MATERIAL_CODE_BY_CONTEXT: dict[tuple[CulvertShape, CulvertMaterial], int]
     (CulvertShape.CIRCLE, CulvertMaterial.CORRUGATED_STEEL): 2,
     (CulvertShape.CIRCLE, CulvertMaterial.HDPE): 5,
     (CulvertShape.BOX, CulvertMaterial.CONCRETE): 1,
+    (CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM): 1,
     (CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE): 2,
 }
 
