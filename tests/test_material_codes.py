@@ -29,10 +29,7 @@ def test_material_code_is_shape_contextual(
 
 
 def test_ellipse_material_code_one_is_steel_or_aluminum() -> None:
-    assert (
-        material_from_hy8_v8_code(CulvertShape.ELLIPTICAL, 1)
-        is CulvertMaterial.STEEL_OR_ALUMINUM
-    )
+    assert material_from_hy8_v8_code(CulvertShape.ELLIPTICAL, 1) is CulvertMaterial.STEEL_OR_ALUMINUM
 
 
 def test_unsupported_shape_material_context_fails_closed() -> None:
