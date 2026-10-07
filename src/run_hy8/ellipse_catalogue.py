@@ -31,9 +31,7 @@ SQUARE_FOOT_TO_SQUARE_METRE = 0.09290304
 ELLIPSE_CATALOGUE_MATCH_TOLERANCE_M = 2e-6
 
 ELLIPSE_CONCRETE_SOURCE_PATH = "/Elliptical/Concrete/Categories/Category 1/Sub Category 1"
-ELLIPSE_STEEL_OR_ALUMINUM_SOURCE_PATH = (
-    "/Elliptical/Steel or Aluminum/Categories/Category 1/Sub Category 1"
-)
+ELLIPSE_STEEL_OR_ALUMINUM_SOURCE_PATH = "/Elliptical/Steel or Aluminum/Categories/Category 1/Sub Category 1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -816,16 +814,12 @@ def find_ellipse_catalogue_size(
     matches = [
         entry
         for entry in catalogue
-        if abs(entry.span_m - span_m) <= tolerance_m
-        and abs(entry.rise_m - rise_m) <= tolerance_m
+        if abs(entry.span_m - span_m) <= tolerance_m and abs(entry.rise_m - rise_m) <= tolerance_m
     ]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:  # pragma: no cover - protected by catalogue uniqueness
-        msg = (
-            f"Ambiguous HY-8 {material.name} ellipse catalogue match for "
-            f"span={span_m:.9g} m, rise={rise_m:.9g} m."
-        )
+        msg = f"Ambiguous HY-8 {material.name} ellipse catalogue match for span={span_m:.9g} m, rise={rise_m:.9g} m."
         raise ValueError(msg)
 
     nearest = min(
