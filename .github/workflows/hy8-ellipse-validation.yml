@@ -1,0 +1,53 @@
+name: HY-8 ellipse validation probe
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    if: github.event.pull_request.head.ref == 'feature/issue-5-elliptical-support'
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout branch with LFS
+        uses: actions/checkout@v4
+        with:
+          ref: feature/issue-5-elliptical-support
+          lfs: true
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install project
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Extract official HY-8 8.0.1.2
+        id: hy8
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $zip = Join-Path $env:RUNNER_TEMP "hy8.zip"
+          $outer = Join-Path $env:RUNNER_TEMP "hy8-outer"
+          $payload = Join-Path $env:RUNNER_TEMP "hy8-payload"
+          Invoke-WebRequest -Uri "https://www.fhwa.dot.gov/engineering/hydraulics/software/hy8/HY88.00.2Setup.zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $outer -Force
+          New-Item -ItemType Directory -Path $payload -Force | Out-Null
+          $setup = Join-Path $outer "HY88.00.2Setup.exe"
+          $p = Start-Process -FilePath $setup -ArgumentList @("/extract", ('"' + $payload + '"'), "/exenoui") -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "HY-8 installer extraction failed: $($p.ExitCode)" }
+          $exe = Get-ChildItem -Path $payload -Recurse -Filter HY864.exe -File | Select-Object -First 1
+          if (-not $exe) { throw "HY864.exe not found" }
+          "HY8_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Using HY8_EXE=$($exe.FullName)"
+
+      - name: Run focused ellipse executable tests
+        shell: pwsh
+        run: |
+          python -m pytest -m requires_hy8 -q tests/test_elliptical.py -vv
