@@ -75,6 +75,17 @@ jobs:
                       print(f"SHAPEDB_ATTR shape={name!r} key={key!r} value={value!r}")
               print("SHAPEDB_ROOT_END")
 
+              shape_names = database["Shape Names"][()]
+              if hasattr(shape_names, "tolist"):
+                  shape_names = shape_names.tolist()
+              decoded_names = [
+                  item.decode("utf-8", errors="replace") if isinstance(item, bytes) else str(item)
+                  for item in shape_names
+              ]
+              print("SHAPEDB_SHAPE_NAMES", repr(decoded_names))
+              for code, name in enumerate(decoded_names, start=1):
+                  print(f"SHAPEDB_SHAPE_CODE code={code} name={name!r}")
+
               ellipse = database["Elliptical"]
               print("ELLIPSE_CHILDREN_BEGIN")
               for name in ellipse.keys():
