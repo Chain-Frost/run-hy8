@@ -373,8 +373,12 @@ def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     return diameter
 
 
-def _simple_flow_estimate(crossing: CulvertCrossing) -> float:
-    """Return a full-section-area scale used to seed the flow search."""
+def _simple_flow_estimate(
+    crossing: CulvertCrossing,
+    *,
+    units: UnitSystem = UnitSystem.SI,
+) -> float:
+    """Return a full-section-area scale in the project's unit system."""
     if not crossing.culverts:
         msg = "At least one culvert barrel is required."
         raise ValueError(msg)
@@ -387,10 +391,10 @@ def _simple_flow_estimate(crossing: CulvertCrossing) -> float:
         elif barrel.shape is CulvertShape.BOX:
             area = barrel.span * barrel.rise
         elif barrel.shape is CulvertShape.ELLIPTICAL:
-            area = find_concrete_ellipse_catalogue_size(
-                barrel.span,
-                barrel.rise,
-            ).area_m2
+            span_m = feet_to_metres(barrel.span) if units is UnitSystem.ENGLISH else barrel.span
+            rise_m = feet_to_metres(barrel.rise) if units is UnitSystem.ENGLISH else barrel.rise
+            catalogue_size = find_concrete_ellipse_catalogue_size(span_m, rise_m)
+            area = catalogue_size.area_ft2 if units is UnitSystem.ENGLISH else catalogue_size.area_m2
         else:
             msg = f"Flow-search area is not supported for culvert shape {barrel.shape!r}."
             raise NotImplementedError(msg)
@@ -484,7 +488,10 @@ def crossing_q_from_hw(
     )
     workspace_path, should_cleanup = _prepare_workspace(base=workspace, keep_files=keep_files)
     try:
-        simple_flow: float = _simple_flow_estimate(crossing=scenario_crossing)
+        simple_flow: float = _simple_flow_estimate(
+            crossing=scenario_crossing,
+            units=scenario_project.units,
+        )
         headwater_si = feet_to_metres(hw) if scenario_project.units is UnitSystem.ENGLISH else hw
         has_ellipse = any(barrel.shape is CulvertShape.ELLIPTICAL for barrel in scenario_crossing.culverts)
         search = _FlowSearch(
