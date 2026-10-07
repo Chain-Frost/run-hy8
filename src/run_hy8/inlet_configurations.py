@@ -78,6 +78,15 @@ class EllipticalConcreteInlet(StrEnum):
     GROOVED_EDGE_PROJECTING = "grooved-edge-projecting"
 
 
+class EllipticalSteelOrAluminumInlet(StrEnum):
+    """Straight inlet configurations for steel-or-aluminum elliptical culverts."""
+
+    HEADWALL = "headwall"
+    MITERED = "mitered"
+    BEVELED = "beveled"
+    THIN_EDGE_PROJECTING = "thin-edge-projecting"
+
+
 class ConcreteBoxInlet(StrEnum):
     """Straight inlet configurations for conventional concrete boxes."""
 
@@ -97,6 +106,7 @@ type SupportedInletConfiguration = (
     | CircularHdpeInlet
     | ConcreteBoxInlet
     | EllipticalConcreteInlet
+    | EllipticalSteelOrAluminumInlet
 )
 
 
@@ -218,6 +228,18 @@ HY8_V8_INLET_SPECS: dict[InletConfigurationKey, Hy8V8InletSpec] = {
     _inlet_key(EllipticalConcreteInlet.GROOVED_EDGE_PROJECTING): _spec(
         CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 2, "Grooved Edge Projecting"
     ),
+    _inlet_key(EllipticalSteelOrAluminumInlet.HEADWALL): _spec(
+        CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM, 0, "Headwall"
+    ),
+    _inlet_key(EllipticalSteelOrAluminumInlet.MITERED): _spec(
+        CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM, 1, "Mitered"
+    ),
+    _inlet_key(EllipticalSteelOrAluminumInlet.BEVELED): _spec(
+        CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM, 2, "Beveled"
+    ),
+    _inlet_key(EllipticalSteelOrAluminumInlet.THIN_EDGE_PROJECTING): _spec(
+        CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM, 3, "Thin Edge Projecting"
+    ),
 }
 
 _ALL_INLET_CONFIGURATIONS: tuple[SupportedInletConfiguration, ...] = (
@@ -226,6 +248,7 @@ _ALL_INLET_CONFIGURATIONS: tuple[SupportedInletConfiguration, ...] = (
     *tuple(CircularHdpeInlet),
     *tuple(ConcreteBoxInlet),
     *tuple(EllipticalConcreteInlet),
+    *tuple(EllipticalSteelOrAluminumInlet),
 )
 
 HY8_V8_INLET_BY_CONTEXT: dict[tuple[CulvertShape, CulvertMaterial, InletType, int], SupportedInletConfiguration] = {
@@ -313,6 +336,7 @@ __all__: list[str] = [
     "CircularHdpeInlet",
     "ConcreteBoxInlet",
     "EllipticalConcreteInlet",
+    "EllipticalSteelOrAluminumInlet",
     "Hy8V8InletSpec",
     "SupportedInletConfiguration",
     "default_inlet_configuration",
