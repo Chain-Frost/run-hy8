@@ -244,9 +244,7 @@ def test_steel_or_aluminum_ellipse_writer_reader_preserves_gui_catalogue_size(
         rise,
         material=CulvertMaterial.STEEL_OR_ALUMINUM,
     )
-    geometry_line = next(
-        line for line in text.splitlines() if line.startswith("BARRELGEOMETRY")
-    )
+    geometry_line = next(line for line in text.splitlines() if line.startswith("BARRELGEOMETRY"))
     geometry_values = [float(value) for value in geometry_line.split()[1:]]
     assert geometry_values == pytest.approx(
         [*catalogue_size.geometry_prefix_ft, catalogue_size.area_ft2],
@@ -393,7 +391,6 @@ def test_ellipse_hy8_v8_executable_round_trip(
     assert all(math.isfinite(profile.flow) for profile in profiles)
     assert all(math.isfinite(profile.headwater_to_depth_ratio) for profile in profiles)
     assert all(profile.flow_type for profile in profiles)
-
 
 
 @pytest.mark.requires_hy8
