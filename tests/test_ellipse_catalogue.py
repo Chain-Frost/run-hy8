@@ -50,9 +50,7 @@ def test_steel_or_aluminum_ellipse_catalogue_matches_gui_reference() -> None:
     assert entry.rise_in == pytest.approx(156.0)
     assert entry.area_ft2 == pytest.approx(201.85000610351562)
     assert entry.manning_n == pytest.approx(0.03400000184774399)
-    assert entry.geometry_prefix_ft == pytest.approx(
-        (157.0 / 12.0, 157.0 / 12.0, 54.0 / 12.0, 78.0 / 12.0)
-    )
+    assert entry.geometry_prefix_ft == pytest.approx((157.0 / 12.0, 157.0 / 12.0, 54.0 / 12.0, 78.0 / 12.0))
 
 
 def test_steel_or_aluminum_catalogue_uses_per_size_manning() -> None:
@@ -147,7 +145,6 @@ def test_writer_accepts_catalogued_english_ellipse(tmp_path: Path) -> None:
     )
 
 
-
 def _project_with_steel_or_aluminum_ellipse(
     span: float,
     rise: float,
@@ -173,15 +170,11 @@ def test_writer_accepts_catalogued_steel_or_aluminum_ellipse(tmp_path: Path) -> 
         156.0 * 0.0254,
     )
 
-    text = Hy8FileWriter(project).write(tmp_path / "steel-ellipse.hy8").read_text(
-        encoding="utf-8"
-    )
+    text = Hy8FileWriter(project).write(tmp_path / "steel-ellipse.hy8").read_text(encoding="utf-8")
 
     assert "CULVERTSHAPE         3" in text
     assert "CULVERTMATERIAL      1" in text
-    geometry_line = next(
-        line for line in text.splitlines() if line.startswith("BARRELGEOMETRY")
-    )
+    geometry_line = next(line for line in text.splitlines() if line.startswith("BARRELGEOMETRY"))
     geometry = [float(value) for value in geometry_line.split()[1:]]
     assert geometry == pytest.approx(
         [
