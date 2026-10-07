@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from enum import Enum
 from itertools import pairwise
 from pathlib import Path
@@ -280,14 +281,32 @@ class Hy8FileWriter:
         self._write_card(handle, "INLETEDGETYPE", 0)
         self._write_card(handle, "INLETEDGETYPE71", inlet_spec.v8_index)
         self._write_card(handle, "IMPINLETEDGETYPE", culvert.improved_inlet_edge_type)
+        span_file = self._length_value(culvert.span)
+        rise_file = self._length_value(culvert.rise)
         self._write_card(
             handle,
             "BARRELDATA",
-            self._length_value(culvert.span),
-            self._length_value(culvert.rise),
+            span_file,
+            rise_file,
             n_top,
             n_bottom,
         )
+        if culvert.shape is CulvertShape.ELLIPTICAL:
+            # HY-8 GUI-saved elliptical barrels carry the standard geometry
+            # state block explicitly. In particular, BARRELGEOMETRY's fifth
+            # value is the full cross-sectional area in project-file units.
+            # Omitting this block can yield finite reports with zero culvert
+            # discharge even though the shape/dimensions round-trip.
+            area_file = math.pi * span_file * rise_file / 4.0
+            self._write_card(handle, "LOWERCULVERTMANNING", 0.0)
+            self._write_card(handle, "LOWERCULVERTMANNINGB", 0.0)
+            self._write_card(handle, "IRREGSIZE", 0, 0, 0)
+            self._write_card(handle, "EMBEDDEPTH", 0.0)
+            self._write_card(handle, "BARRELGEOMETRY", 0.0, 0.0, 0.0, 0.0, area_file)
+            self._write_card(handle, "DEPRESSIONDATA", 0.0, 0.0, 0.0)
+            self._write_card(handle, "TAPEREDDATA", 0.0, 0.0, 0.0, 0.0, 0.0)
+            self._write_card(handle, "DEPRESSION", 0)
+            self._write_card(handle, "MITERED", 0)
         self._write_card(handle, "EMBANKMENTTYPE", 2)
         self._write_card(handle, "NUMBEROFBARRELS", culvert.number_of_barrels)
         self._write_card(
