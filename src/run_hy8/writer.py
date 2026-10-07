@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import tempfile
 from enum import Enum
 from itertools import pairwise
-import os
 from pathlib import Path
-import tempfile
 from typing import TextIO
 
 from .classes_references import UnitSystem
@@ -77,7 +76,7 @@ class Hy8FileWriter:
             ) as handle:
                 temp_path = Path(handle.name)
                 self._write_project(handle)
-            os.replace(temp_path, output_path)
+            temp_path.replace(output_path)
         except BaseException:
             if temp_path is not None:
                 temp_path.unlink(missing_ok=True)
