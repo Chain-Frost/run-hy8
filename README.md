@@ -79,21 +79,34 @@ box = CulvertBarrel(
 )
 ```
 
-Concrete elliptical culverts are also supported. HY-8 uses one elliptical shape code and preserves
-`span` and `rise` independently, so horizontal and vertical orientations are represented by their dimensions:
+Concrete elliptical culverts use HY-8's version-pinned size catalogue rather than arbitrary
+mathematical ellipses. A requested `span`/`rise` pair must match a concrete ellipse entry in the
+HY-8 8.0.1.2 `ShapeDB.dat`; unsupported or reversed dimensions fail closed and are never replaced
+with a nearby size.
 
 ```python
-from run_hy8 import CulvertBarrel, CulvertMaterial, CulvertShape, EllipticalConcreteInlet
+from run_hy8 import (
+    CulvertBarrel,
+    CulvertMaterial,
+    CulvertShape,
+    EllipticalConcreteInlet,
+    find_concrete_ellipse_catalogue_size,
+)
+
+size = find_concrete_ellipse_catalogue_size(1.524, 0.9652)  # HY-8 60 in x 38 in
 
 ellipse = CulvertBarrel(
     name="Ellipse 1",
     shape=CulvertShape.ELLIPTICAL,
     material=CulvertMaterial.CONCRETE,
-    span=1.5,
-    rise=0.95,
+    span=size.span_m,
+    rise=size.rise_m,
     inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
 )
 ```
+
+The catalogue selection also supplies HY-8's required `BARRELGEOMETRY` parameters. These are
+not reconstructed from a generic ellipse equation.
 
 Inlet configurations are separated by HY-8 shape and material: `CircularConcreteInlet`,
 `CircularCorrugatedSteelInlet`, `CircularHdpeInlet`, `ConcreteBoxInlet`, and
