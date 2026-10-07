@@ -197,3 +197,30 @@ def test_failed_ellipse_write_preserves_existing_file(tmp_path: Path) -> None:
         Hy8FileWriter(project).write(destination)
 
     assert destination.read_text(encoding="utf-8") == "existing valid project\n"
+
+
+
+def test_writer_uses_size_specific_steel_or_aluminum_manning(tmp_path: Path) -> None:
+    project = _project_with_steel_or_aluminum_ellipse(
+        252.0 * 0.0254,
+        182.0 * 0.0254,
+    )
+
+    text = Hy8FileWriter(project).write(tmp_path / "steel-ellipse-033.hy8").read_text(encoding="utf-8")
+    barrel_data = next(line for line in text.splitlines() if line.startswith("BARRELDATA"))
+    values = [float(value) for value in barrel_data.split()[1:]]
+
+    assert values[2:] == pytest.approx([0.033, 0.033], abs=1e-6)
+
+
+def test_writer_accepts_catalogued_steel_or_aluminum_english_units(tmp_path: Path) -> None:
+    project = _project_with_steel_or_aluminum_ellipse(
+        241.0 / 12.0,
+        156.0 / 12.0,
+        units=UnitSystem.ENGLISH,
+    )
+
+    path = Hy8FileWriter(project).write(tmp_path / "steel-ellipse-en.hy8")
+
+    assert path.exists()
+    assert "CULVERTMATERIAL      1" in path.read_text(encoding="utf-8")
