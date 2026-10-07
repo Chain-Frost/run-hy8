@@ -141,6 +141,10 @@ def test_ellipse_writer_reader_preserves_orientation(
     text = output.read_text(encoding="utf-8")
     assert "CULVERTSHAPE         3" in text
     assert "INLETEDGETYPE71      0" in text
+    geometry_line = next(line for line in text.splitlines() if line.startswith("BARRELGEOMETRY"))
+    geometry_values = [float(value) for value in geometry_line.split()[1:]]
+    expected_area_ft2 = math.pi * (span / 0.3048) * (rise / 0.3048) / 4.0
+    assert geometry_values == pytest.approx([0.0, 0.0, 0.0, 0.0, expected_area_ft2], abs=1e-6)
 
     restored = load_project_from_hy8(output)
     barrel = restored.crossings[0].culverts[0]
