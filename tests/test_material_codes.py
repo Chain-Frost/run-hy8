@@ -15,6 +15,7 @@ from run_hy8.type_helpers import CulvertMaterial, CulvertShape
         (CulvertShape.CIRCLE, CulvertMaterial.CORRUGATED_STEEL, 2),
         (CulvertShape.CIRCLE, CulvertMaterial.HDPE, 5),
         (CulvertShape.BOX, CulvertMaterial.CONCRETE, 1),
+        (CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM, 1),
         (CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 2),
     ],
 )
@@ -27,9 +28,11 @@ def test_material_code_is_shape_contextual(
     assert material_from_hy8_v8_code(shape, expected_code) is material
 
 
-def test_ellipse_material_code_one_is_not_concrete() -> None:
-    with pytest.raises(ValueError, match=r"material code 1.*ELLIPTICAL"):
+def test_ellipse_material_code_one_is_steel_or_aluminum() -> None:
+    assert (
         material_from_hy8_v8_code(CulvertShape.ELLIPTICAL, 1)
+        is CulvertMaterial.STEEL_OR_ALUMINUM
+    )
 
 
 def test_unsupported_shape_material_context_fails_closed() -> None:
