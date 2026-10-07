@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 INCH_TO_METRE = 0.0254
 INCH_TO_FOOT = 1.0 / 12.0
+SQUARE_FOOT_TO_SQUARE_METRE = 0.09290304
 
 # HY-8 project files are written to six decimal places in feet. Half one file
 # unit at that precision is about 0.0000001524 m; 2e-6 m comfortably covers a
@@ -51,6 +52,10 @@ class EllipticalCatalogueSize:
     @property
     def rise_m(self) -> float:
         return self.rise_in * INCH_TO_METRE
+
+    @property
+    def area_m2(self) -> float:
+        return self.area_ft2 * SQUARE_FOOT_TO_SQUARE_METRE
 
     @property
     def geometry_prefix_ft(self) -> tuple[float, float, float, float]:
