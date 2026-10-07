@@ -91,6 +91,23 @@ jobs:
               for name in ellipse.keys():
                   print("ELLIPSE_CHILD", repr(name))
               print("ELLIPSE_CHILDREN_END")
+
+              print("ELLIPSE_DATA_BEGIN")
+              def dump(name, obj):
+                  if isinstance(obj, h5py.Dataset):
+                      value = obj[()]
+                      if hasattr(value, "tolist"):
+                          value = value.tolist()
+                      def decode(item):
+                          if isinstance(item, bytes):
+                              return item.decode("utf-8", errors="replace")
+                          if isinstance(item, list):
+                              return [decode(value) for value in item]
+                          return item
+                      value = decode(value)
+                      print(f"ELLIPSE_DATASET path={name!r} value={value!r}")
+              ellipse.visititems(dump)
+              print("ELLIPSE_DATA_END")
           '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\shape_db_probe.py"
           python "$env:RUNNER_TEMP\shape_db_probe.py"
 
