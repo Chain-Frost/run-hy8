@@ -137,3 +137,37 @@ Acceptance requires positive and credible barrel flow, successful forward and
 inverse execution in both orientations, and preserved inlet/dimension semantics.
 Record the executable version, raw project/report evidence and final full-suite
 results after the hydraulic cause is resolved.
+
+
+## Follow-up after catalogue investigation
+
+The historical failures above were retained and investigated on the same branch.
+Subsequent comparison with the GUI-created `reference_docs/example-ellipse.hy8`
+and the pinned `ShapeDB.dat` identified two project-contract defects that were
+not represented in the original local run.
+
+1. **Material codes are shape-contextual.** For `Elliptical`, ShapeDB lists
+   `Steel or Aluminum` as material index 1 and `Concrete` as index 2. The
+   original writer treated the internal `CulvertMaterial.CONCRETE` numeric
+   value as a global file code and therefore wrote an incorrect ellipse
+   material. The writer/reader now translate material codes by
+   `(shape, material)` context.
+2. **Ellipses are catalogue shapes.** The HY-8 8.0.1.2 database contains 23
+   concrete ellipse sizes and 40 Steel-or-Aluminum sizes. A concrete
+   `60 in x 38 in` selection has ShapeDB `Br/Tr/Cr/B` values of
+   `51.6/51.6/16.43/19 in`. A controlled HY-8 executable probe showed:
+   - zero `Br/Tr/Cr/B` -> zero barrel discharge;
+   - changing `IRREGSIZE` alone -> still zero barrel discharge;
+   - ShapeDB `Br/Tr/Cr/B` -> positive barrel discharge up to the requested
+     2.0 m3/s.
+
+The current branch therefore writes concrete ellipses only when their
+`span/rise` pair matches a version-pinned ShapeDB catalogue entry. It does not
+snap to a nearest size or create a rotated/reversed entry that HY-8 does not
+list. `BARRELGEOMETRY` is populated from the matching catalogue row.
+
+This follow-up does **not** supersede the requirement for a final local
+Windows/HY-8 8.0.1.2 acceptance run. Once the hosted catalogue-backed
+executable tests and normal CI are clean, rerun the reproduction commands above
+against the then-current branch and record the new result separately from this
+historical failing run.
