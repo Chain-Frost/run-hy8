@@ -79,10 +79,10 @@ box = CulvertBarrel(
 )
 ```
 
-Concrete elliptical culverts use HY-8's version-pinned size catalogue rather than arbitrary
-mathematical ellipses. A requested `span`/`rise` pair must match a concrete ellipse entry in the
-HY-8 8.0.1.2 `ShapeDB.dat`; unsupported or reversed dimensions fail closed and are never replaced
-with a nearby size.
+Elliptical culverts use HY-8's version-pinned, material-specific size catalogues rather than
+arbitrary mathematical ellipses. HY-8 8.0.1.2 provides 23 concrete sizes and 40
+Steel-or-Aluminum sizes. A requested `span`/`rise` pair must match an entry for the selected
+material; unsupported or reversed dimensions fail closed and are never replaced with a nearby size.
 
 ```python
 from run_hy8 import (
@@ -90,28 +90,44 @@ from run_hy8 import (
     CulvertMaterial,
     CulvertShape,
     EllipticalConcreteInlet,
+    EllipticalSteelOrAluminumInlet,
     find_concrete_ellipse_catalogue_size,
+    find_steel_or_aluminum_ellipse_catalogue_size,
 )
 
-size = find_concrete_ellipse_catalogue_size(1.524, 0.9652)  # HY-8 60 in x 38 in
-
-ellipse = CulvertBarrel(
-    name="Ellipse 1",
+concrete_size = find_concrete_ellipse_catalogue_size(1.524, 0.9652)
+concrete_ellipse = CulvertBarrel(
+    name="Concrete ellipse",
     shape=CulvertShape.ELLIPTICAL,
     material=CulvertMaterial.CONCRETE,
-    span=size.span_m,
-    rise=size.rise_m,
+    span=concrete_size.span_m,
+    rise=concrete_size.rise_m,
     inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
+)
+
+steel_size = find_steel_or_aluminum_ellipse_catalogue_size(
+    241.0 * 0.0254,
+    156.0 * 0.0254,
+)
+steel_ellipse = CulvertBarrel(
+    name="Steel/aluminum ellipse",
+    shape=CulvertShape.ELLIPTICAL,
+    material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    span=steel_size.span_m,
+    rise=steel_size.rise_m,
+    inlet_configuration=EllipticalSteelOrAluminumInlet.HEADWALL,
 )
 ```
 
-The catalogue selection also supplies HY-8's required `BARRELGEOMETRY` parameters. These are
-not reconstructed from a generic ellipse equation.
+Catalogue selection supplies HY-8's required `BARRELGEOMETRY` parameters and the
+size-specific Manning value. Steel-or-Aluminum catalogue roughness is not constant across all
+40 sizes, so the selected catalogue row is authoritative when no explicit override is supplied.
 
-Inlet configurations are separated by HY-8 shape and material: `CircularConcreteInlet`,
-`CircularCorrugatedSteelInlet`, `CircularHdpeInlet`, `ConcreteBoxInlet`, and
-`EllipticalConcreteInlet`. The package supports HY-8 version 8 project files only. The older context-free
-`InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
+Inlet configurations are separated by HY-8 shape and material:
+`CircularConcreteInlet`, `CircularCorrugatedSteelInlet`, `CircularHdpeInlet`,
+`ConcreteBoxInlet`, `EllipticalConcreteInlet`, and
+`EllipticalSteelOrAluminumInlet`. The package supports HY-8 version 8 project files only.
+The older context-free `InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
 `LegacyInletConfigurationWarning` when translated.
 
 The empirical file-format findings and extension guidance are recorded in
