@@ -223,6 +223,40 @@ def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float
         (0.9652, 1.524),
     ],
 )
+def test_ellipse_inverse_helpers_with_local_hy8(
+    span: float,
+    rise: float,
+) -> None:
+    project = _ellipse_project(span=span, rise=rise)
+    crossing = project.crossings[0]
+    target_flow = 1.0
+
+    forward = crossing.hw_from_q(target_flow, project=project)
+    inverse = crossing.q_from_hw(
+        forward.computed_headwater,
+        q_hint=target_flow,
+        project=project,
+    )
+    barrel = crossing.culverts[0]
+    ratio = (forward.computed_headwater - barrel.inlet_invert_elevation) / rise
+    inverse_ratio = crossing.q_for_hwd(
+        ratio,
+        q_hint=target_flow,
+        project=project,
+    )
+
+    assert inverse.computed_flow == pytest.approx(target_flow, abs=0.02)
+    assert inverse_ratio.computed_flow == pytest.approx(target_flow, abs=0.02)
+
+
+@pytest.mark.requires_hy8
+@pytest.mark.parametrize(
+    ("span", "rise"),
+    [
+        (1.524, 0.9652),
+        (0.9652, 1.524),
+    ],
+)
 def test_ellipse_hy8_v8_executable_round_trip(
     tmp_path: Path,
     span: float,
