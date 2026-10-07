@@ -7,7 +7,6 @@ from _collections_abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..ellipse_catalogue import find_ellipse_catalogue_size
 from ..hydraulic_defaults import default_manning_values
 from ..inlet_configurations import (
     CircularCorrugatedSteelInlet,
@@ -205,15 +204,6 @@ class CulvertBarrel(Validatable):
             hy8_v8_material_code(self.shape, self.material)
         except ValueError as exc:
             errors.append(f"{prefix}{exc}")
-        if self.shape is CulvertShape.ELLIPTICAL and self.span > 0 and self.rise > 0:
-            try:
-                find_ellipse_catalogue_size(
-                    self.span,
-                    self.rise,
-                    material=self.material,
-                )
-            except ValueError as exc:
-                errors.append(f"{prefix}{exc}")
         try:
             configuration = self.resolved_inlet_configuration()
             spec: Hy8V8InletSpec = resolve_v8_inlet_spec(configuration)
@@ -227,19 +217,12 @@ class CulvertBarrel(Validatable):
         return errors
 
     def manning_values(self) -> tuple[float, float]:
-        """Return the researched HY-8 v8 Manning values for this barrel.
+        """Return the audited HY-8 v8 shape/material Manning defaults.
 
-        Elliptical roughness is selected from the exact material-specific
-        ShapeDB catalogue row because steel-or-aluminum entries vary by size.
-        Other supported contexts use the audited shape/material default.
+        Elliptical catalogue rows can refine this value by size. That
+        unit-aware selection is performed by the HY-8 writer because a barrel
+        does not know the parent project's unit system.
         """
-        if self.shape is CulvertShape.ELLIPTICAL:
-            catalogue_size = find_ellipse_catalogue_size(
-                self.span,
-                self.rise,
-                material=self.material,
-            )
-            return catalogue_size.manning_n, catalogue_size.manning_n
         return default_manning_values(shape=self.shape, material=self.material)
 
     def resolved_manning_values(self) -> tuple[float, float]:
