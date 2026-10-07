@@ -118,6 +118,14 @@ The observed file contract is:
 These probes establish the project-file/orchestration contract only. They do
 not make `run-hy8` an authority for elliptical hydraulic equations.
 
+The hosted Windows probe is retained as implementation evidence, but it is not
+the final local acceptance run. Before merge/engineering use, another agent with
+access to an installed HY-8 8.0.1.2 environment should rerun the
+`@pytest.mark.requires_hy8` ellipse tests locally, including both orientations,
+inverse helpers, writer/reader round trips, and `.rst`/`.rsql` parsing. Record
+the executable path/version and the local result in the PR handoff. Hosted CI
+does not replace that local HY-8 executable validation.
+
 The generated ellipse reports were also parsed through the existing `.rst` and
 `.rsql` readers. Crossing headwater, per-culvert discharge, inlet/outlet
 control depth, full/free barrel length, outlet velocity, flow type, profile
