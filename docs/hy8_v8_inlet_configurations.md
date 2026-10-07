@@ -68,7 +68,10 @@ catalogue rows also carry a per-size `Mannings n` value. Concrete rows are
 0.012 throughout, while the Steel-or-Aluminum catalogue contains both 0.034 and
 0.033 entries. For supported ellipses, run-hy8 therefore resolves the default
 roughness from the exact selected catalogue row rather than applying one
-material-wide value to every size.
+material-wide value to every size. Ellipse ShapeDB contexts do not contain a
+`Mannings Bottom` dataset. The retained GUI-created Steel-or-Aluminum ellipse
+writes the fourth `BARRELDATA` value as zero; the writer mirrors that convention
+for ellipse defaults while preserving an explicit user override.
 
 Defaults are selected by shape and material, even where values happen to match.
 A new supported context must be enabled explicitly; there is deliberately no
