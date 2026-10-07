@@ -53,3 +53,27 @@ update fixtures to confirmed supported selections where necessary.
 
 The schema, artifact format and implementation design are left to the agent;
 the catalogue-based contract and fail-closed behavior are required.
+
+
+## Implementation status
+
+The catalogue investigation has now established and implemented the following:
+
+- ShapeDB `Shape Names` confirms `CULVERTSHAPE 3 = Elliptical`.
+- Ellipse material codes are contextual: 1 = Steel or Aluminum, 2 = Concrete.
+- The extracted database contains 23 concrete and 40 Steel-or-Aluminum ellipse
+  catalogue rows.
+- Concrete 60 in x 38 in and 68 in x 43 in are confirmed supported test sizes.
+  The synthetic reversed 38 in x 60 in case has been removed.
+- The runtime concrete catalogue is version-pinned in
+  `src/run_hy8/ellipse_catalogue.py`; unsupported dimensions fail closed with
+  no nearest-size substitution.
+- The writer now emits ShapeDB `Br/Tr/Cr/B` values in
+  `BARRELGEOMETRY`. A controlled HY-8 8.0.1.2 probe demonstrated that these
+  fields are required for positive ellipse barrel flow.
+- The writer/reader now translate material codes by shape/material context
+  rather than serializing `CulvertMaterial.value` directly.
+- Hosted HY-8 executable regression tests passed for two concrete catalogue
+  sizes and all three supported concrete inlet configurations, including the
+  inverse helpers. Final local Windows/HY-8 acceptance is still required before
+  the PR leaves draft status.
