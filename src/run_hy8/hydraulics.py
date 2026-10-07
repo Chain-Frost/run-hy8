@@ -29,6 +29,7 @@ from loguru import logger
 from run_hy8.results import FlowProfile, Hy8Series
 
 from .classes_references import UnitSystem
+from .ellipse_catalogue import find_concrete_ellipse_catalogue_size
 from .executor import Hy8Executable
 from .models import (
     CulvertBarrel,
@@ -386,7 +387,10 @@ def _simple_flow_estimate(crossing: CulvertCrossing) -> float:
         elif barrel.shape is CulvertShape.BOX:
             area = barrel.span * barrel.rise
         elif barrel.shape is CulvertShape.ELLIPTICAL:
-            area = math.pi * barrel.span * barrel.rise / 4.0
+            area = find_concrete_ellipse_catalogue_size(
+                barrel.span,
+                barrel.rise,
+            ).area_m2
         else:
             msg = f"Flow-search area is not supported for culvert shape {barrel.shape!r}."
             raise NotImplementedError(msg)
