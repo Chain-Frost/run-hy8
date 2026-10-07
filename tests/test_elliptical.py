@@ -140,6 +140,7 @@ def test_ellipse_writer_reader_preserves_orientation(
     output = Hy8FileWriter(project).write(tmp_path / "ellipse.hy8")
     text = output.read_text(encoding="utf-8")
     assert "CULVERTSHAPE         3" in text
+    assert "CULVERTMATERIAL      2" in text
     assert "INLETEDGETYPE71      0" in text
     geometry_line = next(line for line in text.splitlines() if line.startswith("BARRELGEOMETRY"))
     geometry_values = [float(value) for value in geometry_line.split()[1:]]
