@@ -44,6 +44,7 @@ from .writer import Hy8FileWriter
 
 MINIMUM_SEED_FLOW: float = 0.05
 SEED_SCALE_FACTORS: tuple[float, ...] = (0.1, 0.25, 0.5, 1.0, 1.5, 2.0)
+ELLIPTICAL_SEED_SCALE_FACTORS: tuple[float, ...] = (0.5, 1.0, 1.5, 2.0)
 STEP_FRACTION: float = 0.25
 BRACKET_SUBDIVISIONS: int = 5
 SEED_BATCH_SIZE: int = 6
@@ -116,6 +117,8 @@ class _FlowSearch:
     q_hint: float | None = None
     max_runs: int = FLOW_SEARCH_MAX_RUNS
     tolerance: float = 1e-2
+    seed_scale_factors: tuple[float, ...] = SEED_SCALE_FACTORS
+    include_absolute_minimum_seed: bool = True
     samples: list[_FlowSample] = field(default_factory=_flow_sample_list)
 
     def _baseline_flow(self) -> float:
@@ -131,9 +134,9 @@ class _FlowSearch:
 
     def initial_candidates(self) -> list[float]:
         """Return the list of seed flows evaluated before adaptive bracketing."""
-        seeds: set[float] = {MINIMUM_SEED_FLOW}
+        seeds: set[float] = {MINIMUM_SEED_FLOW} if self.include_absolute_minimum_seed else set()
         baseline: float = self._baseline_flow()
-        for factor in SEED_SCALE_FACTORS:
+        for factor in self.seed_scale_factors:
             seeds.add(self._normalize_seed(value=baseline * factor))
         if self.simple_flow and self.simple_flow > 0:
             for factor in (0.5, 1.0):
@@ -479,7 +482,14 @@ def crossing_q_from_hw(
     try:
         simple_flow: float = _simple_flow_estimate(crossing=scenario_crossing)
         headwater_si = feet_to_metres(hw) if scenario_project.units is UnitSystem.ENGLISH else hw
-        search = _FlowSearch(target_headwater=headwater_si, simple_flow=simple_flow, q_hint=q_hint)
+        has_ellipse = any(barrel.shape is CulvertShape.ELLIPTICAL for barrel in scenario_crossing.culverts)
+        search = _FlowSearch(
+            target_headwater=headwater_si,
+            simple_flow=simple_flow,
+            q_hint=q_hint,
+            seed_scale_factors=ELLIPTICAL_SEED_SCALE_FACTORS if has_ellipse else SEED_SCALE_FACTORS,
+            include_absolute_minimum_seed=not has_ellipse,
+        )
         run_count = 0
         final_row: Hy8ResultRow | None = None
         final_flow: float | None = None
