@@ -124,20 +124,26 @@ Elliptical hydraulic execution and inverse helpers remain unvalidated. The
 cause of the zero-discharge reports needs investigation before engineering
 use; successful serialization and executable exit status do not resolve it.
 
-A Windows execution probe used the official HY-8 8.0.1.2 installer payload,
-including its byte-identical `ShapeDB.dat`, and exercised `-OpenRunSave`
-against deliberately modified project files.
+The first Windows probe treated successful `-OpenRunSave` round-tripping as
+evidence that `CULVERTSHAPE 3` represented an ellipse. Local hydraulic
+validation disproved that assumption: code 3 opens and saves but produces zero
+culvert discharge for the ellipse test cases.
 
-The observed file contract is:
+A direct HY-8 8.0.1.2 executable probe then held the project geometry and
+boundary conditions constant while varying `CULVERTSHAPE`. Code **6** was the
+first candidate that produced positive culvert discharge for the
+5.0 ft × 3.166667 ft concrete ellipse, and it is consistent with the
+GUI-authored ellipse project used for follow-up comparison.
 
-- `CULVERTSHAPE 3` is the HY-8 v8 elliptical shape code.
+The corrected project-file contract is therefore:
+
+- `CULVERTSHAPE 6` is the HY-8 v8 elliptical shape code used by this branch.
 - `CULVERTMATERIAL 1` is concrete.
 - `BARRELDATA` preserves span and rise independently.
-- A 5.0 ft × 3.166667 ft horizontal ellipse and the reversed
-  3.166667 ft × 5.0 ft vertical ellipse both completed with exit code 0,
-  generated `.rst` and `.rsql`, and retained `CULVERTSHAPE 3`.
-- HY-8 therefore does not use separate horizontal/vertical shape codes; the
-  orientation is represented by the span/rise relationship.
+- Horizontal and vertical orientation are represented by the span/rise
+  relationship rather than separate shape codes.
+- Successful file round-tripping alone is not sufficient evidence; executable
+  tests must also demonstrate positive culvert discharge.
 
 These probes establish the project-file/orchestration contract only. They do
 not make `run-hy8` an authority for elliptical hydraulic equations.
@@ -235,7 +241,7 @@ mapping does not belong in `run-hy8`.
   only in `HY8_V8_INLET_SPECS`.
 - `CulvertBarrel` validation rejects a configuration from the wrong
   shape/material context.
-- Concrete ellipses use `CulvertShape.ELLIPTICAL` (file code 3) with
+- Concrete ellipses use `CulvertShape.ELLIPTICAL` (file code 6) with
   `EllipticalConcreteInlet`; unsupported ellipse material/inlet contexts
   remain fail-closed.
 - Horizontal and vertical elliptical orientations use the same shape code and
