@@ -7,9 +7,11 @@ project cards.
 ## Scope and evidence
 
 The original findings were recorded on 13 August 2026 against HY-8 executable
-version 8.0.1.2. The concrete elliptical context was audited on 7 October 2026
-against the same executable/database pair. The maintained mappings now cover
-straight circular, conventional concrete-box, and concrete elliptical culverts.
+version 8.0.1.2. Both elliptical material contexts were audited from the pinned
+ShapeDB on 7-8 October 2026, with the retained GUI-created Steel-or-Aluminum
+ellipse as independent project-file evidence. The maintained mappings now cover
+straight circular, conventional concrete-box, concrete elliptical, and
+Steel-or-Aluminum elliptical culverts.
 
 Three sources were used:
 
@@ -61,9 +63,12 @@ that `run-hy8` does not yet construct:
 | User Defined | Concrete | 0.012 | 0.012 |
 | User Defined | Corrugated Metal Riveted or Welded | 0.035 | 0.035 |
 
-When ShapeDB contains only `Mannings`, the table repeats that value for the two
-numbers required by `BARRELDATA`. The concrete open-bottom arch is an important
-exception where ShapeDB explicitly supplies different top and bottom defaults.
+The table above records the material-level ShapeDB observations. Elliptical
+catalogue rows also carry a per-size `Mannings n` value. Concrete rows are
+0.012 throughout, while the Steel-or-Aluminum catalogue contains both 0.034 and
+0.033 entries. For supported ellipses, run-hy8 therefore resolves the default
+roughness from the exact selected catalogue row rather than applying one
+material-wide value to every size.
 
 Defaults are selected by shape and material, even where values happen to match.
 A new supported context must be enabled explicitly; there is deliberately no
@@ -218,6 +223,19 @@ These names and their zero-based order come directly from
 `Elliptical/Concrete/Entrance Types/Straight/Inlet Names` in the pinned
 HY-8 8.0.1.2 `ShapeDB.dat`.
 
+### Steel or Aluminum elliptical
+
+| Index | HY-8 configuration |
+| ---: | --- |
+| 0 | Headwall |
+| 1 | Mitered |
+| 2 | Beveled |
+| 3 | Thin Edge Projecting |
+
+These names and their zero-based order come directly from
+`Elliptical/Steel or Aluminum/Entrance Types/Straight/Inlet Names` in the
+pinned HY-8 8.0.1.2 ShapeDB.
+
 ### Conventional concrete box
 
 | Index | HY-8 configuration |
@@ -243,10 +261,11 @@ mapping does not belong in `run-hy8`.
   only in `HY8_V8_INLET_SPECS`.
 - `CulvertBarrel` validation rejects a configuration from the wrong
   shape/material context.
-- Concrete ellipses use `CulvertShape.ELLIPTICAL` (file code 3) with
-  contextual material code 2 and `EllipticalConcreteInlet`; unsupported
-  ellipse material/inlet contexts remain fail-closed.
-- Concrete ellipse dimensions must match the version-pinned HY-8 catalogue.
+- Ellipses use `CulvertShape.ELLIPTICAL` (file code 3). Steel or Aluminum is
+  contextual material code 1; Concrete is contextual material code 2.
+- Concrete and Steel-or-Aluminum ellipses use separate semantic inlet enums and
+  separate version-pinned HY-8 catalogues.
+- Ellipse dimensions must match the catalogue for the selected material.
   Arbitrary or merely reversed `span`/`rise` pairs are rejected rather than
   synthesized or snapped to a nearby size.
 - Old `InletEdgeType` and `InletEdgeType71` inputs are migration-only and emit
