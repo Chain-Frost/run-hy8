@@ -73,7 +73,7 @@ def test_catalogue_rejects_non_catalogued_size_without_substitution() -> None:
 
 
 def test_catalogue_rejects_reversed_horizontal_size() -> None:
-    with pytest.raises(ValueError, match="Unsupported HY-8 concrete elliptical size"):
+    with pytest.raises(ValueError, match="Unsupported HY-8 Concrete elliptical size"):
         find_concrete_ellipse_catalogue_size(0.9652, 1.524)
 
 
@@ -193,7 +193,7 @@ def test_failed_ellipse_write_preserves_existing_file(tmp_path: Path) -> None:
     destination.write_text("existing valid project\n", encoding="utf-8")
     project = _project_with_concrete_ellipse(0.9652, 1.524)
 
-    with pytest.raises(ValueError, match="Unsupported HY-8 CONCRETE elliptical size"):
+    with pytest.raises(ValueError, match="Unsupported HY-8 Concrete elliptical size"):
         Hy8FileWriter(project).write(destination)
 
     assert destination.read_text(encoding="utf-8") == "existing valid project\n"
