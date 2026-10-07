@@ -142,7 +142,12 @@ class CulvertShape(int, Enum):
 
 
 class CulvertMaterial(int, Enum):
-    """Material identifiers used throughout HY-8 projects."""
+    """Semantic materials used by run-hy8.
+
+    The numeric enum values are retained for compatibility and must not be
+    serialized directly. HY-8 v8 material codes are shape-contextual; use the
+    mappings in :mod:`run_hy8.material_codes` for project files.
+    """
 
     CONCRETE = 1
     CORRUGATED_STEEL = 2
