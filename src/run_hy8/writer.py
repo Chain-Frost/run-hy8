@@ -315,13 +315,7 @@ class Hy8FileWriter:
         catalogue_size: EllipticalCatalogueSize | None = None
         if culvert.shape is CulvertShape.ELLIPTICAL:
             catalogue_size = self._ellipse_catalogue_size(culvert)
-            default_n = catalogue_size.manning_n
-            n_top = culvert.manning_n_top if culvert.manning_n_top is not None else default_n
-            # ShapeDB supplies one ellipse Manning value and the retained
-            # GUI-created ellipse writes BARRELDATA's fourth field as zero.
-            n_bottom = culvert.manning_n_bottom if culvert.manning_n_bottom is not None else 0.0
-        else:
-            n_top, n_bottom = culvert.resolved_manning_values()
+        n_top, n_bottom = culvert.resolved_manning_values(units=self.project.units)
         self._write_card(handle, "INLETTYPE", culvert.inlet_type)
         inlet_spec = resolve_v8_inlet_spec(culvert.resolved_inlet_configuration())
         # HY-8 v8 still requires the pre-7.1 compatibility card, but current
