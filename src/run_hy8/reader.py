@@ -12,6 +12,7 @@ from pandas.core.frame import DataFrame
 
 from .classes_references import UnitSystem
 from .inlet_configurations import resolve_v8_inlet_configuration
+from .material_codes import material_from_hy8_v8_code
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -278,12 +279,17 @@ class _Hy8Parser:
     def _parse_culvert(self, name: str) -> CulvertBarrel:
         """Parse a block of cards between STARTCULVERT and ENDCULVERT."""
         culvert = CulvertBarrel(name=name)
+        material_code: int | None = None
         v8_inlet_index: int | None = None
         while True:
             card: _Hy8Card = self._stream.next_card()
             key: str = card.key
             value: str = card.value
             if key == "ENDCULVERT":
+                if material_code is None:
+                    msg = f"Culvert '{name}' is missing the HY-8 v8 CULVERTMATERIAL card."
+                    raise ValueError(msg)
+                culvert.material = material_from_hy8_v8_code(culvert.shape, material_code)
                 if v8_inlet_index is None:
                     msg = f"Culvert '{name}' is missing the HY-8 v8 INLETEDGETYPE71 card."
                     raise ValueError(msg)
@@ -297,7 +303,7 @@ class _Hy8Parser:
             if key == "CULVERTSHAPE":
                 culvert.shape = self._culvert_shape(value=value)
             elif key == "CULVERTMATERIAL":
-                culvert.material = self._culvert_material(value=value)
+                material_code = self._as_int(value=value)
             elif key == "INLETTYPE":
                 culvert.inlet_type = self._inlet_type(value=value)
             elif key == "INLETEDGETYPE":
@@ -462,15 +468,6 @@ class _Hy8Parser:
             return CulvertShape(value=index)
         except ValueError as exc:
             msg = f"Unsupported HY-8 v8 culvert shape code {index}."
-            raise ValueError(msg) from exc
-
-    @staticmethod
-    def _culvert_material(value: str) -> CulvertMaterial:
-        index: int = _Hy8Parser._as_int(value=value)
-        try:
-            return CulvertMaterial(value=index)
-        except ValueError as exc:
-            msg = f"Unsupported HY-8 v8 culvert material code {index}."
             raise ValueError(msg) from exc
 
     @staticmethod
