@@ -2,6 +2,12 @@
 
 from .classes_references import UnitSystem
 from .config import load_project_from_json, project_from_mapping
+from .ellipse_catalogue import (
+    CONCRETE_ELLIPSE_CATALOGUE,
+    ELLIPSE_CATALOGUE_MATCH_TOLERANCE_M,
+    EllipticalCatalogueSize,
+    find_concrete_ellipse_catalogue_size,
+)
 from .executor import Hy8Executable
 from .hy8_path import read_hy8_path_file, resolve_hy8_path, save_hy8_path
 from .hydraulics import HydraulicsResult
@@ -44,11 +50,14 @@ __all__: list[str] = [
     "CircularConcreteInlet",
     "CircularCorrugatedSteelInlet",
     "CircularHdpeInlet",
+    "CONCRETE_ELLIPSE_CATALOGUE",
     "ConcreteBoxInlet",
     "CulvertBarrel",
     "CulvertCrossing",
     "CulvertMaterial",
     "CulvertShape",
+    "ELLIPSE_CATALOGUE_MATCH_TOLERANCE_M",
+    "EllipticalCatalogueSize",
     "EllipticalConcreteInlet",
     "FlowDefinition",
     "FlowMethod",
@@ -76,6 +85,7 @@ __all__: list[str] = [
     "UnitSystem",
     "check_roadway_overtopping",
     "culvert_dataframe",
+    "find_concrete_ellipse_catalogue_size",
     "load_project_from_hy8",
     "load_project_from_json",
     "parse_rsql",
