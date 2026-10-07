@@ -51,3 +51,68 @@ jobs:
         shell: pwsh
         run: |
           python -m pytest -m requires_hy8 -q tests/test_elliptical.py -vv
+
+      - name: Verify canonical HY-8 ellipse shape code
+        shell: pwsh
+        run: |
+          @'
+          from __future__ import annotations
+
+          import re
+          from pathlib import Path
+
+          from run_hy8 import Hy8Executable, Hy8FileWriter, parse_rst
+          from tests.test_elliptical import _ellipse_project
+
+          root = Path.cwd() / "ellipse-shape-code-probes"
+          root.mkdir(exist_ok=True)
+          base = Hy8FileWriter(
+              _ellipse_project(span=1.524, rise=0.9652)
+          ).write(root / "base.hy8")
+          base_text = base.read_text(encoding="utf-8")
+          hy8 = Hy8Executable()
+
+          for requested_code in range(1, 16):
+              path = root / f"shape-{requested_code}.hy8"
+              mutated, count = re.subn(
+                  r"(?m)^CULVERTSHAPE\s+\d+\s*$",
+                  f"CULVERTSHAPE         {requested_code}",
+                  base_text,
+                  count=1,
+              )
+              if count != 1:
+                  raise RuntimeError("Expected exactly one CULVERTSHAPE card")
+              path.write_text(mutated, encoding="utf-8")
+              pre_shape = next(
+                  line for line in path.read_text(encoding="utf-8").splitlines()
+                  if line.startswith("CULVERTSHAPE")
+              )
+              completed = hy8.open_run_save(path, check=False)
+              post_shape = next(
+                  (
+                      line
+                      for line in path.read_text(encoding="utf-8").splitlines()
+                      if line.startswith("CULVERTSHAPE")
+                  ),
+                  "<missing>",
+              )
+              rst_path = path.with_suffix(".rst")
+              max_q = None
+              if rst_path.exists():
+                  try:
+                      series = parse_rst(rst_path)["Sample Crossing"]
+                      culverts = series.get("culverts", [])
+                      if culverts:
+                          max_q = max(culverts[0]["discharge"], default=None)
+                  except Exception as exc:
+                      max_q = f"parse-error:{exc!r}"
+              print(
+                  "SHAPE_CANON",
+                  f"requested={requested_code}",
+                  f"exit={completed.returncode}",
+                  f"pre={pre_shape!r}",
+                  f"post={post_shape!r}",
+                  f"max_q={max_q!r}",
+              )
+          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\shape_code_probe.py"
+          python "$env:RUNNER_TEMP\shape_code_probe.py"
