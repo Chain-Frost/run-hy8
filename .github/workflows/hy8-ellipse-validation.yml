@@ -47,68 +47,7 @@ jobs:
           "HY8_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Using HY8_EXE=$($exe.FullName)"
 
-      - name: Probe HY-8 v8 shape codes
+      - name: Run focused ellipse executable tests
         shell: pwsh
         run: |
-          @'
-          from __future__ import annotations
-
-          import math
-          import sys
-          from pathlib import Path
-
-          sys.path.insert(0, str(Path.cwd()))
-
-          from run_hy8 import (
-              EllipticalConcreteInlet,
-              Hy8Executable,
-              Hy8FileWriter,
-              parse_rst,
-          )
-          from tests.test_elliptical import _ellipse_project
-
-          root = Path.cwd() / "ellipse-shape-probes"
-          root.mkdir(exist_ok=True)
-
-          project = _ellipse_project(span=1.524, rise=0.9652)
-          project.crossings[0].culverts[0].inlet_configuration = (
-              EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
-          )
-          base = Hy8FileWriter(project).write(root / "base.hy8")
-          base_text = base.read_text(encoding="utf-8")
-          base_text = base_text.replace("INLETEDGETYPE        0", "INLETEDGETYPE        1")
-          base_text = base_text.replace("IMPINLETEDGETYPE     0", "IMPINLETEDGETYPE     1")
-
-          for shape_code in range(3, 16):
-              path = root / f"shape-{shape_code}.hy8"
-              text = base_text.replace("CULVERTSHAPE         3", f"CULVERTSHAPE         {shape_code}")
-              path.write_text(text, encoding="utf-8")
-              completed = Hy8Executable().open_run_save(path, check=False)
-              rst_path = path.with_suffix(".rst")
-              if completed.returncode != 0 or not rst_path.exists():
-                  print(
-                      f"SHAPE_PROBE {shape_code}: exit={completed.returncode}; rst={rst_path.exists()}; "
-                      f"stdout={completed.stdout!r}; stderr={completed.stderr!r}"
-                  )
-                  continue
-              try:
-                  rst = parse_rst(rst_path)["Sample Crossing"]
-                  culverts = rst["culverts"]
-                  q_culvert = max(culverts[0]["discharge"], default=float("nan")) if culverts else float("nan")
-                  saved_shape = next(
-                      (
-                          line
-                          for line in path.read_text(encoding="utf-8").splitlines()
-                          if line.startswith("CULVERTSHAPE")
-                      ),
-                      "<missing>",
-                  )
-                  print(
-                      f"SHAPE_PROBE {shape_code}: exit={completed.returncode}; "
-                      f"culvert_max={q_culvert!r}; saved={saved_shape}; "
-                      f"headwater={rst['headwater']!r}"
-                  )
-              except Exception as exc:
-                  print(f"SHAPE_PROBE {shape_code}: parse_error={exc!r}")
-          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\probe_shapes.py"
-          python "$env:RUNNER_TEMP\probe_shapes.py"
+          python -m pytest -m requires_hy8 -q tests/test_elliptical.py -vv
