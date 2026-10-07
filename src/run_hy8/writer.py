@@ -20,7 +20,6 @@ from .models import (
     TailwaterDefinition,
 )
 from .type_helpers import (
-    CulvertMaterial,
     CulvertShape,
     FlowMethod,
     RoadwayShape,
