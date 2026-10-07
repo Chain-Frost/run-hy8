@@ -1,0 +1,27 @@
+{
+  "source": {
+    "filename": "ShapeDB.dat",
+    "size_bytes": 4370624,
+    "sha256": "2479e9444feaff529313e18a1b26fc2de4f6b6c541db58477da6bebc602164a7"
+  },
+  "counts": {
+    "datasets": 1344,
+    "groups_including_root": 884,
+    "catalogue_tables": 33,
+    "catalogue_rows": 1077
+  },
+  "artifacts": {
+    "shape_catalogue.json": {
+      "sha256": "fe8b9d7b8bd5c0ae8c6ae84a94ac0f37512e9c60561d7052146194cd0abc5ab2",
+      "size_bytes": 3449192
+    },
+    "catalogue_sizes.csv": {
+      "sha256": "13ee7723d0e32ac21de187a9be16ee67d68f922b3d26d15df8556a6e8e22a947",
+      "size_bytes": 148406
+    },
+    "catalogue_parameters.csv": {
+      "sha256": "34a7d169cca9af4b1908b81ea80dc3495164c5a4015d91253d504b2ebd5c9130",
+      "size_bytes": 1074117
+    }
+  }
+}
