@@ -152,6 +152,7 @@ class CulvertMaterial(int, Enum):
     CONCRETE = 1
     CORRUGATED_STEEL = 2
     HDPE = 5
+    STEEL_OR_ALUMINUM = 6
 
 
 TailwaterRatingPoint = tuple[float, float, float]
