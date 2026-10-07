@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from .type_helpers import CulvertMaterial, CulvertShape
 
-
 HY8_V8_MATERIAL_CODE_BY_CONTEXT: dict[tuple[CulvertShape, CulvertMaterial], int] = {
     (CulvertShape.CIRCLE, CulvertMaterial.CONCRETE): 1,
     (CulvertShape.CIRCLE, CulvertMaterial.CORRUGATED_STEEL): 2,
@@ -24,8 +23,7 @@ HY8_V8_MATERIAL_CODE_BY_CONTEXT: dict[tuple[CulvertShape, CulvertMaterial], int]
 }
 
 HY8_V8_MATERIAL_BY_SHAPE_CODE: dict[tuple[CulvertShape, int], CulvertMaterial] = {
-    (shape, code): material
-    for (shape, material), code in HY8_V8_MATERIAL_CODE_BY_CONTEXT.items()
+    (shape, code): material for (shape, material), code in HY8_V8_MATERIAL_CODE_BY_CONTEXT.items()
 }
 
 
@@ -46,10 +44,7 @@ def material_from_hy8_v8_code(shape: CulvertShape, code: int) -> CulvertMaterial
     try:
         return HY8_V8_MATERIAL_BY_SHAPE_CODE[(shape, code)]
     except KeyError as exc:
-        msg = (
-            "Unsupported HY-8 v8 material code "
-            f"{code} for culvert shape {shape.name}."
-        )
+        msg = f"Unsupported HY-8 v8 material code {code} for culvert shape {shape.name}."
         raise ValueError(msg) from exc
 
 
