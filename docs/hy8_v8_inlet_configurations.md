@@ -100,6 +100,30 @@ the older card and requires the contextual one.
 
 ## Elliptical project-card evidence
 
+### Local validation on 7 October 2026
+
+Local execution against `C:\Program Files\HY-8 8.00\HY864.exe`, file and
+product version **8.0.1.2**, did not establish working elliptical hydraulics.
+The installed and retained `ShapeDB.dat` files both matched the SHA-256 above.
+
+The initial four executable tests crashed with exit status `3221225477`
+(`0xC0000005`). Their fixture inherited identical inlet/outlet stations and
+therefore a zero-length barrel. Giving the fixture a 20 m length prevented
+the crash. The revised fixture uses tailwater 0.2 m above the outlet invert
+and a 0.2/1.0/2.0 m3/s min/design/max flow range.
+
+Both orientations and all three concrete inlet configurations preserved their
+project cards and produced finite reports, but reported **zero culvert
+discharge**. Finite output alone is therefore insufficient acceptance evidence.
+The round-trip tests now also require positive culvert discharge. The forward
+helper at 1.0 m3/s raises `RoadwayOvertoppingError`, with HY-8 reporting all
+discharge over the roadway. Separate user-defined-flow and narrower
+min/design/max probes reproduced zero culvert discharge.
+
+Elliptical hydraulic execution and inverse helpers remain unvalidated. The
+cause of the zero-discharge reports needs investigation before engineering
+use; successful serialization and executable exit status do not resolve it.
+
 A Windows execution probe used the official HY-8 8.0.1.2 installer payload,
 including its byte-identical `ShapeDB.dat`, and exercised `-OpenRunSave`
 against deliberately modified project files.

@@ -39,9 +39,18 @@ def _ellipse_project(*, span: float, rise: float) -> Hy8Project:
     barrel.material = CulvertMaterial.CONCRETE
     barrel.span = span
     barrel.rise = rise
+    # HY-8 crashes on zero-length elliptical barrels.
+    barrel.outlet_invert_station = barrel.inlet_invert_station + 20.0
     barrel.inlet_configuration = EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
     barrel.manning_n_top = None
     barrel.manning_n_bottom = None
+    crossing = project.crossings[0]
+    crossing.tailwater.invert_elevation = barrel.outlet_invert_elevation
+    crossing.tailwater.constant_elevation = barrel.outlet_invert_elevation + 0.2
+    crossing.flow.minimum = 0.2
+    crossing.flow.design = 1.0
+    crossing.flow.maximum = 2.0
+    crossing.flow.user_values = [0.2, 1.0, 2.0]
     return project
 
 
@@ -208,10 +217,8 @@ def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float
     crossing = project.crossings[0]
     crossing.culverts[0].number_of_barrels = 2
 
-    characteristic_depth = hydraulics_module._characteristic_diameter(  # noqa: SLF001
-        crossing
-    )
-    seed_flow = hydraulics_module._simple_flow_estimate(crossing)  # noqa: SLF001
+    characteristic_depth = hydraulics_module._characteristic_diameter(crossing)
+    seed_flow = hydraulics_module._simple_flow_estimate(crossing)
 
     assert characteristic_depth == pytest.approx(rise)
     assert seed_flow == pytest.approx(2.0 * math.pi * span * rise / 4.0)
@@ -252,6 +259,7 @@ def test_ellipse_inverse_helpers_with_local_hy8(
 
 
 @pytest.mark.requires_hy8
+@pytest.mark.parametrize("configuration", list(EllipticalConcreteInlet))
 @pytest.mark.parametrize(
     ("span", "rise"),
     [
@@ -263,8 +271,10 @@ def test_ellipse_hy8_v8_executable_round_trip(
     tmp_path: Path,
     span: float,
     rise: float,
+    configuration: EllipticalConcreteInlet,
 ) -> None:
     project = _ellipse_project(span=span, rise=rise)
+    project.crossings[0].culverts[0].inlet_configuration = configuration
     path = Hy8FileWriter(project).write(tmp_path / "ellipse_exec.hy8")
 
     Hy8Executable().open_run_save(path)
@@ -272,6 +282,7 @@ def test_ellipse_hy8_v8_executable_round_trip(
     restored = load_project_from_hy8(path)
     barrel = restored.crossings[0].culverts[0]
     assert barrel.shape is CulvertShape.ELLIPTICAL
+    assert barrel.inlet_configuration is configuration
     assert barrel.span == pytest.approx(span, abs=2e-6)
     assert barrel.rise == pytest.approx(rise, abs=2e-6)
 
@@ -284,6 +295,9 @@ def test_ellipse_hy8_v8_executable_round_trip(
     culverts = series["culverts"]
     assert len(culverts) == 1
     culvert = culverts[0]
+    # Finite reports alone can pass even when HY-8 routes every flow over
+    # the roadway and never computes elliptical barrel hydraulics.
+    assert any(value > 0.0 for value in culvert["discharge"])
     for key in (
         "discharge",
         "inlet_control_depth",
