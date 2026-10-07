@@ -138,7 +138,7 @@ class CulvertShape(int, Enum):
 
     CIRCLE = 1
     BOX = 2
-    ELLIPTICAL = 6
+    ELLIPTICAL = 3
 
 
 class CulvertMaterial(int, Enum):
