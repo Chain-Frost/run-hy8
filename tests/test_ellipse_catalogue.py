@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from run_hy8 import (
     CONCRETE_ELLIPSE_CATALOGUE,
-    CulvertBarrel,
     CulvertMaterial,
     CulvertShape,
     EllipticalConcreteInlet,
     Hy8FileWriter,
+    Hy8Project,
     UnitSystem,
     find_concrete_ellipse_catalogue_size,
 )
@@ -59,7 +61,7 @@ def _project_with_concrete_ellipse(
     rise: float,
     *,
     units: UnitSystem = UnitSystem.SI,
-):
+) -> Hy8Project:
     project = build_sample_project()
     project.units = units
     barrel = project.crossings[0].culverts[0]
@@ -73,14 +75,14 @@ def _project_with_concrete_ellipse(
     return project
 
 
-def test_writer_rejects_non_catalogued_ellipse(tmp_path) -> None:
+def test_writer_rejects_non_catalogued_ellipse(tmp_path: Path) -> None:
     project = _project_with_concrete_ellipse(1.5, 0.95)
 
     with pytest.raises(ValueError, match="no nearest-size substitution"):
         Hy8FileWriter(project).write(tmp_path / "unsupported.hy8")
 
 
-def test_writer_accepts_catalogued_si_ellipse(tmp_path) -> None:
+def test_writer_accepts_catalogued_si_ellipse(tmp_path: Path) -> None:
     project = _project_with_concrete_ellipse(1.524, 0.9652)
 
     path = Hy8FileWriter(project).write(tmp_path / "supported-si.hy8")
@@ -88,7 +90,7 @@ def test_writer_accepts_catalogued_si_ellipse(tmp_path) -> None:
     assert path.exists()
 
 
-def test_writer_accepts_catalogued_english_ellipse(tmp_path) -> None:
+def test_writer_accepts_catalogued_english_ellipse(tmp_path: Path) -> None:
     project = _project_with_concrete_ellipse(
         5.0,
         3.166667,
