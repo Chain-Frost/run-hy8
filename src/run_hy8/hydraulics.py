@@ -344,15 +344,6 @@ def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
     return best
 
 
-def _total_barrels(crossing: CulvertCrossing) -> int:
-    """Return the number of barrels represented by the crossing."""
-    total = 0
-    for barrel in crossing.culverts:
-        count: int = barrel.number_of_barrels if barrel.number_of_barrels > 0 else 1
-        total += count
-    return total if total > 0 else 1
-
-
 def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     """Return the characteristic diameter used for HW/D ratio calculations."""
     if not crossing.culverts:
