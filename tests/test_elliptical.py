@@ -15,10 +15,12 @@ from run_hy8 import (
     CulvertMaterial,
     CulvertShape,
     EllipticalConcreteInlet,
+    EllipticalSteelOrAluminumInlet,
     Hy8Executable,
     Hy8FileWriter,
     Hy8Project,
     find_concrete_ellipse_catalogue_size,
+    find_ellipse_catalogue_size,
     load_project_from_hy8,
     load_project_from_json,
     parse_rsql,
@@ -33,16 +35,25 @@ from run_hy8.inlet_configurations import (
 from .sample_data import CONFIG_JSON, build_sample_project
 
 
-def _ellipse_project(*, span: float, rise: float) -> Hy8Project:
+def _ellipse_project(
+    *,
+    span: float,
+    rise: float,
+    material: CulvertMaterial = CulvertMaterial.CONCRETE,
+) -> Hy8Project:
     project = build_sample_project()
     barrel = project.crossings[0].culverts[0]
     barrel.shape = CulvertShape.ELLIPTICAL
-    barrel.material = CulvertMaterial.CONCRETE
+    barrel.material = material
     barrel.span = span
     barrel.rise = rise
     # HY-8 crashes on zero-length elliptical barrels.
     barrel.outlet_invert_station = barrel.inlet_invert_station + 20.0
-    barrel.inlet_configuration = EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    barrel.inlet_configuration = (
+        EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+        if material is CulvertMaterial.CONCRETE
+        else EllipticalSteelOrAluminumInlet.HEADWALL
+    )
     barrel.manning_n_top = None
     barrel.manning_n_bottom = None
     crossing = project.crossings[0]
@@ -105,6 +116,8 @@ def test_elliptical_concrete_defaults_are_context_specific() -> None:
     barrel = CulvertBarrel(
         shape=CulvertShape.ELLIPTICAL,
         material=CulvertMaterial.CONCRETE,
+        span=60.0 * 0.0254,
+        rise=38.0 * 0.0254,
         inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
     )
 
@@ -115,6 +128,14 @@ def test_elliptical_concrete_defaults_are_context_specific() -> None:
             material=CulvertMaterial.CONCRETE,
         )
         is EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    )
+
+    assert (
+        default_inlet_configuration(
+            shape=CulvertShape.ELLIPTICAL,
+            material=CulvertMaterial.STEEL_OR_ALUMINUM,
+        )
+        is EllipticalSteelOrAluminumInlet.HEADWALL
     )
 
     with pytest.raises(ValueError, match="Unsupported HY-8 v8 inlet configuration"):
@@ -199,6 +220,44 @@ def test_ellipse_json_config_preserves_catalogue_dimensions(
     assert restored.shape is CulvertShape.ELLIPTICAL
     assert restored.span == pytest.approx(span)
     assert restored.rise == pytest.approx(rise)
+
+
+def test_steel_or_aluminum_ellipse_writer_reader_preserves_gui_catalogue_size(
+    tmp_path: Path,
+) -> None:
+    span = 241.0 * 0.0254
+    rise = 156.0 * 0.0254
+    project = _ellipse_project(
+        span=span,
+        rise=rise,
+        material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    )
+
+    output = Hy8FileWriter(project).write(tmp_path / "steel_ellipse.hy8")
+    text = output.read_text(encoding="utf-8")
+
+    assert "CULVERTSHAPE         3" in text
+    assert "CULVERTMATERIAL      1" in text
+    assert "INLETEDGETYPE71      0" in text
+    catalogue_size = find_ellipse_catalogue_size(
+        span,
+        rise,
+        material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    )
+    geometry_line = next(
+        line for line in text.splitlines() if line.startswith("BARRELGEOMETRY")
+    )
+    geometry_values = [float(value) for value in geometry_line.split()[1:]]
+    assert geometry_values == pytest.approx(
+        [*catalogue_size.geometry_prefix_ft, catalogue_size.area_ft2],
+        abs=1e-6,
+    )
+
+    restored = load_project_from_hy8(output)
+    barrel = restored.crossings[0].culverts[0]
+    assert barrel.shape is CulvertShape.ELLIPTICAL
+    assert barrel.material is CulvertMaterial.STEEL_OR_ALUMINUM
+    assert barrel.inlet_configuration is EllipticalSteelOrAluminumInlet.HEADWALL
 
 
 def test_ellipse_unsupported_material_fails_closed(tmp_path: Path) -> None:
@@ -334,3 +393,38 @@ def test_ellipse_hy8_v8_executable_round_trip(
     assert all(math.isfinite(profile.flow) for profile in profiles)
     assert all(math.isfinite(profile.headwater_to_depth_ratio) for profile in profiles)
     assert all(profile.flow_type for profile in profiles)
+
+
+
+@pytest.mark.requires_hy8
+@pytest.mark.parametrize("configuration", list(EllipticalSteelOrAluminumInlet))
+def test_steel_or_aluminum_ellipse_hy8_v8_executable_round_trip(
+    tmp_path: Path,
+    configuration: EllipticalSteelOrAluminumInlet,
+) -> None:
+    span = 241.0 * 0.0254
+    rise = 156.0 * 0.0254
+    project = _ellipse_project(
+        span=span,
+        rise=rise,
+        material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    )
+    project.crossings[0].culverts[0].inlet_configuration = configuration
+    path = Hy8FileWriter(project).write(tmp_path / "steel_ellipse_exec.hy8")
+
+    Hy8Executable().open_run_save(path)
+
+    restored = load_project_from_hy8(path)
+    barrel = restored.crossings[0].culverts[0]
+    assert barrel.shape is CulvertShape.ELLIPTICAL
+    assert barrel.material is CulvertMaterial.STEEL_OR_ALUMINUM
+    assert barrel.inlet_configuration is configuration
+    assert barrel.span == pytest.approx(span, abs=2e-6)
+    assert barrel.rise == pytest.approx(rise, abs=2e-6)
+
+    rst = parse_rst(path.with_suffix(".rst"))
+    series = rst["Sample Crossing"]
+    assert series["headwater"]
+    assert all(math.isfinite(value) for value in series["headwater"])
+    culvert_result = series["culverts"][0]
+    assert any(value > 0.0 for value in culvert_result["discharge"])
