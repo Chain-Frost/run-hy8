@@ -47,13 +47,13 @@ jobs:
           "HY8_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Using HY8_EXE=$($exe.FullName)"
 
-      - name: Probe ellipse legacy/state cards
+      - name: Probe HY-8 v8 shape codes
         shell: pwsh
         run: |
           @'
           from __future__ import annotations
 
-          import shutil
+          import math
           import sys
           from pathlib import Path
 
@@ -67,7 +67,7 @@ jobs:
           )
           from tests.test_elliptical import _ellipse_project
 
-          root = Path.cwd() / "ellipse-card-probes"
+          root = Path.cwd() / "ellipse-shape-probes"
           root.mkdir(exist_ok=True)
 
           project = _ellipse_project(span=1.524, rise=0.9652)
@@ -76,69 +76,39 @@ jobs:
           )
           base = Hy8FileWriter(project).write(root / "base.hy8")
           base_text = base.read_text(encoding="utf-8")
+          base_text = base_text.replace("INLETEDGETYPE        0", "INLETEDGETYPE        1")
+          base_text = base_text.replace("IMPINLETEDGETYPE     0", "IMPINLETEDGETYPE     1")
 
-          variants = {
-              "current": {},
-              "legacy3": {"legacy": 3},
-              "imp1": {"imp": 1},
-              "legacy3_imp1": {"legacy": 3, "imp": 1},
-              "gui_full": {"legacy": 3, "imp": 1, "full": True},
-          }
-
-          for name, options in variants.items():
-              path = root / f"{name}.hy8"
-              text = base_text
-              if "legacy" in options:
-                  text = text.replace(
-                      "INLETEDGETYPE        0",
-                      f"INLETEDGETYPE        {options['legacy']}",
-                  )
-              if "imp" in options:
-                  text = text.replace(
-                      "IMPINLETEDGETYPE     0",
-                      f"IMPINLETEDGETYPE     {options['imp']}",
-                  )
-              if options.get("full"):
-                  text = text.replace(
-                      "CULVERTMATERIAL      1\n",
-                      "CULVERTMATERIAL      1\n"
-                      "LOWERCULVERTMATERIAL 1\n"
-                      'LOWERCULVMATSTR      ""\n'
-                      "BROKENCULVERT        0\n",
-                  )
-                  text = text.replace(
-                      "IMPINLETEDGETYPE     1\n",
-                      "IMPINLETEDGETYPE     1\n"
-                      "IMPROVEDINDATA       0.000000   0.000000   0.000000   0.000000   0.000000   0.000000\n",
-                  )
-                  text = text.replace(
-                      "NUMBEROFBARRELS      1\n",
-                      "NUMBEROFBARRELS      1\n"
-                      "EMBANKDATA           0.000000   0.000000   0.000000   0.000000   0.000000   0.000000\n",
-                  )
-                  marker = next(line for line in text.splitlines() if line.startswith("INVERTDATA"))
-                  text = text.replace(
-                      marker + "\n",
-                      marker
-                      + "\nBREAK                0.000000   0.000000\n"
-                      + "UPPERBREAK           0.000000   0.000000\n"
-                      + "LOWERBREAK           0.000000   0.000000\n"
-                      + "NUMSHAPECOORDS       0\n"
-                      + "EMBEDEDGEOMETRY      0\n"
-                      + "ENDEMBEDGEOMETRY\n",
-                  )
+          for shape_code in range(3, 16):
+              path = root / f"shape-{shape_code}.hy8"
+              text = base_text.replace("CULVERTSHAPE         3", f"CULVERTSHAPE         {shape_code}")
               path.write_text(text, encoding="utf-8")
-              Hy8Executable().open_run_save(path)
-              rst = parse_rst(path.with_suffix(".rst"))["Sample Crossing"]
-              culvert = rst["culverts"][0]
-              q_culvert = max(culvert["discharge"], default=float("nan"))
-              print(
-                  f"PROBE {name}: culvert_max={q_culvert!r}; "
-                  f"headwater={rst['headwater']!r}; "
-                  f"saved_legacy="
-                  f"{next((line for line in path.read_text(encoding='utf-8').splitlines() if line.startswith('INLETEDGETYPE ')), '<missing>')}; "
-                  f"saved_imp="
-                  f"{next((line for line in path.read_text(encoding='utf-8').splitlines() if line.startswith('IMPINLETEDGETYPE')), '<missing>')}"
-              )
-          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\probe_cards.py"
-          python "$env:RUNNER_TEMP\probe_cards.py"
+              completed = Hy8Executable().open_run_save(path, check=False)
+              rst_path = path.with_suffix(".rst")
+              if completed.returncode != 0 or not rst_path.exists():
+                  print(
+                      f"SHAPE_PROBE {shape_code}: exit={completed.returncode}; rst={rst_path.exists()}; "
+                      f"stdout={completed.stdout!r}; stderr={completed.stderr!r}"
+                  )
+                  continue
+              try:
+                  rst = parse_rst(rst_path)["Sample Crossing"]
+                  culverts = rst["culverts"]
+                  q_culvert = max(culverts[0]["discharge"], default=float("nan")) if culverts else float("nan")
+                  saved_shape = next(
+                      (
+                          line
+                          for line in path.read_text(encoding="utf-8").splitlines()
+                          if line.startswith("CULVERTSHAPE")
+                      ),
+                      "<missing>",
+                  )
+                  print(
+                      f"SHAPE_PROBE {shape_code}: exit={completed.returncode}; "
+                      f"culvert_max={q_culvert!r}; saved={saved_shape}; "
+                      f"headwater={rst['headwater']!r}"
+                  )
+              except Exception as exc:
+                  print(f"SHAPE_PROBE {shape_code}: parse_error={exc!r}")
+          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\probe_shapes.py"
+          python "$env:RUNNER_TEMP\probe_shapes.py"
