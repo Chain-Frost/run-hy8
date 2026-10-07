@@ -778,6 +778,11 @@ ELLIPSE_CATALOGUE_BY_MATERIAL: dict[CulvertMaterial, tuple[EllipticalCatalogueSi
     CulvertMaterial.STEEL_OR_ALUMINUM: STEEL_OR_ALUMINUM_ELLIPSE_CATALOGUE,
 }
 
+_ELLIPSE_MATERIAL_LABEL: dict[CulvertMaterial, str] = {
+    CulvertMaterial.CONCRETE: "Concrete",
+    CulvertMaterial.STEEL_OR_ALUMINUM: "Steel or Aluminum",
+}
+
 
 def ellipse_catalogue_for_material(
     material: CulvertMaterial,
@@ -811,6 +816,7 @@ def find_ellipse_catalogue_size(
         raise ValueError(msg)
 
     catalogue = ellipse_catalogue_for_material(material)
+    material_label = _ELLIPSE_MATERIAL_LABEL[material]
     matches = [
         entry
         for entry in catalogue
@@ -819,7 +825,7 @@ def find_ellipse_catalogue_size(
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:  # pragma: no cover - protected by catalogue uniqueness
-        msg = f"Ambiguous HY-8 {material.name} ellipse catalogue match for span={span_m:.9g} m, rise={rise_m:.9g} m."
+        msg = f"Ambiguous HY-8 {material_label} ellipse catalogue match for span={span_m:.9g} m, rise={rise_m:.9g} m."
         raise ValueError(msg)
 
     nearest = min(
@@ -827,7 +833,7 @@ def find_ellipse_catalogue_size(
         key=lambda entry: math.hypot(entry.span_m - span_m, entry.rise_m - rise_m),
     )
     msg = (
-        f"Unsupported HY-8 {material.name} elliptical size "
+        f"Unsupported HY-8 {material_label} elliptical size "
         f"span={span_m:.9g} m, rise={rise_m:.9g} m. "
         "HY-8 8.0.1.2 requires a catalogued ellipse size for the selected "
         "material; no nearest-size substitution is performed. "
