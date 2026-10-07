@@ -8,13 +8,17 @@ import pytest
 
 from run_hy8 import (
     CONCRETE_ELLIPSE_CATALOGUE,
+    STEEL_OR_ALUMINUM_ELLIPSE_CATALOGUE,
     CulvertMaterial,
     CulvertShape,
     EllipticalConcreteInlet,
+    EllipticalSteelOrAluminumInlet,
     Hy8FileWriter,
     Hy8Project,
     UnitSystem,
     find_concrete_ellipse_catalogue_size,
+    find_ellipse_catalogue_size,
+    find_steel_or_aluminum_ellipse_catalogue_size,
 )
 
 from .sample_data import build_sample_project
@@ -37,6 +41,25 @@ def test_concrete_ellipse_catalogue_matches_shapedb_snapshot() -> None:
     assert entry.rise_m == pytest.approx(0.9652)
 
 
+def test_steel_or_aluminum_ellipse_catalogue_matches_gui_reference() -> None:
+    assert len(STEEL_OR_ALUMINUM_ELLIPSE_CATALOGUE) == 40
+    entry = STEEL_OR_ALUMINUM_ELLIPSE_CATALOGUE[1]
+
+    assert entry.row_index_zero_based == 1
+    assert entry.span_in == pytest.approx(241.0)
+    assert entry.rise_in == pytest.approx(156.0)
+    assert entry.area_ft2 == pytest.approx(201.85000610351562)
+    assert entry.manning_n == pytest.approx(0.03400000184774399)
+    assert entry.geometry_prefix_ft == pytest.approx(
+        (157.0 / 12.0, 157.0 / 12.0, 54.0 / 12.0, 78.0 / 12.0)
+    )
+
+
+def test_steel_or_aluminum_catalogue_uses_per_size_manning() -> None:
+    assert STEEL_OR_ALUMINUM_ELLIPSE_CATALOGUE[1].manning_n == pytest.approx(0.034)
+    assert STEEL_OR_ALUMINUM_ELLIPSE_CATALOGUE[4].manning_n == pytest.approx(0.033)
+
+
 def test_catalogue_match_allows_project_file_round_trip_precision() -> None:
     entry = find_concrete_ellipse_catalogue_size(
         span_m=5.0 * 0.3048,
@@ -54,6 +77,21 @@ def test_catalogue_rejects_non_catalogued_size_without_substitution() -> None:
 def test_catalogue_rejects_reversed_horizontal_size() -> None:
     with pytest.raises(ValueError, match="Unsupported HY-8 concrete elliptical size"):
         find_concrete_ellipse_catalogue_size(0.9652, 1.524)
+
+
+def test_generic_catalogue_lookup_is_material_specific() -> None:
+    concrete = find_ellipse_catalogue_size(
+        1.524,
+        0.9652,
+        material=CulvertMaterial.CONCRETE,
+    )
+    steel = find_steel_or_aluminum_ellipse_catalogue_size(
+        241.0 * 0.0254,
+        156.0 * 0.0254,
+    )
+
+    assert concrete.span_in == pytest.approx(60.0)
+    assert steel.span_in == pytest.approx(241.0)
 
 
 def _project_with_concrete_ellipse(
@@ -107,3 +145,62 @@ def test_writer_accepts_catalogued_english_ellipse(tmp_path: Path) -> None:
         [4.3, 4.3, 16.43 / 12.0, 19.0 / 12.0, 12.850000381469727],
         abs=1e-6,
     )
+
+
+
+def _project_with_steel_or_aluminum_ellipse(
+    span: float,
+    rise: float,
+    *,
+    units: UnitSystem = UnitSystem.SI,
+) -> Hy8Project:
+    project = build_sample_project()
+    project.units = units
+    barrel = project.crossings[0].culverts[0]
+    barrel.shape = CulvertShape.ELLIPTICAL
+    barrel.material = CulvertMaterial.STEEL_OR_ALUMINUM
+    barrel.span = span
+    barrel.rise = rise
+    barrel.inlet_configuration = EllipticalSteelOrAluminumInlet.HEADWALL
+    barrel.manning_n_top = None
+    barrel.manning_n_bottom = None
+    return project
+
+
+def test_writer_accepts_catalogued_steel_or_aluminum_ellipse(tmp_path: Path) -> None:
+    project = _project_with_steel_or_aluminum_ellipse(
+        241.0 * 0.0254,
+        156.0 * 0.0254,
+    )
+
+    text = Hy8FileWriter(project).write(tmp_path / "steel-ellipse.hy8").read_text(
+        encoding="utf-8"
+    )
+
+    assert "CULVERTSHAPE         3" in text
+    assert "CULVERTMATERIAL      1" in text
+    geometry_line = next(
+        line for line in text.splitlines() if line.startswith("BARRELGEOMETRY")
+    )
+    geometry = [float(value) for value in geometry_line.split()[1:]]
+    assert geometry == pytest.approx(
+        [
+            157.0 / 12.0,
+            157.0 / 12.0,
+            54.0 / 12.0,
+            78.0 / 12.0,
+            201.85000610351562,
+        ],
+        abs=1e-6,
+    )
+
+
+def test_failed_ellipse_write_preserves_existing_file(tmp_path: Path) -> None:
+    destination = tmp_path / "existing.hy8"
+    destination.write_text("existing valid project\n", encoding="utf-8")
+    project = _project_with_concrete_ellipse(0.9652, 1.524)
+
+    with pytest.raises(ValueError, match="Unsupported HY-8 CONCRETE elliptical size"):
+        Hy8FileWriter(project).write(destination)
+
+    assert destination.read_text(encoding="utf-8") == "existing valid project\n"
