@@ -19,6 +19,7 @@ from run_hy8 import (
     Hy8FileWriter,
     InletEdgeType,
     LegacyInletConfigurationWarning,
+    UnitSystem,
     culvert_dataframe,
 )
 from run_hy8.hydraulic_defaults import HY8_V8_OBSERVED_MANNING_N
@@ -69,7 +70,32 @@ def test_hy8_v8_default_manning_values(
             barrel.span = 241.0 * 0.0254
             barrel.rise = 156.0 * 0.0254
 
-    assert barrel.manning_values() == pytest.approx((expected, expected))
+    expected_pair = (expected, 0.0) if shape is CulvertShape.ELLIPTICAL else (expected, expected)
+    assert barrel.manning_values() == pytest.approx(expected_pair)
+
+
+def test_steel_or_aluminum_ellipse_manning_uses_catalogue_row() -> None:
+    barrel = CulvertBarrel(
+        shape=CulvertShape.ELLIPTICAL,
+        material=CulvertMaterial.STEEL_OR_ALUMINUM,
+        span=252.0 * 0.0254,
+        rise=182.0 * 0.0254,
+        inlet_configuration=EllipticalSteelOrAluminumInlet.HEADWALL,
+    )
+
+    assert barrel.manning_values() == pytest.approx((0.033, 0.0))
+
+
+def test_steel_or_aluminum_ellipse_manning_supports_english_dimensions() -> None:
+    barrel = CulvertBarrel(
+        shape=CulvertShape.ELLIPTICAL,
+        material=CulvertMaterial.STEEL_OR_ALUMINUM,
+        span=241.0 / 12.0,
+        rise=156.0 / 12.0,
+        inlet_configuration=EllipticalSteelOrAluminumInlet.HEADWALL,
+    )
+
+    assert barrel.manning_values(units=UnitSystem.ENGLISH) == pytest.approx((0.034, 0.0))
 
 
 def test_default_manning_registry_covers_every_supported_context() -> None:
