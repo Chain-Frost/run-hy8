@@ -7,6 +7,7 @@ from _collections_abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..ellipse_catalogue import find_ellipse_catalogue_size
 from ..hydraulic_defaults import default_manning_values
 from ..inlet_configurations import (
     CircularCorrugatedSteelInlet,
@@ -17,6 +18,7 @@ from ..inlet_configurations import (
     resolve_v8_inlet_configuration,
     resolve_v8_inlet_spec,
 )
+from ..material_codes import hy8_v8_material_code
 from ..type_helpers import (
     CulvertMaterial,
     CulvertShape,
@@ -200,6 +202,19 @@ class CulvertBarrel(Validatable):
         if self.number_of_barrels <= 0:
             errors.append(f"{prefix}Number of barrels must be >= 1.")
         try:
+            hy8_v8_material_code(self.shape, self.material)
+        except ValueError as exc:
+            errors.append(f"{prefix}{exc}")
+        if self.shape is CulvertShape.ELLIPTICAL and self.span > 0 and self.rise > 0:
+            try:
+                find_ellipse_catalogue_size(
+                    self.span,
+                    self.rise,
+                    material=self.material,
+                )
+            except ValueError as exc:
+                errors.append(f"{prefix}{exc}")
+        try:
             configuration = self.resolved_inlet_configuration()
             spec: Hy8V8InletSpec = resolve_v8_inlet_spec(configuration)
             if (spec.shape, spec.material, spec.inlet_type) != (self.shape, self.material, self.inlet_type):
@@ -212,18 +227,19 @@ class CulvertBarrel(Validatable):
         return errors
 
     def manning_values(self) -> tuple[float, float]:
-        """Return HY-8 v8's default top and bottom Manning's n values.
+        """Return the researched HY-8 v8 Manning values for this barrel.
 
-        The defaults are a checked-in snapshot of the ``Mannings`` datasets in
-        HY-8 8.0.1.2 ``ShapeDB.dat``. HY-8 provides one default for each
-        currently supported shape/material context, while ``BARRELDATA`` needs
-        both top and bottom values, so that value is returned for both sides.
-
-        Raises:
-            ValueError: If the shape/material context has no researched HY-8
-                v8 default. This intentional failure prevents future enum
-                additions from silently receiving an unrelated roughness.
+        Elliptical roughness is selected from the exact material-specific
+        ShapeDB catalogue row because steel-or-aluminum entries vary by size.
+        Other supported contexts use the audited shape/material default.
         """
+        if self.shape is CulvertShape.ELLIPTICAL:
+            catalogue_size = find_ellipse_catalogue_size(
+                self.span,
+                self.rise,
+                material=self.material,
+            )
+            return catalogue_size.manning_n, catalogue_size.manning_n
         return default_manning_values(shape=self.shape, material=self.material)
 
     def resolved_manning_values(self) -> tuple[float, float]:
