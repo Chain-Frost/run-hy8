@@ -7,6 +7,7 @@ from _collections_abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..ellipse_catalogue import find_concrete_ellipse_catalogue_size
 from ..hydraulic_defaults import default_manning_values
 from ..inlet_configurations import (
     CircularCorrugatedSteelInlet,
@@ -197,6 +198,16 @@ class CulvertBarrel(Validatable):
             errors.append(f"{prefix}Culvert rise must be greater than zero.")
         if self.shape is CulvertShape.BOX and self.rise <= 0:
             errors.append(f"{prefix}Box culverts must include a rise.")
+        if (
+            self.shape is CulvertShape.ELLIPTICAL
+            and self.material is CulvertMaterial.CONCRETE
+            and self.span > 0
+            and self.rise > 0
+        ):
+            try:
+                find_concrete_ellipse_catalogue_size(self.span, self.rise)
+            except ValueError as exc:
+                errors.append(f"{prefix}{exc}")
         if self.number_of_barrels <= 0:
             errors.append(f"{prefix}Number of barrels must be >= 1.")
         try:
