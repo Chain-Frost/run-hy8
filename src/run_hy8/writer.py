@@ -25,7 +25,7 @@ from .type_helpers import (
     RoadwayShape,
     TailwaterType,
 )
-from .units import cms_to_cfs, metres_to_feet, weir_coefficient_to_english
+from .units import cms_to_cfs, feet_to_metres, metres_to_feet, weir_coefficient_to_english
 
 
 class Hy8FileWriter:
@@ -296,9 +296,19 @@ class Hy8FileWriter:
             # OpenRunSave, so the source catalogue area is used as the
             # source-backed input value without treating the rewritten value as
             # a persistent catalogue parameter.
+            span_m = (
+                feet_to_metres(culvert.span)
+                if self.project.units is UnitSystem.ENGLISH
+                else culvert.span
+            )
+            rise_m = (
+                feet_to_metres(culvert.rise)
+                if self.project.units is UnitSystem.ENGLISH
+                else culvert.rise
+            )
             catalogue_size = find_concrete_ellipse_catalogue_size(
-                culvert.span,
-                culvert.rise,
+                span_m,
+                rise_m,
             )
             br_file, tr_file, cr_file, b_file = catalogue_size.geometry_prefix_ft
             self._write_card(handle, "LOWERCULVERTMANNING", 0.0)
