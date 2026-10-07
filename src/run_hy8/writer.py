@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from enum import Enum
 from itertools import pairwise
+import os
 from pathlib import Path
+import tempfile
 from typing import TextIO
 
 from .classes_references import UnitSystem
-from .ellipse_catalogue import find_concrete_ellipse_catalogue_size
+from .ellipse_catalogue import find_ellipse_catalogue_size
 from .inlet_configurations import resolve_v8_inlet_spec
 from .material_codes import hy8_v8_material_code
 from .models import (
@@ -62,8 +64,24 @@ class Hy8FileWriter:
             raise FileExistsError(msg)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with output_path.open("w", encoding="utf-8") as handle:
-            self._write_project(handle)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="\n",
+                dir=output_path.parent,
+                prefix=f".{output_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temp_path = Path(handle.name)
+                self._write_project(handle)
+            os.replace(temp_path, output_path)
+        except BaseException:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+            raise
         return output_path
 
     def _write_project(self, handle: TextIO) -> None:
@@ -289,8 +307,8 @@ class Hy8FileWriter:
             n_bottom,
         )
         if culvert.shape is CulvertShape.ELLIPTICAL:
-            # HY-8 ellipses are catalogue shapes rather than arbitrary
-            # mathematical ellipses. Br/Tr/Cr/B from the matching ShapeDB row
+            # HY-8 ellipses are material-specific catalogue shapes rather than
+            # arbitrary mathematical ellipses. Br/Tr/Cr/B from the matching ShapeDB row
             # are hydraulically significant: zeroing them produces zero barrel
             # discharge. HY-8 rewrites BARRELGEOMETRY's fifth field during
             # OpenRunSave, so the source catalogue area is used as the
@@ -298,9 +316,10 @@ class Hy8FileWriter:
             # a persistent catalogue parameter.
             span_m = feet_to_metres(culvert.span) if self.project.units is UnitSystem.ENGLISH else culvert.span
             rise_m = feet_to_metres(culvert.rise) if self.project.units is UnitSystem.ENGLISH else culvert.rise
-            catalogue_size = find_concrete_ellipse_catalogue_size(
+            catalogue_size = find_ellipse_catalogue_size(
                 span_m,
                 rise_m,
+                material=culvert.material,
             )
             br_file, tr_file, cr_file, b_file = catalogue_size.geometry_prefix_ft
             self._write_card(handle, "LOWERCULVERTMANNING", 0.0)
