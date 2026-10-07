@@ -14,6 +14,7 @@ from run_hy8 import (
     CulvertBarrel,
     CulvertMaterial,
     CulvertShape,
+    EllipticalSteelOrAluminumInlet,
     Hy8Executable,
     Hy8FileWriter,
     InletEdgeType,
@@ -51,6 +52,7 @@ def test_default_barrel_is_thin_edge_corrugated_steel_pipe() -> None:
         (CulvertShape.CIRCLE, CulvertMaterial.HDPE, 0.012),
         (CulvertShape.BOX, CulvertMaterial.CONCRETE, 0.012),
         (CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE, 0.012),
+        (CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM, 0.034),
     ],
 )
 def test_hy8_v8_default_manning_values(
@@ -59,14 +61,32 @@ def test_hy8_v8_default_manning_values(
     expected: float,
 ) -> None:
     barrel = CulvertBarrel(shape=shape, material=material)
+    if shape is CulvertShape.ELLIPTICAL:
+        if material is CulvertMaterial.CONCRETE:
+            barrel.span = 60.0 * 0.0254
+            barrel.rise = 38.0 * 0.0254
+        else:
+            barrel.span = 241.0 * 0.0254
+            barrel.rise = 156.0 * 0.0254
 
-    assert barrel.manning_values() == (expected, expected)
+    assert barrel.manning_values() == pytest.approx((expected, expected))
 
 
 def test_default_manning_registry_covers_every_supported_context() -> None:
     supported_contexts = {(spec.shape, spec.material) for spec in HY8_V8_INLET_SPECS.values()}
 
-    barrels = [CulvertBarrel(shape=shape, material=material) for shape, material in supported_contexts]
+    barrels: list[CulvertBarrel] = []
+    for shape, material in supported_contexts:
+        barrel = CulvertBarrel(shape=shape, material=material)
+        if shape is CulvertShape.ELLIPTICAL:
+            if material is CulvertMaterial.CONCRETE:
+                barrel.span = 60.0 * 0.0254
+                barrel.rise = 38.0 * 0.0254
+            else:
+                barrel.span = 241.0 * 0.0254
+                barrel.rise = 156.0 * 0.0254
+        barrels.append(barrel)
+
     assert all(barrel.manning_values() for barrel in barrels)
 
 
@@ -136,7 +156,36 @@ def test_duplicate_slugs_remain_context_specific() -> None:
     assert concrete.v8_index == 0
     assert steel.v8_index == 2
     assert hdpe.v8_index == 0
-    assert len(HY8_V8_INLET_SPECS) == 27
+    assert len(HY8_V8_INLET_SPECS) == 31
+
+
+@pytest.mark.parametrize(
+    ("configuration", "expected_index"),
+    [
+        (EllipticalSteelOrAluminumInlet.HEADWALL, 0),
+        (EllipticalSteelOrAluminumInlet.MITERED, 1),
+        (EllipticalSteelOrAluminumInlet.BEVELED, 2),
+        (EllipticalSteelOrAluminumInlet.THIN_EDGE_PROJECTING, 3),
+    ],
+)
+def test_steel_or_aluminum_ellipse_v8_indices(
+    configuration: EllipticalSteelOrAluminumInlet,
+    expected_index: int,
+) -> None:
+    spec = resolve_v8_inlet_spec(configuration)
+
+    assert spec.shape is CulvertShape.ELLIPTICAL
+    assert spec.material is CulvertMaterial.STEEL_OR_ALUMINUM
+    assert spec.v8_index == expected_index
+    assert (
+        resolve_v8_inlet_configuration(
+            shape=spec.shape,
+            material=spec.material,
+            inlet_type=spec.inlet_type,
+            v8_index=expected_index,
+        )
+        is configuration
+    )
 
 
 def test_invalid_shape_material_configuration_is_rejected() -> None:
