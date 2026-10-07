@@ -208,7 +208,9 @@ def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float
     crossing = project.crossings[0]
     crossing.culverts[0].number_of_barrels = 2
 
-    characteristic_depth = hydraulics_module._characteristic_diameter(crossing)  # noqa: SLF001
+    characteristic_depth = hydraulics_module._characteristic_diameter(  # noqa: SLF001
+        crossing
+    )
     seed_flow = hydraulics_module._simple_flow_estimate(crossing)  # noqa: SLF001
 
     assert characteristic_depth == pytest.approx(rise)
