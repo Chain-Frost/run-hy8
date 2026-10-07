@@ -13,8 +13,8 @@ into a vertical one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 INCH_TO_METRE = 0.0254
 INCH_TO_FOOT = 1.0 / 12.0
