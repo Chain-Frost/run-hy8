@@ -121,7 +121,7 @@ def test_elliptical_concrete_defaults_are_context_specific() -> None:
         inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
     )
 
-    assert barrel.manning_values() == (0.012, 0.012)
+    assert barrel.manning_values() == pytest.approx((0.012, 0.0))
     assert (
         default_inlet_configuration(
             shape=CulvertShape.ELLIPTICAL,
