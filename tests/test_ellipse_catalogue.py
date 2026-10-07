@@ -10,8 +10,12 @@ from run_hy8 import (
     CulvertMaterial,
     CulvertShape,
     EllipticalConcreteInlet,
+    Hy8FileWriter,
+    UnitSystem,
     find_concrete_ellipse_catalogue_size,
 )
+
+from .sample_data import build_sample_project
 
 
 def test_concrete_ellipse_catalogue_matches_shapedb_snapshot() -> None:
@@ -50,27 +54,54 @@ def test_catalogue_rejects_reversed_horizontal_size() -> None:
         find_concrete_ellipse_catalogue_size(0.9652, 1.524)
 
 
-def test_barrel_validation_rejects_non_catalogued_ellipse() -> None:
-    barrel = CulvertBarrel(
-        shape=CulvertShape.ELLIPTICAL,
-        material=CulvertMaterial.CONCRETE,
-        span=1.5,
-        rise=0.95,
-        inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
+def _project_with_concrete_ellipse(
+    span: float,
+    rise: float,
+    *,
+    units: UnitSystem = UnitSystem.SI,
+):
+    project = build_sample_project()
+    project.units = units
+    barrel = project.crossings[0].culverts[0]
+    barrel.shape = CulvertShape.ELLIPTICAL
+    barrel.material = CulvertMaterial.CONCRETE
+    barrel.span = span
+    barrel.rise = rise
+    barrel.inlet_configuration = EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    barrel.manning_n_top = None
+    barrel.manning_n_bottom = None
+    return project
+
+
+def test_writer_rejects_non_catalogued_ellipse(tmp_path) -> None:
+    project = _project_with_concrete_ellipse(1.5, 0.95)
+
+    with pytest.raises(ValueError, match="no nearest-size substitution"):
+        Hy8FileWriter(project).write(tmp_path / "unsupported.hy8")
+
+
+def test_writer_accepts_catalogued_si_ellipse(tmp_path) -> None:
+    project = _project_with_concrete_ellipse(1.524, 0.9652)
+
+    path = Hy8FileWriter(project).write(tmp_path / "supported-si.hy8")
+
+    assert path.exists()
+
+
+def test_writer_accepts_catalogued_english_ellipse(tmp_path) -> None:
+    project = _project_with_concrete_ellipse(
+        5.0,
+        3.166667,
+        units=UnitSystem.ENGLISH,
     )
 
-    errors = barrel.validate()
+    text = Hy8FileWriter(project).write(tmp_path / "supported-en.hy8").read_text(encoding="utf-8")
 
-    assert any("requires a catalogued ellipse size" in error for error in errors)
-
-
-def test_barrel_validation_accepts_catalogued_ellipse() -> None:
-    barrel = CulvertBarrel(
-        shape=CulvertShape.ELLIPTICAL,
-        material=CulvertMaterial.CONCRETE,
-        span=1.524,
-        rise=0.9652,
-        inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
+    assert "CULVERTSHAPE         3" in text
+    assert "CULVERTMATERIAL      2" in text
+    geometry_line = next(line for line in text.splitlines() if line.startswith("BARRELGEOMETRY"))
+    geometry = [float(value) for value in geometry_line.split()[1:]]
+    assert geometry == pytest.approx(
+        [4.3, 4.3, 16.43 / 12.0, 19.0 / 12.0, 12.850000381469727],
+        abs=1e-6,
     )
-
-    assert barrel.validate() == []
