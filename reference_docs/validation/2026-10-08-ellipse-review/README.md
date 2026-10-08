@@ -3,8 +3,10 @@
 Run date: 8 October 2026, Australia/Perth. Base commit:
 `69ec68868899dd4c58f7e43b4b25c3199c36d51c`, plus the accompanying uncommitted
 reader and regression changes. This validates the working tree, not a future
-published commit. Keep the PR draft until the remaining acceptance items below
-are resolved.
+published commit. At the user's direction, the unresolved validation items are
+tracked as [future tasks outside PR #7](../../../OUTSTANDING_VALIDATION_TASKS.md).
+They are not acceptance or merge gates for this PR; their validation limitations
+remain recorded below.
 
 ## Environment and validation
 
@@ -55,7 +57,7 @@ are resolved.
    [reversed-stations](reversed-stations/). Rejecting reversed stations is not
    supported by this observation; zero length remains rejected.
 
-## Findings and outstanding acceptance
+## Findings and deferred validation
 
 The GUI reference exposed an actual reader defect: `DISCHARGEMETHOD 0` projects
 may retain an inactive `DISCHARGEXYUSER` table of two zeros. The reader previously

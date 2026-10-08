@@ -1,5 +1,11 @@
 # Current task: HY-8 elliptical catalogue contract
 
+> Follow-up status, 8 October 2026: the independent local run is recorded in
+> [review acceptance evidence](reference_docs/validation/2026-10-08-ellipse-review/README.md).
+> Remaining numerical parity, low-flow steel, optional fixture and legacy work
+> is tracked in [outstanding validation tasks](OUTSTANDING_VALIDATION_TASKS.md),
+> explicitly outside PR #7 at the user's direction.
+
 ## User direction
 
 > The main work I am on now is **not** trying random project cards. It is to
@@ -80,8 +86,8 @@ The catalogue investigation has now established and implemented the following:
 - Hosted HY-8 executable regression tests previously passed for two concrete
   catalogue sizes and all three concrete inlet configurations, including the
   inverse helpers.
-- Steel-or-Aluminum executable regressions are now included but still require
-  the final independent Windows/HY-8 8.0.1.2 acceptance run.
+- Steel-or-Aluminum executable regressions passed the independent local
+  Windows/HY-8 8.0.1.2 run at 20-60 m3/s; low-flow behavior is a deferred task.
 - Writer output is staged to a temporary sibling and atomically replaced only
   after successful serialization; invalid catalogue selections cannot truncate
   an existing project.
@@ -98,6 +104,7 @@ SHA-256:
 
 `5075f675f7ea330ff95bd530ca5ef38764ade8163c9fd609df45616377040230`
 
-The remaining acceptance gate is the independent local Windows/HY-8 8.0.1.2
-run described in `ELLIPTICAL_VALIDATION_FEEDBACK.md`. The PR stays draft and
-must not be merged until that local handoff is recorded.
+The independent local Windows/HY-8 8.0.1.2 run is now recorded in the
+[8 October handoff](reference_docs/validation/2026-10-08-ellipse-review/README.md).
+The unresolved follow-up items in [outstanding validation tasks](OUTSTANDING_VALIDATION_TASKS.md)
+are explicitly outside PR #7 and are not merge gates for that PR.
