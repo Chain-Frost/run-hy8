@@ -171,3 +171,62 @@ Windows/HY-8 8.0.1.2 acceptance run. Once the hosted catalogue-backed
 executable tests and normal CI are clean, rerun the reproduction commands above
 against the then-current branch and record the new result separately from this
 historical failing run.
+
+
+## Current final acceptance target — 8 October 2026
+
+The implementation has since been expanded to the full HY-8 8.0.1.2
+elliptical material contexts represented by the pinned ShapeDB:
+
+- Concrete: 23 catalogue sizes, material code 2, three straight inlet
+  configurations.
+- Steel or Aluminum: 40 catalogue sizes, material code 1, four straight inlet
+  configurations: Headwall, Mitered, Beveled, and Thin Edge Projecting.
+- The retained GUI-created Steel-or-Aluminum reference is 241 in x 156 in with
+  material code 1, Manning n 0.034, and ShapeDB Br/Tr/Cr/B geometry.
+- Steel-or-Aluminum catalogue Manning values are size-specific: the catalogue
+  contains both 0.034 and 0.033 rows.
+- Ellipse ShapeDB contexts do not contain a Mannings Bottom dataset. The
+  GUI-created reference writes BARRELDATA's fourth field as 0.000000; the
+  default serializer now matches that behavior while preserving an explicit
+  user override.
+- Failed catalogue validation cannot truncate an existing project: validation
+  occurs before staging and final output replacement is atomic.
+
+The historical failing results above remain useful provenance but are no
+longer the expected result. The final Windows agent should validate the current
+branch HEAD rather than the historical commit recorded at the top of this file.
+
+Run:
+
+```powershell
+git status --short
+git rev-parse HEAD
+$env:PYTHONPATH = 'src'
+
+python -m ruff check .
+python -m ruff format --check .
+python -m pyright src/run_hy8
+
+python -m pytest tests/test_elliptical.py -m requires_hy8 -q --tb=short
+python -m pytest tests -m 'not legacy_parity' -q --tb=short -rs
+
+python scripts/verify_wheel.py
+python scripts/smoke_test_installed_wheel.py
+```
+
+For the executable ellipse tests, record at minimum:
+
+1. HY-8 executable/product version and path.
+2. Concrete 60 x 38 in and 68 x 43 in cases produce positive, finite barrel
+   discharge and preserve all three concrete inlet configurations.
+3. Steel-or-Aluminum 241 x 156 in produces positive, finite barrel discharge
+   and preserves all four Steel-or-Aluminum inlet configurations.
+4. Reader round trips preserve shape 3 and contextual material codes
+   (Steel or Aluminum = 1; Concrete = 2).
+5. The inverse helpers `hw_from_q()`, `q_from_hw()`, and `q_for_hwd()`
+   complete for the supported ellipse cases rather than routing all flow over
+   the roadway.
+6. No supported catalogue case is silently rotated, snapped, or substituted.
+
+Do not merge PR #7 until this current-head executable validation is recorded.
