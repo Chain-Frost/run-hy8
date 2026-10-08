@@ -295,6 +295,39 @@ def test_ellipse_inverse_helpers_use_rise_and_full_area(span: float, rise: float
     assert seed_flow == pytest.approx(2.0 * catalogue_size.area_m2)
 
 
+def test_steel_or_aluminum_inverse_seed_uses_material_catalogue() -> None:
+    span = 241.0 * 0.0254
+    rise = 156.0 * 0.0254
+    project = _ellipse_project(
+        span=span,
+        rise=rise,
+        material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    )
+    crossing = project.crossings[0]
+    crossing.culverts[0].number_of_barrels = 2
+
+    seed_flow = hydraulics_module._simple_flow_estimate(crossing)
+    catalogue_size = find_ellipse_catalogue_size(
+        span,
+        rise,
+        material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    )
+
+    assert seed_flow == pytest.approx(2.0 * catalogue_size.area_m2)
+
+
+def test_zero_length_ellipse_fails_validation_before_write(tmp_path: Path) -> None:
+    project = _ellipse_project(span=1.524, rise=0.9652)
+    barrel = project.crossings[0].culverts[0]
+    barrel.outlet_invert_station = barrel.inlet_invert_station
+    output = tmp_path / "zero-length.hy8"
+
+    with pytest.raises(ValueError, match="non-zero barrel length"):
+        Hy8FileWriter(project).write(output)
+
+    assert not output.exists()
+
+
 @pytest.mark.requires_hy8
 @pytest.mark.parametrize(
     ("span", "rise"),
