@@ -12,7 +12,7 @@ from pandas.core.frame import DataFrame
 
 from .classes_references import UnitSystem
 from .inlet_configurations import resolve_v8_inlet_configuration
-from .material_codes import material_from_hy8_v8_code
+from .material_codes import hy8_v8_material_code, material_from_hy8_v8_code
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -511,8 +511,14 @@ def culvert_dataframe(project: Hy8Project) -> pd.DataFrame:
             for field in barrel_fields:
                 value = getattr(culvert, field.name)
                 if isinstance(value, Enum):
-                    row[field.name] = value.value
                     label: str = getattr(value, "label", value.name.replace("_", " ").title())
+                    if field.name == "material":
+                        # CulvertMaterial.value is a retained compatibility
+                        # number, not a universal HY-8 material code.
+                        row[field.name] = value.name
+                        row["hy8_material_code"] = hy8_v8_material_code(culvert.shape, culvert.material)
+                    else:
+                        row[field.name] = value.value
                     row[f"{field.name}_name"] = label
                 else:
                     row[field.name] = value
