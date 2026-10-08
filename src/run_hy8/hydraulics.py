@@ -29,7 +29,7 @@ from loguru import logger
 from run_hy8.results import FlowProfile, Hy8Series
 
 from .classes_references import UnitSystem
-from .ellipse_catalogue import find_concrete_ellipse_catalogue_size
+from .ellipse_catalogue import find_ellipse_catalogue_size
 from .executor import Hy8Executable
 from .models import (
     CulvertBarrel,
@@ -393,7 +393,11 @@ def _simple_flow_estimate(
         elif barrel.shape is CulvertShape.ELLIPTICAL:
             span_m = feet_to_metres(barrel.span) if units is UnitSystem.ENGLISH else barrel.span
             rise_m = feet_to_metres(barrel.rise) if units is UnitSystem.ENGLISH else barrel.rise
-            catalogue_size = find_concrete_ellipse_catalogue_size(span_m, rise_m)
+            catalogue_size = find_ellipse_catalogue_size(
+                span_m,
+                rise_m,
+                material=barrel.material,
+            )
             area = catalogue_size.area_ft2 if units is UnitSystem.ENGLISH else catalogue_size.area_m2
         else:
             msg = f"Flow-search area is not supported for culvert shape {barrel.shape!r}."
