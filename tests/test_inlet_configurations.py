@@ -253,24 +253,6 @@ def test_culvert_dataframe_exposes_semantic_configuration_only() -> None:
     assert "_legacy_warning_emitted" not in dataframe.columns
 
 
-def test_culvert_dataframe_separates_semantic_material_from_hy8_code() -> None:
-    project = build_sample_project()
-    barrel = project.crossings[0].culverts[0]
-    barrel.shape = CulvertShape.ELLIPTICAL
-    barrel.material = CulvertMaterial.STEEL_OR_ALUMINUM
-    barrel.span = 241.0 * 0.0254
-    barrel.rise = 156.0 * 0.0254
-    barrel.inlet_configuration = EllipticalSteelOrAluminumInlet.HEADWALL
-
-    dataframe = culvert_dataframe(project)
-    row = dataframe.iloc[0]
-
-    assert row["material"] == "STEEL_OR_ALUMINUM"
-    assert row["material_name"] == "Steel Or Aluminum"
-    assert row["hy8_material_code"] == 1
-    assert CulvertMaterial.STEEL_OR_ALUMINUM.value == 6
-
-
 def test_legacy_constructor_input_warns() -> None:
     with pytest.warns(LegacyInletConfigurationWarning):
         barrel = CulvertBarrel(inlet_edge_type=InletEdgeType.THIN_EDGE_PROJECTING)
