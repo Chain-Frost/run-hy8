@@ -6,9 +6,11 @@ the installed ``ShapeDB.dat`` on 2026-08-13, including combinations that
 future shape/material work discoverable without pretending those combinations
 are already supported by the public barrel model.
 
-Where ShapeDB provides only ``Mannings``, HY-8 uses the same value for both
-parts of the ``BARRELDATA`` pair. Where it also provides ``Mannings Bottom``,
-the two observed values are retained separately.
+The registry preserves material-level ShapeDB observations as Manning pairs for
+the public default API. It does not define the exact project-card convention
+for every shape. In particular, ellipse catalogue rows carry their own Manning
+value and the writer uses the GUI-observed zero default for BARRELDATA's fourth
+field unless the caller explicitly overrides it.
 """
 
 from __future__ import annotations
@@ -59,6 +61,11 @@ _SUPPORTED_CONTEXT_NAMES: dict[tuple[CulvertShape, CulvertMaterial], Hy8ShapeMat
     ),
     (CulvertShape.CIRCLE, CulvertMaterial.HDPE): ("Circular", "Smooth HDPE"),
     (CulvertShape.BOX, CulvertMaterial.CONCRETE): ("Concrete Box", "Concrete"),
+    (CulvertShape.ELLIPTICAL, CulvertMaterial.CONCRETE): ("Elliptical", "Concrete"),
+    (CulvertShape.ELLIPTICAL, CulvertMaterial.STEEL_OR_ALUMINUM): (
+        "Elliptical",
+        "Steel or Aluminum",
+    ),
 }
 
 

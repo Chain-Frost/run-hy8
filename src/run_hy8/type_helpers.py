@@ -134,18 +134,25 @@ class ImprovedInletEdgeType(_DescribedIntEnum):
 
 
 class CulvertShape(int, Enum):
-    """Culvert barrel shapes supported by HY-8."""
+    """Culvert barrel shapes supported by HY-8 v8 project files."""
 
     CIRCLE = 1
     BOX = 2
+    ELLIPTICAL = 3
 
 
 class CulvertMaterial(int, Enum):
-    """Material identifiers used throughout HY-8 projects."""
+    """Semantic materials used by run-hy8.
+
+    The numeric enum values are retained for compatibility and must not be
+    serialized directly. HY-8 v8 material codes are shape-contextual; use the
+    mappings in :mod:`run_hy8.material_codes` for project files.
+    """
 
     CONCRETE = 1
     CORRUGATED_STEEL = 2
     HDPE = 5
+    STEEL_OR_ALUMINUM = 6
 
 
 TailwaterRatingPoint = tuple[float, float, float]

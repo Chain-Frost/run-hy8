@@ -79,9 +79,57 @@ box = CulvertBarrel(
 )
 ```
 
-Inlet configurations are separated by HY-8 shape and material: `CircularConcreteInlet`,
-`CircularCorrugatedSteelInlet`, `CircularHdpeInlet`, and `ConcreteBoxInlet`. The package supports HY-8 version 8
-project files only. The older context-free `InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
+Elliptical culverts use HY-8's version-pinned, material-specific size catalogues rather than
+arbitrary mathematical ellipses. HY-8 8.0.1.2 provides 23 concrete sizes and 40
+Steel-or-Aluminum sizes. A requested `span`/`rise` pair must match an entry for the selected
+material; unsupported or reversed dimensions fail closed and are never replaced with a nearby size.
+
+```python
+from run_hy8 import (
+    CulvertBarrel,
+    CulvertMaterial,
+    CulvertShape,
+    EllipticalConcreteInlet,
+    EllipticalSteelOrAluminumInlet,
+    find_concrete_ellipse_catalogue_size,
+    find_steel_or_aluminum_ellipse_catalogue_size,
+)
+
+concrete_size = find_concrete_ellipse_catalogue_size(1.524, 0.9652)
+concrete_ellipse = CulvertBarrel(
+    name="Concrete ellipse",
+    shape=CulvertShape.ELLIPTICAL,
+    material=CulvertMaterial.CONCRETE,
+    span=concrete_size.span_m,
+    rise=concrete_size.rise_m,
+    outlet_invert_station=20.0,
+    inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
+)
+
+steel_size = find_steel_or_aluminum_ellipse_catalogue_size(
+    241.0 * 0.0254,
+    156.0 * 0.0254,
+)
+steel_ellipse = CulvertBarrel(
+    name="Steel/aluminum ellipse",
+    shape=CulvertShape.ELLIPTICAL,
+    material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    span=steel_size.span_m,
+    rise=steel_size.rise_m,
+    outlet_invert_station=20.0,
+    inlet_configuration=EllipticalSteelOrAluminumInlet.HEADWALL,
+)
+```
+
+Catalogue selection supplies HY-8's required `BARRELGEOMETRY` parameters and the
+size-specific Manning value. Steel-or-Aluminum catalogue roughness is not constant across all
+40 sizes, so the selected catalogue row is authoritative when no explicit override is supplied.
+
+Inlet configurations are separated by HY-8 shape and material:
+`CircularConcreteInlet`, `CircularCorrugatedSteelInlet`, `CircularHdpeInlet`,
+`ConcreteBoxInlet`, `EllipticalConcreteInlet`, and
+`EllipticalSteelOrAluminumInlet`. The package supports HY-8 version 8 project files only.
+The older context-free `InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
 `LegacyInletConfigurationWarning` when translated.
 
 The empirical file-format findings and extension guidance are recorded in

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import tempfile
 from enum import Enum
 from itertools import pairwise
 from pathlib import Path
-from typing import TextIO
+from typing import TextIO, cast
 
 from .classes_references import UnitSystem
+from .ellipse_catalogue import EllipticalCatalogueSize, find_ellipse_catalogue_size
 from .inlet_configurations import resolve_v8_inlet_spec
+from .material_codes import hy8_v8_material_code
 from .models import (
     CulvertBarrel,
     CulvertCrossing,
@@ -18,13 +21,12 @@ from .models import (
     TailwaterDefinition,
 )
 from .type_helpers import (
-    CulvertMaterial,
     CulvertShape,
     FlowMethod,
     RoadwayShape,
     TailwaterType,
 )
-from .units import cms_to_cfs, metres_to_feet, weir_coefficient_to_english
+from .units import cms_to_cfs, feet_to_metres, metres_to_feet, weir_coefficient_to_english
 
 
 class Hy8FileWriter:
@@ -52,6 +54,7 @@ class Hy8FileWriter:
         """Validate the project and write it to a .hy8 file on disk."""
         output_path = output_path.with_suffix(".hy8")
         errors: list[str] = self.project.validate()
+        errors.extend(self._serialization_validation_errors())
         if errors:
             message: str = "HY-8 project validation failed:\n" + "\n".join(errors)
             raise ValueError(message)
@@ -61,9 +64,51 @@ class Hy8FileWriter:
             raise FileExistsError(msg)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with output_path.open("w", encoding="utf-8") as handle:
-            self._write_project(handle)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="\n",
+                dir=output_path.parent,
+                prefix=f".{output_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temp_path = Path(handle.name)
+                self._write_project(cast(TextIO, handle))
+            temp_path.replace(output_path)
+        except BaseException:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+            raise
         return output_path
+
+    def _serialization_validation_errors(self) -> list[str]:
+        """Return writer-specific validation errors that require project units."""
+        errors: list[str] = []
+        for crossing_index, crossing in enumerate(self.project.crossings, start=1):
+            for culvert_index, culvert in enumerate(crossing.culverts, start=1):
+                if culvert.shape is not CulvertShape.ELLIPTICAL:
+                    continue
+                try:
+                    self._ellipse_catalogue_size(culvert)
+                except ValueError as exc:
+                    errors.append(
+                        f"Crossing #{crossing_index} ({crossing.name}), "
+                        f"culvert #{culvert_index} ({culvert.name}): {exc}"
+                    )
+        return errors
+
+    def _ellipse_catalogue_size(self, culvert: CulvertBarrel) -> EllipticalCatalogueSize:
+        """Resolve an ellipse catalogue row using the parent project's units."""
+        span_m = feet_to_metres(culvert.span) if self.project.units is UnitSystem.ENGLISH else culvert.span
+        rise_m = feet_to_metres(culvert.rise) if self.project.units is UnitSystem.ENGLISH else culvert.rise
+        return find_ellipse_catalogue_size(
+            span_m,
+            rise_m,
+            material=culvert.material,
+        )
 
     def _write_project(self, handle: TextIO) -> None:
         """Write top-level project metadata and each crossing."""
@@ -264,13 +309,13 @@ class Hy8FileWriter:
         """Write geometric and hydraulic properties for a barrel."""
         self._write_card(handle, "STARTCULVERT", f'"{culvert.name}"')
         culvert_shape: int = culvert.shape.value
-        culvert_material: int = culvert.material.value
-        if culvert.shape is CulvertShape.BOX:
-            # HY-8 expects boxes to be flagged as concrete, even if the user set a different material.
-            culvert_material = CulvertMaterial.CONCRETE.value
+        culvert_material: int = hy8_v8_material_code(culvert.shape, culvert.material)
         self._write_card(handle, "CULVERTSHAPE", culvert_shape)
         self._write_card(handle, "CULVERTMATERIAL", culvert_material)
-        n_top, n_bottom = culvert.resolved_manning_values()
+        catalogue_size: EllipticalCatalogueSize | None = None
+        if culvert.shape is CulvertShape.ELLIPTICAL:
+            catalogue_size = self._ellipse_catalogue_size(culvert)
+        n_top, n_bottom = culvert.resolved_manning_values(units=self.project.units)
         self._write_card(handle, "INLETTYPE", culvert.inlet_type)
         inlet_spec = resolve_v8_inlet_spec(culvert.resolved_inlet_configuration())
         # HY-8 v8 still requires the pre-7.1 compatibility card, but current
@@ -280,14 +325,45 @@ class Hy8FileWriter:
         self._write_card(handle, "INLETEDGETYPE", 0)
         self._write_card(handle, "INLETEDGETYPE71", inlet_spec.v8_index)
         self._write_card(handle, "IMPINLETEDGETYPE", culvert.improved_inlet_edge_type)
+        span_file = self._length_value(culvert.span)
+        rise_file = self._length_value(culvert.rise)
         self._write_card(
             handle,
             "BARRELDATA",
-            self._length_value(culvert.span),
-            self._length_value(culvert.rise),
+            span_file,
+            rise_file,
             n_top,
             n_bottom,
         )
+        if culvert.shape is CulvertShape.ELLIPTICAL:
+            # HY-8 ellipses are material-specific catalogue shapes rather than
+            # arbitrary mathematical ellipses. Br/Tr/Cr/B from the matching ShapeDB row
+            # are hydraulically significant: zeroing them produces zero barrel
+            # discharge. HY-8 rewrites BARRELGEOMETRY's fifth field during
+            # OpenRunSave, so the source catalogue area is used as the
+            # source-backed input value without treating the rewritten value as
+            # a persistent catalogue parameter.
+            if catalogue_size is None:  # pragma: no cover - guarded above
+                msg = "Missing HY-8 ellipse catalogue selection."
+                raise RuntimeError(msg)
+            br_file, tr_file, cr_file, b_file = catalogue_size.geometry_prefix_ft
+            self._write_card(handle, "LOWERCULVERTMANNING", 0.0)
+            self._write_card(handle, "LOWERCULVERTMANNINGB", 0.0)
+            self._write_card(handle, "IRREGSIZE", 0, 0, 1)
+            self._write_card(handle, "EMBEDDEPTH", 0.0)
+            self._write_card(
+                handle,
+                "BARRELGEOMETRY",
+                br_file,
+                tr_file,
+                cr_file,
+                b_file,
+                catalogue_size.area_ft2,
+            )
+            self._write_card(handle, "DEPRESSIONDATA", 0.0, 0.0, 0.0)
+            self._write_card(handle, "TAPEREDDATA", 0.0, 0.0, 0.0, 0.0, 0.0)
+            self._write_card(handle, "DEPRESSION", 0)
+            self._write_card(handle, "MITERED", 0)
         self._write_card(handle, "EMBANKMENTTYPE", 2)
         self._write_card(handle, "NUMBEROFBARRELS", culvert.number_of_barrels)
         self._write_card(

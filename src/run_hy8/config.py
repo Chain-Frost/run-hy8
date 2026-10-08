@@ -376,7 +376,7 @@ def _parse_culvert_material(value: Any) -> CulvertMaterial:
     Returns:
         The matching CulvertMaterial enum member.
     """
-    normalized: str = str(value).strip().upper().replace(" ", "_")
+    normalized: str = str(value).strip().upper().replace(" ", "_").replace("-", "_")
     try:
         return CulvertMaterial[normalized]
     except KeyError as exc:
