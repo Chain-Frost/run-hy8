@@ -1,5 +1,9 @@
 # Elliptical support: local validation feedback
 
+> This is the historical 7 October run. See the
+> [8 October review acceptance evidence](reference_docs/validation/2026-10-08-ellipse-review/README.md)
+> for the current local run, fixes, raw artifacts and remaining parity gate.
+
 Date: 7 October 2026 (Australia/Perth)
 Repository: `E:\Github\run-hy8`
 Branch: `feature/issue-5-elliptical-support`

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import pytest
@@ -19,9 +20,74 @@ from run_hy8 import (
     find_concrete_ellipse_catalogue_size,
     find_ellipse_catalogue_size,
     find_steel_or_aluminum_ellipse_catalogue_size,
+    load_project_from_hy8,
 )
+from run_hy8.ellipse_catalogue import EllipticalCatalogueSize
 
 from .sample_data import build_sample_project
+
+
+@pytest.mark.parametrize("units", [UnitSystem.SI, UnitSystem.ENGLISH])
+@pytest.mark.parametrize(
+    ("material", "entry"),
+    [
+        (material, entry)
+        for material, catalogue in (
+            (CulvertMaterial.CONCRETE, CONCRETE_ELLIPSE_CATALOGUE),
+            (CulvertMaterial.STEEL_OR_ALUMINUM, STEEL_OR_ALUMINUM_ELLIPSE_CATALOGUE),
+        )
+        for entry in catalogue
+    ],
+    ids=lambda value: value.name if isinstance(value, CulvertMaterial) else str(value.row_index_zero_based),
+)
+def test_entire_catalogue_writer_readback(
+    tmp_path: Path,
+    units: UnitSystem,
+    material: CulvertMaterial,
+    entry: EllipticalCatalogueSize,
+) -> None:
+    source_path = Path(__file__).resolve().parents[1] / "reference_docs/catalogue/catalogue_sizes.csv"
+    label = "Concrete" if material is CulvertMaterial.CONCRETE else "Steel or Aluminum"
+    with source_path.open(newline="", encoding="utf-8") as handle:
+        source_rows = [row for row in csv.DictReader(handle) if row["table_path"].startswith(f"/Elliptical/{label}/")]
+    source = source_rows[entry.row_index_zero_based]
+    assert [
+        entry.span_in,
+        entry.rise_in,
+        entry.area_ft2,
+        entry.manning_n,
+        entry.br_in,
+        entry.tr_in,
+        entry.cr_in,
+        entry.b_in,
+    ] == [float(source[key]) for key in ("Span", "Rise", "Area", "Mannings n", "Br", "Tr", "Cr", "B")]
+    span = entry.span_m if units is UnitSystem.SI else entry.span_in / 12
+    rise = entry.rise_m if units is UnitSystem.SI else entry.rise_in / 12
+    factory = (
+        _project_with_concrete_ellipse
+        if material is CulvertMaterial.CONCRETE
+        else _project_with_steel_or_aluminum_ellipse
+    )
+    project = factory(span, rise, units=units)
+    path = Hy8FileWriter(project).write(tmp_path / "catalogue.hy8")
+    cards = {line.split()[0]: line.split()[1:] for line in path.read_text().splitlines() if line.split()}
+    assert [float(value) for value in cards["BARRELGEOMETRY"]] == pytest.approx(
+        [*entry.geometry_prefix_ft, entry.area_ft2],
+        abs=1e-6,
+    )
+    assert [float(value) for value in cards["BARRELDATA"]][2:] == pytest.approx(
+        [entry.manning_n, 0.0],
+        abs=1e-6,
+    )
+    restored = load_project_from_hy8(path)
+    barrel = restored.crossings[0].culverts[0]
+    # Reader normalizes all project-file lengths to SI, regardless of display flag.
+    assert restored.units is UnitSystem.SI
+    assert barrel.material is material
+    assert barrel.shape is CulvertShape.ELLIPTICAL
+    assert barrel.span == pytest.approx(entry.span_m, abs=2e-6)
+    assert barrel.rise == pytest.approx(entry.rise_m, abs=2e-6)
+    assert barrel.resolved_manning_values() == pytest.approx((entry.manning_n, 0.0), abs=1e-6)
 
 
 def test_concrete_ellipse_catalogue_matches_shapedb_snapshot() -> None:

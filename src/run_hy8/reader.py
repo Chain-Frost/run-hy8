@@ -354,14 +354,9 @@ class _Hy8Parser:
         user_values, labels = data
         flow: FlowDefinition = crossing.flow
         if flow.method is FlowMethod.MIN_DESIGN_MAX:
-            if user_values:
-                if len(user_values) != 3:
-                    msg = f"Crossing '{crossing.name}' must provide exactly three flows for Min/Design/Max problems."
-                    raise ValueError(msg)
-                flow.minimum, flow.design, flow.maximum = user_values[:3]
-                flow.user_values = list(user_values[:3])
-            else:
-                flow.user_values = [flow.minimum, flow.design, flow.maximum]
+            # GUI projects retain inactive user-flow tables (often two zeros).
+            # DISCHARGERANGE is authoritative for the selected range method.
+            flow.user_values = [flow.minimum, flow.design, flow.maximum]
             flow.user_value_labels = []
             return
         if flow.method is FlowMethod.USER_DEFINED:

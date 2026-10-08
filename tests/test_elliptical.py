@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -330,25 +331,30 @@ def test_zero_length_ellipse_fails_validation_before_write(tmp_path: Path) -> No
 
 @pytest.mark.requires_hy8
 @pytest.mark.parametrize(
-    ("span", "rise"),
+    ("span", "rise", "material", "target_flow"),
     [
-        (1.524, 0.9652),
-        (1.7272, 1.0922),
+        (1.524, 0.9652, CulvertMaterial.CONCRETE, 1.0),
+        (1.7272, 1.0922, CulvertMaterial.CONCRETE, 1.0),
+        (241 * 0.0254, 156 * 0.0254, CulvertMaterial.STEEL_OR_ALUMINUM, 20.0),
     ],
 )
 def test_ellipse_inverse_helpers_with_local_hy8(
+    tmp_path: Path,
     span: float,
     rise: float,
+    material: CulvertMaterial,
+    target_flow: float,
 ) -> None:
-    project = _ellipse_project(span=span, rise=rise)
+    project = _ellipse_project(span=span, rise=rise, material=material)
     crossing = project.crossings[0]
-    target_flow = 1.0
 
-    forward = crossing.hw_from_q(target_flow, project=project)
+    forward = crossing.hw_from_q(target_flow, project=project, workspace=tmp_path / "forward", keep_files=True)
     inverse = crossing.q_from_hw(
         forward.computed_headwater,
         q_hint=target_flow,
         project=project,
+        workspace=tmp_path / "inverse",
+        keep_files=True,
     )
     barrel = crossing.culverts[0]
     ratio = (forward.computed_headwater - barrel.inlet_invert_elevation) / rise
@@ -356,10 +362,15 @@ def test_ellipse_inverse_helpers_with_local_hy8(
         ratio,
         q_hint=target_flow,
         project=project,
+        workspace=tmp_path / "ratio",
+        keep_files=True,
     )
 
     assert inverse.computed_flow == pytest.approx(target_flow, abs=0.02)
     assert inverse_ratio.computed_flow == pytest.approx(target_flow, abs=0.02)
+    assert forward.computed_flow == pytest.approx(target_flow, abs=0.02)
+    assert inverse.computed_headwater == pytest.approx(forward.computed_headwater, abs=0.01)
+    assert inverse_ratio.computed_headwater == pytest.approx(forward.computed_headwater, abs=0.01)
 
 
 @pytest.mark.requires_hy8
@@ -440,6 +451,10 @@ def test_steel_or_aluminum_ellipse_hy8_v8_executable_round_trip(
         material=CulvertMaterial.STEEL_OR_ALUMINUM,
     )
     project.crossings[0].culverts[0].inlet_configuration = configuration
+    # Use the GUI reference's 20-60 m3/s range for this large catalogue size.
+    flow = project.crossings[0].flow
+    flow.minimum, flow.design, flow.maximum = 20.0, 40.0, 60.0
+    flow.user_values = [20.0, 40.0, 60.0]
     path = Hy8FileWriter(project).write(tmp_path / "steel_ellipse_exec.hy8")
 
     Hy8Executable().open_run_save(path)
@@ -458,3 +473,56 @@ def test_steel_or_aluminum_ellipse_hy8_v8_executable_round_trip(
     assert all(math.isfinite(value) for value in series["headwater"])
     culvert_result = series["culverts"][0]
     assert any(value > 0.0 for value in culvert_result["discharge"])
+
+
+@pytest.mark.requires_hy8
+def test_steel_ellipse_quantitative_parity_with_gui_reference(tmp_path: Path) -> None:
+    """Compare writer output with an independent GUI-created input at multiple flows."""
+    reference = tmp_path / "gui.hy8"
+    shutil.copyfile(Path(__file__).resolve().parents[1] / "reference_docs/example-ellipse.hy8", reference)
+    project = load_project_from_hy8(reference)
+    generated = Hy8FileWriter(project).write(tmp_path / "generated.hy8")
+    executable = Hy8Executable()
+    executable.open_run_save(reference)
+    executable.open_run_save(generated)
+    name = project.crossings[0].name
+    expected = parse_rst(reference.with_suffix(".rst"))[name]
+    actual = parse_rst(generated.with_suffix(".rst"))[name]
+    # Reports use two decimal places: allow one last displayed digit.
+    assert len(expected["flow"]) >= 3
+    for key in ("flow", "headwater", "roadway"):
+        assert actual[key] == pytest.approx(expected[key], abs=0.01)
+    expected_barrel = expected["culverts"][0]
+    actual_barrel = actual["culverts"][0]
+    for key in ("discharge", "outlet_velocity"):
+        assert actual_barrel[key] == pytest.approx(expected_barrel[key], abs=0.01)
+    assert actual_barrel["flow_type"] == expected_barrel["flow_type"]
+    assert min(actual_barrel["discharge"]) > 0.0
+    for total, barrel_flow, roadway in zip(
+        actual["flow"],
+        actual_barrel["discharge"],
+        actual["roadway"],
+        strict=False,
+    ):
+        assert total == pytest.approx(barrel_flow + roadway, abs=0.02)
+
+
+def test_gui_range_method_ignores_inactive_user_flow_table() -> None:
+    project = load_project_from_hy8(Path(__file__).resolve().parents[1] / "reference_docs/example-ellipse.hy8")
+    flow = project.crossings[0].flow
+    assert [flow.minimum, flow.design, flow.maximum] == pytest.approx([20.0, 40.0, 60.0], abs=1e-6)
+    assert flow.user_values == pytest.approx([20.0, 40.0, 60.0], abs=1e-6)
+
+
+@pytest.mark.requires_hy8
+@pytest.mark.parametrize("station_direction", [1, -1])
+def test_ellipse_station_order_with_local_hy8(tmp_path: Path, station_direction: int) -> None:
+    """Check HY-8's treatment of reversed stationing without assuming a signed length."""
+    project = _ellipse_project(span=1.524, rise=0.9652)
+    barrel = project.crossings[0].culverts[0]
+    barrel.outlet_invert_station = barrel.inlet_invert_station + station_direction * 20.0
+    path = Hy8FileWriter(project).write(tmp_path / "station-order.hy8")
+    Hy8Executable().open_run_save(path)
+    result = parse_rst(path.with_suffix(".rst"))[project.crossings[0].name]
+    assert result["culverts"][0]["discharge"][0] == pytest.approx(0.2, abs=0.01)
+    assert result["culverts"][0]["free_length"][0] == pytest.approx(20.0, abs=0.01)
