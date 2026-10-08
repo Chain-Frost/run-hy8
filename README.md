@@ -102,6 +102,7 @@ concrete_ellipse = CulvertBarrel(
     material=CulvertMaterial.CONCRETE,
     span=concrete_size.span_m,
     rise=concrete_size.rise_m,
+    outlet_invert_station=20.0,
     inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
 )
 
@@ -115,6 +116,7 @@ steel_ellipse = CulvertBarrel(
     material=CulvertMaterial.STEEL_OR_ALUMINUM,
     span=steel_size.span_m,
     rise=steel_size.rise_m,
+    outlet_invert_station=20.0,
     inlet_configuration=EllipticalSteelOrAluminumInlet.HEADWALL,
 )
 ```
