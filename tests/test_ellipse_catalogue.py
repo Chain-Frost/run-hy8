@@ -106,6 +106,7 @@ def _project_with_concrete_ellipse(
     barrel.span = span
     barrel.rise = rise
     barrel.inlet_configuration = EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    barrel.outlet_invert_station = barrel.inlet_invert_station + 20.0
     barrel.manning_n_top = None
     barrel.manning_n_bottom = None
     return project
@@ -159,6 +160,7 @@ def _project_with_steel_or_aluminum_ellipse(
     barrel.span = span
     barrel.rise = rise
     barrel.inlet_configuration = EllipticalSteelOrAluminumInlet.HEADWALL
+    barrel.outlet_invert_station = barrel.inlet_invert_station + 20.0
     barrel.manning_n_top = None
     barrel.manning_n_bottom = None
     return project
