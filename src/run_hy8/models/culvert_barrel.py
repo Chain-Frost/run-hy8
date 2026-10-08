@@ -203,6 +203,11 @@ class CulvertBarrel(Validatable):
             errors.append(f"{prefix}Box culverts must include a rise.")
         if self.number_of_barrels <= 0:
             errors.append(f"{prefix}Number of barrels must be >= 1.")
+        if (
+            self.shape is CulvertShape.ELLIPTICAL
+            and self.inlet_invert_station == self.outlet_invert_station
+        ):
+            errors.append(f"{prefix}Elliptical culverts must have a non-zero barrel length.")
         try:
             hy8_v8_material_code(self.shape, self.material)
         except ValueError as exc:
