@@ -205,7 +205,7 @@ These utilities power `scripts/batch_hy8_compare.py` and let you automate regres
 ## HY-8 executable location
 
 The repository stores its default HY-8 path inside [`HY8_PATH.txt`](HY8_PATH.txt). Update that file if HY-8 is installed
-somewhere elseâ€”the helpers automatically pick up the new value. `Hy8Executable()` falls back to the path recorded in the
+somewhere else—the helpers automatically pick up the new value. `Hy8Executable()` falls back to the path recorded in the
 file (or the `HY8_EXE` / `HY8_EXECUTABLE` environment variables) so scripts can simply do `Hy8Executable()` without
 passing a path every time. Call `Hy8Executable.configure_default_path(Path(...))` to override the default for the
 current process, or `Hy8Executable.persist_default_path(Path(...))` to update both the in-memory default and the

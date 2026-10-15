@@ -95,3 +95,11 @@ References:
 Publication also rejects direct URL dependencies, including optional extras, before
 upload. Publish run-hy8 before testing the optional ryan-culverts external-validation
 extra; that extra now resolves run-hy8 from PyPI rather than from Git.
+
+## Finalization retries
+
+Finalization checks PyPI before dispatching publication. If the version already exists,
+it skips dispatch; if publication for that SHA is active, it also skips duplicate work.
+A missing version with no active run can be dispatched again after a failed attempt.
+Unexpected PyPI responses or lookup timeouts fail visibly rather than guessing. Existing
+tag/SHA and stable-release checks still apply before these recovery decisions.

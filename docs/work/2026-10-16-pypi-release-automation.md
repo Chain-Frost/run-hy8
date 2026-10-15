@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for review |
-| Owner | Unassigned |
+| Status | Active |
+| Owner | ChatGPT |
 | Created | 2026-10-16 |
 | Updated | 2026-10-16 |
 | Next review | 2026-10-23 |
@@ -71,3 +71,20 @@ with zero required approvals and maintainer bypass restricted to PRs. Tags requi
 CI, permit creation by automation and restrict updates/deletions. No API token was stored.
 Both PyPI pending publishers were confirmed by the user's screenshot. Setup workflows
 are committed and pushed in PR #10; no merge, release or upload was performed.
+
+## Retry review fix, 2026-10-16
+
+The review correctly identified duplicate publication dispatch on finalizer retries.
+Across all three repositories, finalization now checks PyPI and active publication runs
+before dispatching. Already published or active revisions skip dispatch; missing versions
+with no active run remain recoverable. Transient/unknown lookup failures fail closed.
+All 16 mocked release/finalization/retry scenarios passed, including already published,
+active, failed previous attempts and unavailable lookup service. Actionlint and touched
+document checks are rerun before pushing; exact-head hosted CI must pass before merging.
+
+The user asked to continue with first-publication validation. Complete review fixes and
+required CI, then merge and publish run-hy8 first, verify its public installation, and
+subsequently publish ryan-culverts and validate the optional integration.
+
+Restored the original UTF-8 README after a generated edit corrupted an em dash; the
+README diff against main now contains only the publishing-guide link.
