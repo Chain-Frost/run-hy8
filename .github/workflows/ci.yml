@@ -27,7 +27,7 @@ jobs:
       - name: Verify source compiles on Python 3.13
         shell: pwsh
         run: |
-          python -m compileall -q src/run_hy8
+          python -m compileall -q src/run_hy8 tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install package and pytest
