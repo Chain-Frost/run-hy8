@@ -8,7 +8,7 @@ version = "2026.10.05.1"
 description = "Windows-only utilities for generating and executing HY-8 projects"
 readme = "README.md"
 keywords = ["hydraulics", "culvert", "HY-8", "engineering"]
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 authors = [{name = "Codex scaffolding"}]
 license = "SUL-1.0"
 license-files = ["LICENSE"]
@@ -17,6 +17,7 @@ dependencies = [
     "pandas>=2.0",
 ]
 classifiers = [
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Operating System :: Microsoft :: Windows",
     "Intended Audience :: Developers",
@@ -36,7 +37,7 @@ run_hy8 = ["py.typed"]
 [tool.pyright]
 include = ["src/run_hy8"]
 exclude = ["build", "dist", "disttest", "scripts", "tests", "**/__pycache__", "**/node_modules", "**/.*"]
-pythonVersion = "3.14"
+pythonVersion = "3.13"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
