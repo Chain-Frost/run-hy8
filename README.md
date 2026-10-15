@@ -3,8 +3,7 @@
 run hy8 and parse outputs via python
 
 Utilities for assembling HY-8 project files and running the HY-8 executable from Python. The focus is on a
-pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.14 as the only
-supported runtime.
+pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.13 and 3.14 as the supported runtimes.
 
 ## Highlights
 

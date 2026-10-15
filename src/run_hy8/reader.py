@@ -379,7 +379,7 @@ class _Hy8Parser:
             if card.key == "DISCHARGEXYUSER_Y":
                 try:
                     values.append(self._flow_from_source(float(card.value.split()[0])))
-                except IndexError, ValueError:
+                except (IndexError, ValueError):
                     values.append(0.0)
                 labels.append("")
                 expect_name = True
@@ -430,14 +430,14 @@ class _Hy8Parser:
     def _as_int(value: str, *, default: int = 0) -> int:
         try:
             return int(value.split(maxsplit=1)[0])
-        except IndexError, ValueError:
+        except (IndexError, ValueError):
             return default
 
     @staticmethod
     def _as_float(value: str, *, default: float = 0.0) -> float:
         try:
             return float(value.split(maxsplit=1)[0])
-        except IndexError, ValueError:
+        except (IndexError, ValueError):
             return default
 
     @staticmethod
