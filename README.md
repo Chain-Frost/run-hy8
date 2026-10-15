@@ -297,6 +297,8 @@ Before running tests locally, install the development extras once per virtual en
 pip install -e .[dev]
 ```
 
+For PyPI release setup and automation, see [publishing](docs/pypi_publishing.md).
+
 ## License
 
 This project is licensed under the [Sustainable Use License v1.0](LICENSE)

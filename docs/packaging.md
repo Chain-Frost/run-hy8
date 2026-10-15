@@ -31,3 +31,8 @@ python scripts/smoke_test_installed_wheel.py
 The smoke test installs the wheel and its dependencies into a temporary target, then checks
 all exported symbols, version and typed marker from outside the checkout using
 isolated Python. It does not replace your installed package or modify your user Python dependencies.
+
+## PyPI publication
+
+See [publishing](pypi_publishing.md) for the automated release PR, stable GitHub Release,
+verified-wheel smoke check and Trusted Publishing setup.
