@@ -145,7 +145,7 @@ def inputs_from_row(row: dict[str, Any], *, tailwater: float) -> CrossingInputs:
         value = row.get(key, default)
         try:
             return float(value)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return default
 
     inlet_invert = get_value("US Invert", DEFAULT_INLET_INVERT)
@@ -549,7 +549,7 @@ def limit_crossings(rows: list[dict[str, Any]], limit: int) -> list[dict[str, An
 def _flow_value(row: dict[str, Any]) -> float:
     try:
         value = float(row.get("Adopted Flow (m^3/s)", 0.0) or 0.0)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         value = 0.0
     return max(value, 0.0)
 
@@ -580,7 +580,7 @@ def _safe_flow(value: float | None) -> float | None:
         return None
     try:
         flow = float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
     if math.isnan(flow) or flow <= 0:
         return None
@@ -591,7 +591,7 @@ def optional_float_value(row: dict[str, Any], key: str, default: float | None = 
     value = row.get(key, default)
     try:
         return float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
@@ -847,7 +847,7 @@ def run_crossing(
         value = row.get(key, default)
         try:
             return float(value)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return default
 
     ds_invert = optional_float("DS Invert", DEFAULT_OUTLET_INVERT)

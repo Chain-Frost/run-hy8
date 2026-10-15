@@ -212,7 +212,7 @@ def optional_float(value: Any, *, default: float | None = None) -> float | None:
         return default
     try:
         numeric = float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
     if math.isnan(numeric):
         return default

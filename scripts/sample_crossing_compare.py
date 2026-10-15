@@ -642,14 +642,14 @@ def _float(value: Any, fallback: float = math.nan) -> float:
         return fallback
     try:
         return float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return fallback
 
 
 def _int(value: Any, *, default: int) -> int:
     try:
         return int(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 

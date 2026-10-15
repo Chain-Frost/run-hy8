@@ -192,7 +192,7 @@ def select_rows(rows: list[dict[str, str]], name: str | None) -> list[dict[str, 
     for row in rows:
         try:
             value = float(row["Adopted Flow"])
-        except KeyError, TypeError, ValueError:
+        except (KeyError, TypeError, ValueError):
             continue
         if value > 0:
             selected.append(row)
