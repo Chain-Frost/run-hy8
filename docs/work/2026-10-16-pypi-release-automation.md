@@ -7,7 +7,7 @@
 | Created | 2026-10-16 |
 | Updated | 2026-10-16 |
 | Next review | 2026-10-23 |
-| Delivery | feature/pypi-release-automation; new PR requested |
+| Delivery | feature/pypi-release-automation; [PR #10](https://github.com/Chain-Frost/run-hy8/pull/10) |
 
 ## Scope
 
@@ -19,7 +19,7 @@ Preserve package interfaces, interpreter coverage and hydraulic validation bound
 
 Added preparation/finalization/publication workflows and the release helper. The
 [publication guide](../pypi_publishing.md) owns setup, release and recovery instructions.
-The new PR will own current review status. No release or PyPI upload has been started.
+[PR #10](https://github.com/Chain-Frost/run-hy8/pull/10) owns current review status. No release or PyPI upload has been started.
 
 ## Next action
 
@@ -70,4 +70,4 @@ requires this repository's existing CI contexts and resolved review conversation
 with zero required approvals and maintainer bypass restricted to PRs. Tags require
 CI, permit creation by automation and restrict updates/deletions. No API token was stored.
 Both PyPI pending publishers were confirmed by the user's screenshot. Setup workflows
-are being committed and pushed as a new PR; no merge, release or upload was performed.
+are committed and pushed in PR #10; no merge, release or upload was performed.
