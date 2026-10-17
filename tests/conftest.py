@@ -26,5 +26,5 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         # Check if the executable is configured/available
         try:
             Hy8Executable()
-        except FileNotFoundError, OSError:
+        except (FileNotFoundError, OSError):
             pytest.skip("HY-8 executable not found or not configured")

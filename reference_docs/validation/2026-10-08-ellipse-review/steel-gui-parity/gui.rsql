@@ -1,0 +1,60 @@
+CrossingGUID: 93c09177-7399-48ad-b9d1-638ee356f516
+
+Crossing: Ellipse
+
+Culvert: 0
+CulvertName: Culvert 1
+FlowProfileName: Minimum Flow
+FlowProfile: 0
+FlowProfileFlow: 706.293
+HeadwaterToDepth: 0.474144
+FreeboardToSubgrade: 9.25608
+Overtops: false
+hydraulicJump: false
+FlowType: 2-S2n
+InletSubmerged: false
+OutletSubmerged: false
+ControllingDepth: Inlet Control
+fullFlowLength: 0
+perchDepth: 0
+minDepth: 4.7879
+minDepthLessThanPerchDepth: false
+EndFlowProfile: 0
+
+FlowProfileName: Design Flow
+FlowProfile: 5
+FlowProfileFlow: 1412.59
+HeadwaterToDepth: 0.831646
+FreeboardToSubgrade: 4.60855
+Overtops: false
+hydraulicJump: false
+FlowType: 2-M2c
+InletSubmerged: false
+OutletSubmerged: false
+ControllingDepth: Outlet Control
+fullFlowLength: 0
+perchDepth: 0
+minDepth: 6.81652
+minDepthLessThanPerchDepth: false
+EndFlowProfile: 5
+
+FlowProfileName: Maximum Flow
+FlowProfile: 10
+FlowProfileFlow: 2118.88
+HeadwaterToDepth: 1.0529
+FreeboardToSubgrade: 1.73221
+Overtops: false
+hydraulicJump: false
+FlowType: 2-M2c
+InletSubmerged: true
+OutletSubmerged: false
+ControllingDepth: Outlet Control
+fullFlowLength: 0
+perchDepth: 0
+minDepth: 8.40883
+minDepthLessThanPerchDepth: false
+EndFlowProfile: 10
+
+EndCulvert: 0
+
+EndCrossing
