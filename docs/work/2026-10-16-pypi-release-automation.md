@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
-| Owner | ChatGPT |
+| Status | Complete |
+| Owner | Unassigned |
 | Created | 2026-10-16 |
 | Updated | 2026-10-16 |
-| Next review | 2026-10-23 |
-| Delivery | feature/pypi-release-automation; [PR #10](https://github.com/Chain-Frost/run-hy8/pull/10) |
+| Next review | None |
+| Delivery | Setup PR #10 and release PR #11 merged; main at 8f2e5b5; PyPI 2026.10.16.1 published |
 
 ## Scope
 
@@ -17,15 +17,15 @@ Preserve package interfaces, interpreter coverage and hydraulic validation bound
 
 ## Current state
 
-Added preparation/finalization/publication workflows and the release helper. The
-[publication guide](../pypi_publishing.md) owns setup, release and recovery instructions.
-[PR #10](https://github.com/Chain-Frost/run-hy8/pull/10) owns current review status. No release or PyPI upload has been started.
+The common release lifecycle is merged and first publication succeeded. The
+[publication guide](../pypi_publishing.md) owns future setup/release/recovery instructions.
+The public wheel matches the publication CI artifact and passed an isolated installation
+with all exported symbols checked. No user-site installation was replaced.
 
 ## Next action
 
-Review the new PR and its hosted checks, merge reviewed automation, then run the first
-release explicitly. Publish run-hy8 first, then validate the optional ryan-culverts extra.
-The user supplied screenshots confirming both pending PyPI publishers are configured.
+No release-setup work remains here. Future releases start with **Release to PyPI** on
+main. Continue the separately tracked ryan-culverts and ryan-tools publications.
 
 ## Validation and delivery
 
@@ -44,7 +44,7 @@ Local validation on Python 3.14:
 No hydraulic coefficients, methods or retained comparison evidence changed.
 
 HY-8 executable comparison was not run; it is not required to configure publication.
-Hosted publication and OIDC remain untested until the PyPI setup and PR merge.
+Hosted publication and OIDC are verified by the completed runs listed below.
 
 ## Repository-specific evidence
 
@@ -69,8 +69,7 @@ automatic branch deletion, Actions PR creation and tag-only pypi environment. Ma
 requires this repository's existing CI contexts and resolved review conversations,
 with zero required approvals and maintainer bypass restricted to PRs. Tags require
 CI, permit creation by automation and restrict updates/deletions. No API token was stored.
-Both PyPI pending publishers were confirmed by the user's screenshot. Setup workflows
-are committed and pushed in PR #10; no merge, release or upload was performed.
+Both PyPI pending publishers were confirmed by the user's screenshot. Setup and release workflows are merged through PRs #10/#11; completed publication evidence follows below.
 
 ## Retry review fix, 2026-10-16
 
@@ -88,3 +87,24 @@ subsequently publish ryan-culverts and validate the optional integration.
 
 Restored the original UTF-8 README after a generated edit corrupted an em dash; the
 README diff against main now contains only the publishing-guide link.
+
+## First publication complete, 2026-10-16
+
+- Setup PR #10 merged as 2a36c73; release PR #11 merged as 8f2e5b5.
+- Preparation run 38774040263 succeeded and selected the Perth date correctly.
+- Release PR CI run 38774199047 passed both Python 3.13 and 3.14 jobs.
+- Main CI run 38774544708 passed at the exact release SHA; Pages also succeeded.
+- Finalization run 38774817463 created v2026.10.16.1 and dispatched publication.
+- Publication run 38774844924 passed build/verification/smoke and Trusted Publishing.
+- Public version: [2026.10.16.1](https://pypi.org/project/run-hy8/2026.10.16.1/).
+- Downloaded from the public PyPI index and compared SHA-256 against both PyPI JSON
+  and the pypi-distributions CI artifact: exact match.
+- Wheel SHA-256: `1ba5010ecf1c559899cf05ee7c20a25bdae4bb8c26a188571ac9290c13e2bdbc`.
+- Installed with declared dependencies in a fresh target and used isolated Python
+  (`-I -S`) outside the checkout. Version, import location, typed marker and every
+  public export passed. No HY-8 executable or new hydraulic comparison was run.
+- Local proof: `C:/Users/Ryan/AppData/Local/Temp/run-hy8-public-release-proof-h9oxqqzx/proof.json`.
+- The ryan-culverts release candidate's external-validation extra successfully resolved
+  this public release and passed an isolated API/geometry smoke before its release merge.
+- Code/version/wheel are committed, pushed and merged. This completion handoff is
+  included in cleanup PR #6.
