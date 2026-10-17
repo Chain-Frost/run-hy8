@@ -1,102 +1,53 @@
 # Publishing run-hy8 to PyPI
 
-## One-time setup
+## Prerequisites
 
-Add a pending publisher at [PyPI account publishing](https://pypi.org/manage/account/publishing/)
-for the first release, or use the project's Publishing settings if it already exists.
-Enable two-factor authentication on your PyPI account.
+The PyPI Trusted Publisher must be configured for `Chain-Frost`, the
+repository's `pypi-publish.yml` workflow and GitHub environment `pypi`.
+The environment permits release tags matching `v*`.
 
-| Field | Value |
-| --- | --- |
-| PyPI project | `run-hy8` |
-| GitHub owner | `Chain-Frost` |
-| GitHub repository | `run-hy8` |
-| Workflow filename | `pypi-publish.yml` |
-| Environment | `pypi` |
+Required PR review and CI checks on protected `main` remain enabled.
+The automatic release reconciler requires permission to create release tags
+and GitHub Releases and to dispatch the tag-based publishing workflow.
 
-The GitHub `pypi` environment allows `v*` tags without a required reviewer. The reconciler needs permission to create tags, GitHub Releases and dispatch tag-scoped publisher workflows; the publisher uses PyPI Trusted Publishing.
-No PyPI API token or GitHub personal access token is stored.
-A pending publisher does not reserve the project name.
+## New merges only
 
-The main ruleset requires PRs, squash merges, resolved review conversations and successful
-up-to-date CI. Required approvals remain zero for the solo-maintainer workflow. The
-maintainer bypass is limited to PRs. Release tags require CI and cannot normally be
-updated or deleted; tag creation remains permitted for the workflow token. Merged
-branches are automatically deleted. The PR records live configuration and validation.
+The release cutover is the merge that first introduces
+`.github/release-cutover.md`. The cutover merge and **every earlier commit**
+are deliberately ineligible for new automatic releases.
 
-## Automated release
+Afterwards, each successful `Python CI` run for the **latest merged PR**
+on `main` can automatically allocate the next Perth-calendar version, create
+its Git tag and stable GitHub Release, and dispatch `Publish to PyPI` on the
+tag reference. A newer merge supersedes an older still-pending release; older
+merges are not backfilled or assigned later versions.
 
-1. Run **Actions > Release to PyPI > Run workflow** on `main`.
-2. The shared release-preparation helper selects the next Perth calendar version,
-   updates metadata, and invokes the existing verified builder. A builder failure
-   restores metadata and preserves the builder's retained-artifact safeguards.
-3. Review the generated `release/pypi-<version>` PR. Approve its PR-event workflows
-   if GitHub displays **Approve workflows to run**. Dispatched CI cannot substitute
-   for the required PR checks.
-4. Squash merge after every required check passes. Main push CI is preserved per run,
-   even when later merges arrive. Successful CI at that exact merge SHA triggers
-   **Finalize PyPI release**, which parses the merged TOML version and creates
-   `v<version>` and a stable GitHub Release.
-5. Finalization explicitly dispatches **Publish to PyPI** on the tag. Publication
-   requires an existing published, non-draft, non-prerelease release, matching version
-   and a commit reachable from main. It rebuilds without bumping, runs the repository
-   verifier and Twine, smoke-tests the exact wheel, and uploads that artifact through OIDC.
-6. Check the publication run and [PyPI project](https://pypi.org/project/run-hy8/).
+The publisher checks the source SHA, project metadata, GitHub Release and
+PyPI version history, builds and verifies a fresh wheel, and uploads it using
+OIDC. The separate wheel-asset workflow attaches the byte-for-byte verified
+PyPI wheel to GitHub Releases. No wheels should be committed into `dist/`.
 
-Ordinary PR merges do not publish. Preparing the release PR is a deliberate manual start;
-merge is the human review boundary. No additional publication approval is required.
-The version scheme remains `yyyy.m.d.revision` so existing version ordering is preserved.
-Release preparation uses Perth time (UTC+08:00), independent of the runner's timezone.
-Normal local build behaviour remains documented in [packaging](packaging.md).
+A nightly and manually triggered reconciler checks **only the current
+verified main tip**; it does not replay historical merge history or failed
+releases predating this cutover. Existing PyPI versions and tags are used to
+reserve strictly increasing versions but are not republished.
 
-## Recovery and manual releases
+The historical source commit's `pyproject.toml` may still contain an older
+baseline version. The release workflow stamps the version from the immutable
+Git tag into its temporary builder checkout. The published wheel's distribution
+metadata is authoritative for installation.
 
-Only one release PR may be open at a time. If preparation fails after pushing a branch,
-inspect it and any PR before retrying. Rerun failed CI at the exact release merge SHA;
-a later successful SHA does not finalize an earlier release. Finalization is safe to retry
-when the existing tag points to the same SHA; it refuses a conflicting tag or prerelease.
-After correcting a publication failure, rerun the publisher on the same stable release tag.
-Do not move release tags or reuse a version already uploaded to PyPI.
+## Failures
 
-A manually published stable GitHub Release also triggers publication. Its tag must exactly
-match `v` plus the declared version and point to a commit on main. A bare tag or draft does
-not publish; a prerelease cannot bypass the stable-release gate through manual dispatch.
+If a current tagged publication fails, inspect its tag-based Actions run.
+Do not retag, delete published releases, rewrite source history or overwrite
+an existing PyPI version. Manual tag-scoped publication is supported only
+for a valid stable GitHub Release pointing to verified main source.
 
-After publication, install or upgrade with:
+Historical failed releases are not part of the new-merge automation. See
+[automatic release policy](AUTO_PYPI_RELEASES.md).
 
-```powershell
-python -m pip install --upgrade run-hy8
-```
+## References
 
-The Python import remains `run_hy8`. A publication or packaging smoke check is not
-new engineering validation and does not run HY-8. Hydraulic validation limitations and
-optional local executable checks remain unchanged.
-
-## CI scope
-
-CI checks workflows using checksum-verified Actionlint 1.7.12. Superseded PR runs cancel;
-main push runs remain independent for release finalization. Multi-command PowerShell
-steps stop at the first failed check. Builders verify their candidates, so immediately
-repeating that verification is unnecessary; retained-wheel verification remains separate.
-Test duration reports identify future bottlenecks without disabling hydraulic tests.
-
-Python 3.13 and 3.14 checks remain distinct compatibility evidence. Hosted tests select
-the tests directory and exclude requires_hy8 and legacy_parity. Publication uses the
-existing temporary-target smoke test, which installs the declared runtime dependencies
-and checks every exported public symbol outside the checkout.
-
-References:
-
-- [PyPI pending publishers](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
-- [GitHub workflow triggers](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
-
-Publication also rejects direct URL dependencies, including optional extras, before
-upload. Publish run-hy8 before testing the optional ryan-culverts external-validation
-extra; that extra now resolves run-hy8 from PyPI rather than from Git.
-
-## Reconciliation retries
-
-Inspect the existing tagged release if publication fails. The scheduled
-reconciler retries incomplete tag/release creation but does not overwrite
-published distributions or publish a later source commit ahead of a failed
-release.
+- [PyPI Trusted Publishers](https://docs.pypi.org/trusted-publishers/)
+- [GitHub Actions release events](https://docs.github.com/en/actions/reference/events-that-trigger-workflows)
