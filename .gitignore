@@ -9,6 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+# Generated wheels are built and verified by CI; do not commit distributions
+dist/
 disttest/
 pytest-cache-files-*/
 develop-eggs/
