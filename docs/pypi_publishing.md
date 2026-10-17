@@ -14,9 +14,7 @@ Enable two-factor authentication on your PyPI account.
 | Workflow filename | `pypi-publish.yml` |
 | Environment | `pypi` |
 
-The GitHub `pypi` environment allows `v*` tags without a required reviewer, so publication
-is automatic after release validation. Actions must be allowed to create PRs; the
-workflows request write permissions only in the preparation/finalization jobs.
+The GitHub `pypi` environment allows `v*` tags without a required reviewer. The reconciler needs permission to create tags, GitHub Releases and dispatch tag-scoped publisher workflows; the publisher uses PyPI Trusted Publishing.
 No PyPI API token or GitHub personal access token is stored.
 A pending publisher does not reserve the project name.
 
@@ -96,10 +94,9 @@ Publication also rejects direct URL dependencies, including optional extras, bef
 upload. Publish run-hy8 before testing the optional ryan-culverts external-validation
 extra; that extra now resolves run-hy8 from PyPI rather than from Git.
 
-## Finalization retries
+## Reconciliation retries
 
-Finalization checks PyPI before dispatching publication. If the version already exists,
-it skips dispatch; if publication for that SHA is active, it also skips duplicate work.
-A missing version with no active run can be dispatched again after a failed attempt.
-Unexpected PyPI responses or lookup timeouts fail visibly rather than guessing. Existing
-tag/SHA and stable-release checks still apply before these recovery decisions.
+Inspect the existing tagged release if publication fails. The scheduled
+reconciler retries incomplete tag/release creation but does not overwrite
+published distributions or publish a later source commit ahead of a failed
+release.
