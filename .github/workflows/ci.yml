@@ -108,14 +108,12 @@ jobs:
         shell: pwsh
         run: python -m pytest tests -m "not requires_hy8 and not legacy_parity" --cov=src/run_hy8 --cov-report=xml --durations=10
 
-      - name: Verify retained package artifact
-        shell: pwsh
-        run: python scripts/verify_wheel.py
-
-      - name: Verify package artifacts
+      - name: Build, verify and smoke-test fresh wheel
         shell: pwsh
         run: |
           python scripts/build_library.py --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/verify_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/smoke_test_installed_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
