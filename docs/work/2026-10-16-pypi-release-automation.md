@@ -7,7 +7,7 @@
 | Created | 2026-10-16 |
 | Updated | 2026-10-18 |
 | Next review | 2026-10-19 |
-| Delivery | Setup PR #10 and release PR #11 merged; main at 8f2e5b5; PyPI 2026.10.16.1 published |
+| Delivery | Asset-selector follow-up committed and pushed; [PR #18](https://github.com/Chain-Frost/run-hy8/pull/18) open with skip-release |
 
 ## Scope
 
@@ -134,3 +134,9 @@ checksum-verified Actionlint 1.7.12, strict MkDocs and diff whitespace all passe
 No local wheel rebuild or HY-8 execution was needed for these workflow/test/docs edits;
 hosted CI will build and smoke-test a fresh wheel. Actual OIDC upload remains a later
 eligible-merge check, distinct from the verified release opt-out path.
+
+Follow-up implementation is committed as 6239b03 and pushed. PR #18 is open with
+skip-release and [skip release] in its title. Its current check results and review
+status are maintained on that PR; no merge or publication has been performed.
+The live read-only selector check found v2026.10.18.2 at 774230c5b2e5ec5443f1d399ae5392cdafc6ceeb,
+with upload replaced by a recording stub. Review the latest PR head after CI completes.
