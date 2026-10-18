@@ -9,9 +9,7 @@ _SKIP_MARKER = re.compile(r"\[skip release\]", re.IGNORECASE)
 
 def should_skip_release(labels: list[str], commit_message: str) -> bool:
     """Match the exact PR label or the immutable merge commit keyword."""
-    return "skip-release" in {label.casefold() for label in labels} or bool(
-        _SKIP_MARKER.search(commit_message)
-    )
+    return "skip-release" in {label.casefold() for label in labels} or bool(_SKIP_MARKER.search(commit_message))
 
 
 def main() -> int:
