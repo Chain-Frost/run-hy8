@@ -28,7 +28,7 @@ _SPEC.loader.exec_module(_policy)
         (["maintenance", "skip-release"], "fix: unrelated", True),
     ],
 )
-def test_release_opt_out(labels: list[str], message: str, expected: bool) -> None:
+def test_release_opt_out(labels: list[str], message: str, *, expected: bool) -> None:
     assert _policy.should_skip_release(labels, message) is expected
 
 
