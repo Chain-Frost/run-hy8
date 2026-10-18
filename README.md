@@ -12,7 +12,7 @@ pythonic, extensible object model that can be imported into other scripts, with 
   orchestration (`run_hy8.executor`).
 - Friendly validation helpers that raise actionable errors before the HY-8 binary is invoked. At the moment this
   library intentionally supports a *subset* of HY-8 features (constant tailwater elevation, paved/gravel/user
-  roadway surfaces, circle/box culverts). When a configuration requires more advanced HY-8 options we surface a
+  roadway surfaces, and circular, box, and catalogue-based elliptical culverts). When a configuration requires more advanced HY-8 options we surface a
   clear error that instructs the caller to finish the edit in the HY-8 GUI.
 - Small CLI scaffold (`python -m run_hy8`) that can emit a demo file or build projects from
   JSON configs, and a `validate-only` mode to lint configs without writing any files.
@@ -296,19 +296,25 @@ python -m pytest tests
 
 ## Packaging & automation
 
-The repository includes Windows batch helpers so packaging can happen without remembering long commands.
-
-1. `build_package.bat` installs/updates the [`build`](https://pypi.org/project/build/) backend and then runs `python -m build --wheel`, replacing the current wheel under `dist\`.
-2. `install_package.bat` installs the most recently built artifact (wheel if present, otherwise the source distribution) via `pip install --force-reinstall`.
-3. `run_tests.bat` runs `python -m pytest`. Pass any additional pytest arguments after the script name (for example `run_tests.bat -k culvert`).
-
-Before running tests locally, install the development extras once per virtual environment:
+For a normal installation from PyPI:
 
 ```powershell
-pip install -e .[dev]
+python -m pip install --upgrade run-hy8
 ```
 
-For PyPI release setup and automation, see [publishing](docs/pypi_publishing.md).
+For local development, install the source checkout with development dependencies:
+
+```powershell
+python -m pip install -e ".[dev]"
+```
+
+Local builds use `build_package.bat` or `python scripts/build_library.py`, with
+wheel verification described in [verified package builds](docs/packaging.md).
+`run_tests.bat` runs pytest and accepts additional pytest arguments.
+
+Eligible, successfully validated merges to `main` are published through the
+[automated PyPI workflow](docs/pypi_publishing.md). The release process uses a
+tag-scoped verified wheel rather than committing distribution artifacts.
 
 ## License
 
@@ -342,12 +348,14 @@ project-wide expectation for explicit type hints and `pyright`-clean changes.
 ## Current Limitations
 
 - Constant tailwater elevation only: other HY-8 tailwater definitions are flagged so the user can finish in the GUI.
-- Roadway crest protection: if the constant tailwater elevation reaches the roadway elevation we abort with a clear error.
-- The JSON loader currently supports HY-8 fundamentals (flow ranges, roadway geometry, culvert barrels). More exotic
-  features (rating curves, irregular channels, etc.) are intentionally deferred until the new structure solidifies.
-
-Once these constraints are proven in downstream workflows we can extend the parser/CLI and add regression tests around
-validation and serialization behaviors.
+- Intentional roadway overtopping is supported for constant and irregular roadway profiles. The high-level
+  hydraulic helpers default to `RoadwayOvertoppingPolicy.ERROR`, which rejects actual parsed roadway discharge
+  unless the caller selects `WARN` or `ALLOW`. Tailwater above a roadway crest alone does not imply actual flow.
+- The exact HY-8 submergence law for a user-defined roadway discharge coefficient has not been independently
+  reconstructed. The adapter has been compared against HY-8, not independently calibrated as a hydraulic solver.
+- Elliptical geometry is limited to version-pinned HY-8 catalogued sizes for supported materials.
+- The JSON loader supports fundamental flows, roadway geometry and culvert barrels; more specialised
+  HY-8 features such as rating curves and irregular channels remain deferred.
 
 ## Legacy hy8runner
 

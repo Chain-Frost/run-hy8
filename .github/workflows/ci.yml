@@ -100,6 +100,10 @@ jobs:
           python -m ruff format --check .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Build documentation (strict)
+        shell: pwsh
+        run: python -m mkdocs build --strict --clean
+
       - name: Type check
         shell: pwsh
         run: pyright src/run_hy8

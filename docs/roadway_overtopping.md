@@ -206,7 +206,7 @@ actual import location, source-file hashes, checkout HEAD/status, Python, source
 project version, installed distribution metadata and executable hash. Distribution
 metadata alone is not proof of the imported source version.
 
-Build and verify a wheel without replacing the user's installed package:
+The following historical example rebuilds and verifies the `2026.10.5.1` wheel without replacing the user's installed package. For current releases use [verified package builds](packaging.md):
 
 ```powershell
 python -m build --wheel --outdir validation_artifacts/wheels
@@ -220,12 +220,17 @@ isolated import path/version, and runs a coefficient smoke test. Runtime
 dependencies are explicitly exposed from the existing user site; the source
 checkout is excluded from the import path.
 
-The current artifact identifies an **uncommitted source snapshot**, not a release
-built from a new committed revision. The [provenance record](validation_data/roadway_adapter_provenance.json)
-records the base HEAD, exact source/wheel hashes and this limit. Commit/rebuild
-identity and the GUI-authored reference fixture remain pending. The user will
-create the latter separately; no GUI controls or interactive GUI automation form
-part of this implementation. Once supplied:
+The retained `2026.10.5.1` wheel was verified byte-for-byte against the
+corresponding committed package Git tree. The
+[final validation provenance](validation_data/roadway_review_fix_build_provenance.json)
+records source and wheel hashes and verification outcomes. The
+[earlier provenance record](validation_data/roadway_adapter_provenance.json)
+is historical and documents an earlier, superseded uncommitted snapshot.
+These historical artifacts do not establish the contents of newer PyPI releases.
+
+The optional independently GUI-authored HY-8 fixture check is separate from
+the retained automated verification. No interactive HY-8 GUI automation is
+included in this package. To run that optional check with a supplied fixture:
 
 ```powershell
 $env:HY8_ROADWAY_GUI_FIXTURE='C:\path\to\irregular-submerged.hy8'

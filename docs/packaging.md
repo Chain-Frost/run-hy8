@@ -34,5 +34,8 @@ isolated Python. It does not replace your installed package or modify your user 
 
 ## PyPI publication
 
-See [publishing](pypi_publishing.md) for the automated release PR, stable GitHub Release,
-verified-wheel smoke check and Trusted Publishing setup.
+See [PyPI publishing](pypi_publishing.md) for the current verified-`main` release
+cutover, tag-scoped Trusted Publishing, and PyPI-verified wheel assets.
+Automatic publishing no longer creates release PRs or publishes historical
+pre-cutover merges. The [automatic release policy](AUTO_PYPI_RELEASES.md)
+documents the current eligibility and recovery rules.
