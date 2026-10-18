@@ -4,7 +4,22 @@
 
 The PyPI Trusted Publisher must be configured for `Chain-Frost`, the
 repository's `pypi-publish.yml` workflow and GitHub environment `pypi`.
-The environment permits release tags matching `v*`.
+The `pypi` environment must permit deployment from the protected `main`
+branch (not solely from `v*` tags). Chained `workflow_run` jobs execute
+on the default branch, even though the publisher independently validates
+the immutable release tag and verified merged source SHA.
+
+**One-time environment change when upgrading from tag-only publishing:**
+
+```powershell
+$repo = "Chain-Frost/run-hy8"
+gh api "repos/$repo/environments/pypi/deployment-branch-policies"
+gh api -X POST "repos/$repo/environments/pypi/deployment-branch-policies" -f name=main -f type=branch
+```
+
+The POST is needed only if a `main` branch rule is absent. Preserve the
+`pypi` environment name and the existing PyPI Trusted Publisher workflow
+registration (`pypi-publish.yml`); no new publisher registration is required.
 
 Required PR review and CI checks on protected `main` remain enabled.
 The automatic release reconciler requires permission to create release tags
