@@ -18,13 +18,16 @@ def main() -> int:
     """Return skip/publish on stdout, failing closed for invalid input."""
     record = json.load(sys.stdin)
     if not isinstance(record, dict):
-        raise TypeError("Expected a JSON object.")
+        message = "Expected a JSON object."
+        raise TypeError(message)
     labels = record.get("labels")
     message = record.get("commit_message")
     if not isinstance(labels, list) or any(not isinstance(label, str) for label in labels):
-        raise TypeError("labels must be list[str].")
+        error_message = "labels must be list[str]."
+        raise TypeError(error_message)
     if not isinstance(message, str):
-        raise TypeError("commit_message must be a string.")
+        error_message = "commit_message must be a string."
+        raise TypeError(error_message)
     print("skip" if should_skip_release(labels, message) else "publish")
     return 0
 
