@@ -39,6 +39,14 @@ the `run_hy8` package.
 
 ::: run_hy8.inlet_configurations
 
+## Elliptical culvert catalogue
+
+::: run_hy8.ellipse_catalogue
+
+## Material codes
+
+::: run_hy8.material_codes
+
 ## Type helpers
 
 ::: run_hy8.type_helpers

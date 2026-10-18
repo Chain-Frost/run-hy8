@@ -16,6 +16,9 @@ nav:
   - HY-8 v8 Inlet Configurations: hy8_v8_inlet_configurations.md
   - Roadway Overtopping: roadway_overtopping.md
   - Packaging: packaging.md
+  - PyPI Publishing: pypi_publishing.md
+  - Automatic Release Policy: AUTO_PYPI_RELEASES.md
   - Roadway Overtopping Validation History: work/2026-10-05-roadway-overtopping-validation-support.md
+  - Release Automation History: work/2026-10-16-pypi-release-automation.md
   - Development: CONTRIBUTING.md
   - Agent Notes: agents.md

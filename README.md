@@ -3,8 +3,7 @@
 run hy8 and parse outputs via python
 
 Utilities for assembling HY-8 project files and running the HY-8 executable from Python. The focus is on a
-pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.14 as the only
-supported runtime.
+pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.13 and 3.14 as the supported runtimes.
 
 ## Highlights
 
@@ -13,7 +12,7 @@ supported runtime.
   orchestration (`run_hy8.executor`).
 - Friendly validation helpers that raise actionable errors before the HY-8 binary is invoked. At the moment this
   library intentionally supports a *subset* of HY-8 features (constant tailwater elevation, paved/gravel/user
-  roadway surfaces, circle/box culverts). When a configuration requires more advanced HY-8 options we surface a
+  roadway surfaces, and circular, box, and catalogue-based elliptical culverts). When a configuration requires more advanced HY-8 options we surface a
   clear error that instructs the caller to finish the edit in the HY-8 GUI.
 - Small CLI scaffold (`python -m run_hy8`) that can emit a demo file or build projects from
   JSON configs, and a `validate-only` mode to lint configs without writing any files.
@@ -79,9 +78,57 @@ box = CulvertBarrel(
 )
 ```
 
-Inlet configurations are separated by HY-8 shape and material: `CircularConcreteInlet`,
-`CircularCorrugatedSteelInlet`, `CircularHdpeInlet`, and `ConcreteBoxInlet`. The package supports HY-8 version 8
-project files only. The older context-free `InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
+Elliptical culverts use HY-8's version-pinned, material-specific size catalogues rather than
+arbitrary mathematical ellipses. HY-8 8.0.1.2 provides 23 concrete sizes and 40
+Steel-or-Aluminum sizes. A requested `span`/`rise` pair must match an entry for the selected
+material; unsupported or reversed dimensions fail closed and are never replaced with a nearby size.
+
+```python
+from run_hy8 import (
+    CulvertBarrel,
+    CulvertMaterial,
+    CulvertShape,
+    EllipticalConcreteInlet,
+    EllipticalSteelOrAluminumInlet,
+    find_concrete_ellipse_catalogue_size,
+    find_steel_or_aluminum_ellipse_catalogue_size,
+)
+
+concrete_size = find_concrete_ellipse_catalogue_size(1.524, 0.9652)
+concrete_ellipse = CulvertBarrel(
+    name="Concrete ellipse",
+    shape=CulvertShape.ELLIPTICAL,
+    material=CulvertMaterial.CONCRETE,
+    span=concrete_size.span_m,
+    rise=concrete_size.rise_m,
+    outlet_invert_station=20.0,
+    inlet_configuration=EllipticalConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
+)
+
+steel_size = find_steel_or_aluminum_ellipse_catalogue_size(
+    241.0 * 0.0254,
+    156.0 * 0.0254,
+)
+steel_ellipse = CulvertBarrel(
+    name="Steel/aluminum ellipse",
+    shape=CulvertShape.ELLIPTICAL,
+    material=CulvertMaterial.STEEL_OR_ALUMINUM,
+    span=steel_size.span_m,
+    rise=steel_size.rise_m,
+    outlet_invert_station=20.0,
+    inlet_configuration=EllipticalSteelOrAluminumInlet.HEADWALL,
+)
+```
+
+Catalogue selection supplies HY-8's required `BARRELGEOMETRY` parameters and the
+size-specific Manning value. Steel-or-Aluminum catalogue roughness is not constant across all
+40 sizes, so the selected catalogue row is authoritative when no explicit override is supplied.
+
+Inlet configurations are separated by HY-8 shape and material:
+`CircularConcreteInlet`, `CircularCorrugatedSteelInlet`, `CircularHdpeInlet`,
+`ConcreteBoxInlet`, `EllipticalConcreteInlet`, and
+`EllipticalSteelOrAluminumInlet`. The package supports HY-8 version 8 project files only.
+The older context-free `InletEdgeType` and `InletEdgeType71` inputs are deprecated and emit a
 `LegacyInletConfigurationWarning` when translated.
 
 The empirical file-format findings and extension guidance are recorded in
@@ -89,6 +136,17 @@ The empirical file-format findings and extension guidance are recorded in
 
 Once an `.hy8` file exists you can run HY-8 with `run_hy8.executor.Hy8Executable`. Each high-level action returns
 a `CompletedProcess` so scripting layers can inspect stdout/stderr or retry with different parameters.
+
+## TUFLOW integration ownership
+
+TUFLOW-specific culvert ingestion and batch evaluation live in
+[ryan-tools](https://github.com/Chain-Frost/ryan-tools), not in this package.
+
+The former `scripts/culvert_demo-from-tuflow.py` and
+`scripts/culvert_demo-from-1d_nwk.py` workflows have been migrated downstream in
+[ryan-tools PR #100](https://github.com/Chain-Frost/ryan-tools/pull/100), where they
+support explicit `hy8` or `ryan-culverts` engine selection. `run-hy8` remains
+responsible for generic HY-8 project construction, execution and result parsing.
 
 ## Reading existing HY-8 projects
 
@@ -149,8 +207,7 @@ for culvert in best_design.culverts:
 HY-8 occasionally appends `*` or `**` to a reported control depth. The numeric
 portion remains available as a float and the marker is retained separately in
 `inlet_control_depth_qualifier` or `outlet_control_depth_qualifier`. Numeric
-hydraulic result values are normalized to SI, including values parsed from
-English-unit HY-8 reports. See the
+values remain in the unit system used by the HY-8 report. See the
 [HY-8 control-depth qualifier legend](docs/headwater_helpers.md#hy-8-control-depth-qualifiers)
 for the meaning and limitations of `*` and `**`.
 
@@ -239,17 +296,25 @@ python -m pytest tests
 
 ## Packaging & automation
 
-The repository includes Windows batch helpers so packaging can happen without remembering long commands.
-
-1. `build_package.bat` installs/updates the [`build`](https://pypi.org/project/build/) backend and then runs `python -m build --wheel`, replacing the current wheel under `dist\`.
-2. `install_package.bat` installs or upgrades to the most recently built artifact (wheel if present, otherwise the source distribution) via `pip install --upgrade`.
-3. `run_tests.bat` runs `python -m pytest`. Pass any additional pytest arguments after the script name (for example `run_tests.bat -k culvert`).
-
-Before running tests locally, install the development extras once per virtual environment:
+For a normal installation from PyPI:
 
 ```powershell
-pip install -e .[dev]
+python -m pip install --upgrade run-hy8
 ```
+
+For local development, install the source checkout with development dependencies:
+
+```powershell
+python -m pip install -e ".[dev]"
+```
+
+Local builds use `build_package.bat` or `python scripts/build_library.py`, with
+wheel verification described in [verified package builds](docs/packaging.md).
+`run_tests.bat` runs pytest and accepts additional pytest arguments.
+
+Eligible, successfully validated merges to `main` are published through the
+[automated PyPI workflow](docs/pypi_publishing.md). The release process uses a
+tag-scoped verified wheel rather than committing distribution artifacts.
 
 ## License
 
@@ -283,14 +348,14 @@ project-wide expectation for explicit type hints and `pyright`-clean changes.
 ## Current Limitations
 
 - Constant tailwater elevation only: other HY-8 tailwater definitions are flagged so the user can finish in the GUI.
-- Intentional roadway overtopping is supported for constant and irregular roadway profiles. The high-level hydraulic
-  helpers default to `RoadwayOvertoppingPolicy.ERROR`, which rejects actual parsed roadway discharge unless the caller
-  explicitly selects `WARN` or `ALLOW`. Tailwater at or above the roadway crest is therefore not, by itself, a
-  model-validation error.
+- Intentional roadway overtopping is supported for constant and irregular roadway profiles. The high-level
+  hydraulic helpers default to `RoadwayOvertoppingPolicy.ERROR`, which rejects actual parsed roadway discharge
+  unless the caller selects `WARN` or `ALLOW`. Tailwater above a roadway crest alone does not imply actual flow.
 - The exact HY-8 submergence law for a user-defined roadway discharge coefficient has not been independently
-  reconstructed. The adapter behavior is validated against HY-8, but this is not an independent solver calibration.
-- The JSON loader currently supports HY-8 fundamentals (flow ranges, roadway geometry, culvert barrels). More exotic
-  features (rating curves, irregular channels, etc.) remain intentionally deferred.
+  reconstructed. The adapter has been compared against HY-8, not independently calibrated as a hydraulic solver.
+- Elliptical geometry is limited to version-pinned HY-8 catalogued sizes for supported materials.
+- The JSON loader supports fundamental flows, roadway geometry and culvert barrels; more specialised
+  HY-8 features such as rating curves and irregular channels remain deferred.
 
 ## Legacy hy8runner
 

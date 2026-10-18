@@ -1,0 +1,60 @@
+CrossingGUID: e568e351-a995-4f94-8a9f-dd4c08cf106f
+
+Crossing: Sample Crossing
+
+Culvert: 0
+CulvertName: Barrel 1
+FlowProfileName: Minimum Flow
+FlowProfile: 0
+FlowProfileFlow: 7.06293
+HeadwaterToDepth: 0.262004
+FreeboardToSubgrade: 9.01284
+Overtops: false
+hydraulicJump: false
+FlowType: 1-S2n
+InletSubmerged: false
+OutletSubmerged: false
+ControllingDepth: Inlet Control
+fullFlowLength: 0
+perchDepth: 0
+minDepth: 0.379026
+minDepthLessThanPerchDepth: false
+EndFlowProfile: 0
+
+FlowProfileName: Design Flow
+FlowProfile: 4
+FlowProfileFlow: 35.3147
+HeadwaterToDepth: 0.64526
+FreeboardToSubgrade: 7.7992
+Overtops: false
+hydraulicJump: false
+FlowType: 1-S2n
+InletSubmerged: false
+OutletSubmerged: false
+ControllingDepth: Inlet Control
+fullFlowLength: 0
+perchDepth: 0
+minDepth: 0.900623
+minDepthLessThanPerchDepth: false
+EndFlowProfile: 4
+
+FlowProfileName: Maximum Flow
+FlowProfile: 10
+FlowProfileFlow: 70.6293
+HeadwaterToDepth: 1.0343
+FreeboardToSubgrade: 6.56723
+Overtops: false
+hydraulicJump: false
+FlowType: 1-S2n
+InletSubmerged: true
+OutletSubmerged: false
+ControllingDepth: Inlet Control
+fullFlowLength: 0
+perchDepth: 0
+minDepth: 1.36474
+minDepthLessThanPerchDepth: false
+EndFlowProfile: 10
+
+EndCulvert: 0
+
+EndCrossing

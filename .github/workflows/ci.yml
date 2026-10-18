@@ -8,32 +8,101 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Preserve every main push for exact-SHA release finalization.
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
+
 jobs:
+  python313-compat:
+    name: Python 3.13 compatibility
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Verify source compiles on Python 3.13
+        shell: pwsh
+        run: |
+          python -m compileall -q src/run_hy8 tests scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install package and pytest
+        shell: pwsh
+        run: |
+          python -m pip install -e . pytest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify Python 3.13 import
+        shell: pwsh
+        run: |
+          python -c "import run_hy8; from run_hy8.reader import load_project_from_hy8; print('run_hy8 Python 3.13 import OK')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run Python 3.13 regression tests
+        shell: pwsh
+        run: |
+          python -m pytest tests -m "not requires_hy8 and not legacy_parity" --durations=10
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   build:
     runs-on: windows-latest
     timeout-minutes: 20
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.14"
           cache: pip
+
+      - name: Check GitHub Actions workflows
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $directory = Join-Path $env:RUNNER_TEMP 'actionlint'
+          New-Item -ItemType Directory -Force -Path $directory | Out-Null
+          gh release download v1.7.12 --repo rhysd/actionlint --pattern 'actionlint_1.7.12_windows_amd64.zip' --dir $directory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = Join-Path $directory 'actionlint_1.7.12_windows_amd64.zip'
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '6E7241B51E6817EA6A047693D8E6FED13B31819C9A0DD6C5A726E1592D22F6E9') {
+            throw 'Actionlint archive checksum mismatch.'
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $directory
+          & (Join-Path $directory 'actionlint.exe') -ignore 'unexpected key "queue" for "concurrency" section'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install -e .[dev]
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Lint
         shell: pwsh
         run: |
           python -m ruff check .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m ruff format --check .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build documentation (strict)
+        shell: pwsh
+        run: python -m mkdocs build --strict --clean
 
       - name: Type check
         shell: pwsh
@@ -41,13 +110,9 @@ jobs:
 
       - name: Test
         shell: pwsh
-        run: python -m pytest --cov=src/run_hy8 --cov-report=xml
+        run: python -m pytest tests -m "not requires_hy8 and not legacy_parity" --cov=src/run_hy8 --cov-report=xml --durations=10
 
-      - name: Verify retained package artifact
-        shell: pwsh
-        run: python scripts/verify_wheel.py
-
-      - name: Verify package artifacts
+      - name: Build, verify and smoke-test fresh wheel
         shell: pwsh
         run: |
           python scripts/build_library.py --skip-pip
@@ -55,3 +120,4 @@ jobs:
           python scripts/verify_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/smoke_test_installed_wheel.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -206,7 +206,7 @@ actual import location, source-file hashes, checkout HEAD/status, Python, source
 project version, installed distribution metadata and executable hash. Distribution
 metadata alone is not proof of the imported source version.
 
-Build and verify a wheel without replacing the user's installed package:
+The following historical example rebuilds and verifies the `2026.10.5.1` wheel without replacing the user's installed package. For current releases use [verified package builds](packaging.md):
 
 ```powershell
 python -m build --wheel --outdir validation_artifacts/wheels
@@ -220,20 +220,19 @@ isolated import path/version, and runs a coefficient smoke test. Runtime
 dependencies are explicitly exposed from the existing user site; the source
 checkout is excluded from the import path.
 
-The retained `2026.10.5.1` wheel has been rebuilt from committed package
-source and verified against the package Git tree. The current source/wheel
-fingerprints and validation results are recorded in
-[roadway_review_fix_build_provenance.json](validation_data/roadway_review_fix_build_provenance.json).
-Earlier provenance files are retained as historical evidence for the validation
-steps that preceded the final review fixes.
+The retained `2026.10.5.1` wheel was verified byte-for-byte against the
+corresponding committed package Git tree. The
+[final validation provenance](validation_data/roadway_review_fix_build_provenance.json)
+records source and wheel hashes and verification outcomes. The
+[earlier provenance record](validation_data/roadway_adapter_provenance.json)
+is historical and documents an earlier, superseded uncommitted snapshot.
+These historical artifacts do not establish the contents of newer PyPI releases.
 
-A generated GUI-review project is retained under `tests/fixtures/` for inspection.
-The optional external GUI-authored fixture test remains available for an
-independently supplied HY-8 project:
+The optional independently GUI-authored HY-8 fixture check is separate from
+the retained automated verification. No interactive HY-8 GUI automation is
+included in this package. To run that optional check with a supplied fixture:
 
 ```powershell
 $env:HY8_ROADWAY_GUI_FIXTURE='C:\path\to\irregular-submerged.hy8'
 python -m pytest tests/test_roadway.py -k gui_fixture -m requires_hy8 -q
 ```
-
-No interactive HY-8 GUI automation is part of the package.

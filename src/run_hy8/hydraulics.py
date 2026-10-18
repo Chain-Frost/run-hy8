@@ -29,6 +29,7 @@ from loguru import logger
 from run_hy8.results import FlowProfile, Hy8Series
 
 from .classes_references import UnitSystem
+from .ellipse_catalogue import find_ellipse_catalogue_size
 from .executor import Hy8Executable
 from .models import (
     CulvertBarrel,
@@ -44,6 +45,7 @@ from .writer import Hy8FileWriter
 
 MINIMUM_SEED_FLOW: float = 0.05
 SEED_SCALE_FACTORS: tuple[float, ...] = (0.1, 0.25, 0.5, 1.0, 1.5, 2.0)
+ELLIPTICAL_SEED_SCALE_FACTORS: tuple[float, ...] = (0.5, 1.0, 1.5, 2.0)
 STEP_FRACTION: float = 0.25
 BRACKET_SUBDIVISIONS: int = 5
 SEED_BATCH_SIZE: int = 6
@@ -116,6 +118,8 @@ class _FlowSearch:
     q_hint: float | None = None
     max_runs: int = FLOW_SEARCH_MAX_RUNS
     tolerance: float = 1e-2
+    seed_scale_factors: tuple[float, ...] = SEED_SCALE_FACTORS
+    include_absolute_minimum_seed: bool = True
     samples: list[_FlowSample] = field(default_factory=_flow_sample_list)
 
     def _baseline_flow(self) -> float:
@@ -131,9 +135,9 @@ class _FlowSearch:
 
     def initial_candidates(self) -> list[float]:
         """Return the list of seed flows evaluated before adaptive bracketing."""
-        seeds: set[float] = {MINIMUM_SEED_FLOW}
+        seeds: set[float] = {MINIMUM_SEED_FLOW} if self.include_absolute_minimum_seed else set()
         baseline: float = self._baseline_flow()
-        for factor in SEED_SCALE_FACTORS:
+        for factor in self.seed_scale_factors:
             seeds.add(self._normalize_seed(value=baseline * factor))
         if self.simple_flow and self.simple_flow > 0:
             for factor in (0.5, 1.0):
@@ -344,15 +348,6 @@ def _select_row_by_flow(results: Hy8Results, flow: float) -> Hy8ResultRow:
     return best
 
 
-def _total_barrels(crossing: CulvertCrossing) -> int:
-    """Return the number of barrels represented by the crossing."""
-    total = 0
-    for barrel in crossing.culverts:
-        count: int = barrel.number_of_barrels if barrel.number_of_barrels > 0 else 1
-        total += count
-    return total if total > 0 else 1
-
-
 def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     """Return the characteristic diameter used for HW/D ratio calculations."""
     if not crossing.culverts:
@@ -363,10 +358,10 @@ def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     diameter: float
     if shape is CulvertShape.CIRCLE:
         diameter = reference.span
-    elif shape is CulvertShape.BOX:
+    elif shape in (CulvertShape.BOX, CulvertShape.ELLIPTICAL):
         diameter = reference.rise
     else:
-        msg = "Headwater ratio lookup is only supported for circle/box culverts."
+        msg = "Headwater ratio lookup is only supported for circle/box/elliptical culverts."
         raise NotImplementedError(msg)
     if diameter <= 0:
         msg = "Characteristic diameter must be greater than zero."
@@ -378,12 +373,37 @@ def _characteristic_diameter(crossing: CulvertCrossing) -> float:
     return diameter
 
 
-def _simple_flow_estimate(crossing: CulvertCrossing) -> float:
-    """Return a quick discharge estimate used to seed the flow search."""
-    diameter: float = _characteristic_diameter(crossing=crossing)
-    barrels: int = _total_barrels(crossing=crossing)
-    area: float = math.pi * (diameter**2) / 4.0
-    return area * barrels
+def _simple_flow_estimate(
+    crossing: CulvertCrossing,
+    *,
+    units: UnitSystem = UnitSystem.SI,
+) -> float:
+    """Return a full-section-area scale in the project's unit system."""
+    if not crossing.culverts:
+        msg = "At least one culvert barrel is required."
+        raise ValueError(msg)
+
+    total_area = 0.0
+    for barrel in crossing.culverts:
+        count = barrel.number_of_barrels if barrel.number_of_barrels > 0 else 1
+        if barrel.shape is CulvertShape.CIRCLE:
+            area = math.pi * (barrel.span**2) / 4.0
+        elif barrel.shape is CulvertShape.BOX:
+            area = barrel.span * barrel.rise
+        elif barrel.shape is CulvertShape.ELLIPTICAL:
+            span_m = feet_to_metres(barrel.span) if units is UnitSystem.ENGLISH else barrel.span
+            rise_m = feet_to_metres(barrel.rise) if units is UnitSystem.ENGLISH else barrel.rise
+            catalogue_size = find_ellipse_catalogue_size(
+                span_m,
+                rise_m,
+                material=barrel.material,
+            )
+            area = catalogue_size.area_ft2 if units is UnitSystem.ENGLISH else catalogue_size.area_m2
+        else:
+            msg = f"Flow-search area is not supported for culvert shape {barrel.shape!r}."
+            raise NotImplementedError(msg)
+        total_area += area * count
+    return total_area
 
 
 def crossing_hw_from_q(
@@ -472,9 +492,19 @@ def crossing_q_from_hw(
     )
     workspace_path, should_cleanup = _prepare_workspace(base=workspace, keep_files=keep_files)
     try:
-        simple_flow: float = _simple_flow_estimate(crossing=scenario_crossing)
+        simple_flow: float = _simple_flow_estimate(
+            crossing=scenario_crossing,
+            units=scenario_project.units,
+        )
         headwater_si = feet_to_metres(hw) if scenario_project.units is UnitSystem.ENGLISH else hw
-        search = _FlowSearch(target_headwater=headwater_si, simple_flow=simple_flow, q_hint=q_hint)
+        has_ellipse = any(barrel.shape is CulvertShape.ELLIPTICAL for barrel in scenario_crossing.culverts)
+        search = _FlowSearch(
+            target_headwater=headwater_si,
+            simple_flow=simple_flow,
+            q_hint=q_hint,
+            seed_scale_factors=ELLIPTICAL_SEED_SCALE_FACTORS if has_ellipse else SEED_SCALE_FACTORS,
+            include_absolute_minimum_seed=not has_ellipse,
+        )
         run_count = 0
         final_row: Hy8ResultRow | None = None
         final_flow: float | None = None
