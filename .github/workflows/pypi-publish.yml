@@ -281,6 +281,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/run-hy8
     permissions:
+      contents: read
       id-token: write
 
     steps:
@@ -325,6 +326,30 @@ jobs:
                   raise SystemExit(f"Refusing {proposed}: PyPI already has {version}")
           print(f"Verified {proposed} is newer than all existing PyPI releases")
           PY
+
+      - name: Refuse superseded main merge immediately before upload
+        uses: actions/github-script@v8
+        env:
+          RELEASE_SHA: ${{ needs.release.outputs.sha }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const expected = process.env.RELEASE_SHA;
+            const {data: mainRef} = await github.rest.git.getRef({
+              owner,repo,ref:'heads/main'
+            });
+            if (mainRef.object.sha !== expected) {
+              throw new Error('Refusing PyPI upload: main moved from verified merge ' +
+                expected + ' to ' + mainRef.object.sha);
+            }
+            const {data: tagRef} = await github.rest.git.getRef({
+              owner,repo,ref:'tags/' + process.env.RELEASE_TAG
+            });
+            if (tagRef.object.type !== 'commit' || tagRef.object.sha !== expected) {
+              throw new Error('Refusing PyPI upload: release tag moved or does not match merge.');
+            }
+            core.info('Immediately pre-upload: exact main and release tag SHA ' + expected);
 
       - name: Publish to PyPI using Trusted Publishing
         uses: pypa/gh-action-pypi-publish@release/v1
