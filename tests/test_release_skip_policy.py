@@ -48,3 +48,12 @@ def test_all_release_workflows_are_merge_only() -> None:
     assert "scripts/release_skip_policy.py" in automatic
     assert automatic.index("scripts/release_skip_policy.py") < automatic.index("const tags =")
     assert "pypa/gh-action-pypi-publish@release/v1" in publisher
+    # Never publish a previously verified merge that was superseded
+    # while its Windows distribution build was running.
+    assert "Refuse superseded main merge immediately before upload" in publisher
+    guard = publisher.index("Refuse superseded main merge immediately before upload")
+    upload = publisher.index("Publish to PyPI using Trusted Publishing")
+    assert guard < upload
+    assert "mainRef.object.sha !== expected" in publisher[guard:upload]
+    assert "tagRef.object.sha !== expected" in publisher[guard:upload]
+    assert "RELEASE_SHA: ${{ needs.release.outputs.sha }}" in publisher[guard:upload]
