@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Complete |
+| Status | Needs review |
 | Owner | Unassigned |
 | Created | 2026-10-16 |
-| Updated | 2026-10-16 |
-| Next review | None |
+| Updated | 2026-10-18 |
+| Next review | 2026-10-19 |
 | Delivery | Setup PR #10 and release PR #11 merged; main at 8f2e5b5; PyPI 2026.10.16.1 published |
 
 ## Scope
@@ -108,3 +108,29 @@ README diff against main now contains only the publishing-guide link.
   this public release and passed an isolated API/geometry smoke before its release merge.
 - Code/version/wheel are committed, pushed and merged. This completion handoff is
   included in cleanup PR #6.
+
+## Asset selector follow-up, 2026-10-18
+
+The user authorized completing the asset-selector follow-up and rechecking review
+comments on ryan-tools PR #135 and ryan-culverts PR #38. Both existing findings are
+fixed and resolved; their latest heads pass all five and four checks respectively.
+
+GitHub ignores Release target_commitish when its tag already exists. Match the actual
+lightweight tag ref SHA to the triggering merge instead, preserving stable-release
+filters, duplicate detection, checksum checks and upload behavior. Four regressions
+execute the actual workflow selection with matching and mismatching tag refs and
+branch/stale release metadata.
+
+Delivery branch: fix/release-assets-tag-sha, based on d34e0f0 in the isolated
+E:/Github/run-hy8-release-assets worktree. Commit/push and a follow-up PR are authorized;
+merging is not. Keep skip-release on the PR and [skip release] in its squash message.
+The linked PR owns current hosted CI/review status. Validate locally, publish the PR,
+and confirm its exact-head CI and review before handoff. No package code, metadata,
+version, hydraulic behavior or comparison baseline changes are included.
+
+Local verification on Python 3.14.6: 345 passed, 46 deselected (HY-8 and legacy
+parity excluded); Ruff, formatting (90 files), strict source Pyright (zero diagnostics),
+checksum-verified Actionlint 1.7.12, strict MkDocs and diff whitespace all passed.
+No local wheel rebuild or HY-8 execution was needed for these workflow/test/docs edits;
+hosted CI will build and smoke-test a fresh wheel. Actual OIDC upload remains a later
+eligible-merge check, distinct from the verified release opt-out path.
