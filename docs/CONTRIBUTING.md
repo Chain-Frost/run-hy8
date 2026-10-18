@@ -1,6 +1,6 @@
 # Development and Contribution Guidelines
 
-This project targets Windows and Python 3.14. The coding conventions in
+This project targets Windows and Python 3.13/3.14. The coding conventions in
 [`agents.md`](agents.md) apply to human and automated contributors.
 
 ## Development setup
@@ -53,8 +53,18 @@ line-ending-only changes.
 
 ## Build artifacts
 
-The current wheel in `dist/` is intentionally committed so a known working
-build can be shared directly from the repository. Keep only the current build,
-replace it when the project version changes, and commit it with the source and
-version update that produced it. These small wheels belong in ordinary Git and
-must not be moved to Git LFS.
+Do not commit wheels to `dist/`. For release-eligible merged PRs, the
+automation builds and verifies the wheel, publishes it to PyPI and
+attaches the identical distribution to the GitHub Release.
+
+## Skipping a package release
+
+Normal merged PRs create a PyPI release after post-merge CI succeeds.
+For documentation-only or maintenance PRs, apply the exact label
+`skip-release` **before merging**, or include `[skip release]` in the
+**final squash-merge commit message**. A PR description or an individual
+pre-squash commit is not sufficient for the commit-message alternative.
+
+Release opt-outs do not skip CI, the strict MkDocs build or documentation
+deployment. The release automation has no scheduled or manually dispatched
+publication trigger; only a successful, eligible PR merge can publish.
