@@ -80,13 +80,16 @@ def test_public_search_is_bounded_and_preserves_resolvable_case(
         return Hy8Results({"flow": flows, "headwater": heads})
 
     monkeypatch.setattr(hydraulics, "_write_and_run", fake_run)
+    # Execution is mocked, so constructor validation must not require native HY-8.
+    executable = tmp_path / "unused.exe"
+    executable.touch()
     crossing = CulvertCrossing(name="Synthetic", culverts=[CulvertBarrel()])
     if curve == "smooth":
-        result = crossing.q_from_hw(10.0, q_hint=1.0, workspace=tmp_path)
+        result = crossing.q_from_hw(10.0, q_hint=1.0, hy8=executable, workspace=tmp_path)
         assert result.computed_flow == pytest.approx(1.0)
     else:
         with pytest.raises(FlowSearchError):
-            crossing.q_from_hw(10.0, q_hint=1.0, workspace=tmp_path)
+            crossing.q_from_hw(10.0, q_hint=1.0, hy8=executable, workspace=tmp_path)
     assert len(evaluated) <= hydraulics.FLOW_SEARCH_MAX_RUNS
     assert len(evaluated) == len(set(evaluated))
 

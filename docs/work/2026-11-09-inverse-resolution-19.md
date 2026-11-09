@@ -127,3 +127,11 @@ checks. No merge or release authorized. Keep `ryan-tools#102` open: these
 conditional tutorial assumptions do not establish physical TUFLOW parity,
 independent engineering acceptance, or full-blockage support. #298's forward
 outlet-profile explanation remains a separate investigation.
+
+Hosted first-attempt correction: at `e3eed36`, the four synthetic public-search
+cases mocked execution but still resolved the real default executable. Local
+HY-8 availability masked that test-environment dependency. They now supply a
+temporary dummy executable file to constructor validation; execution remains
+mocked and the native test remains separate. No production code, native evidence,
+wheel source identity, or CI workflow changes are involved. Final-head hosted
+results are recorded in PR #20's description.
