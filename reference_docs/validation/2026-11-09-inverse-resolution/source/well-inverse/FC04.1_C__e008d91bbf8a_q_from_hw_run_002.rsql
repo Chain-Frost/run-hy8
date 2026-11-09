@@ -1,0 +1,26 @@
+CrossingGUID: 94650959-3ff3-4818-9fc5-59c07aa7ff22
+
+Crossing: FC04.1_C__e008d91bbf8a
+
+Culvert: 0
+CulvertName: FC04.1_C__e008d91bbf8a Barrel
+FlowProfileName: Minimum Flow
+FlowProfile: 0
+FlowProfileFlow: 52.972
+HeadwaterToDepth: 0.71304
+FreeboardToSubgrade: 162.057
+Overtops: false
+hydraulicJump: true
+FlowType: 1-JS1t
+InletSubmerged: false
+OutletSubmerged: false
+ControllingDepth: Inlet Control
+fullFlowLength: 0
+perchDepth: 0
+minDepth: 0.930238
+minDepthLessThanPerchDepth: false
+EndFlowProfile: 0
+
+EndCulvert: 0
+
+EndCrossing

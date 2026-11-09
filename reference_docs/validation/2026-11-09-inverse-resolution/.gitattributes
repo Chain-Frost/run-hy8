@@ -1,0 +1,5 @@
+# Preserve native report bytes (including CRLF and padded input cards).
+*.hy8 -text -eol whitespace=-blank-at-eol
+*.rst -text -eol whitespace=-blank-at-eol
+*.rsql -text -eol whitespace=-blank-at-eol
+*.plt -text -eol whitespace=-blank-at-eol

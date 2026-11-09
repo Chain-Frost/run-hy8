@@ -1,0 +1,61 @@
+CrossingGUID: 94650959-3ff3-4818-9fc5-59c07aa7ff22
+
+Table: 0
+Culvert: 0
+BrokenBack: 0
+Dialog: Summary of Flows at Crossing - FC04.1_C__e008d91bbf8a
+Headwater Elevation (m), 43.55, 43.57, 93.35
+Total Discharge (cms), 0.02, 0.20, 32.04
+FC04.1_C__e008d91bbf8a Barrel Discharge (cms), 0.02, 0.20, 32.04
+Roadway Discharge (cms), 0.00, 0.00, 0.00
+Iterations, 1, 1, Overtopping
+
+Table: 1
+Culvert: 0
+BrokenBack: 0
+Dialog: Culvert Summary Table - FC04.1_C__e008d91bbf8a Barrel
+Total Discharge (cms), 0.02, 0.20
+Culvert Discharge (cms), 0.02, 0.20
+Headwater Elevation (m), 43.55, 43.57
+Inlet Control Depth(m), 0.06, 0.20
+Outlet Control Depth(m), 0.20, 0.22
+HW / D, 0.24, 0.26
+Flow Type, 1-S1t, 1-S1t
+Normal Depth (m), 0.03, 0.10
+Critical Depth (m), 0.05, 0.15
+Outlet Depth (m), 0.80, 0.80
+Tailwater Depth (m), 0.80, 0.80
+Outlet Velocity (m/s), 0.01, 0.12
+Tailwater Velocity (m/s), 0.00, 0.00
+
+Table: 2
+Culvert: 0
+BrokenBack: 0
+Dialog: Water Surface Profile Table - FC04.1_C__e008d91bbf8a Barrel
+Total Discharge (cms), 0.02, 0.20
+Culvert Discharge (cms), 0.02, 0.20
+Headwater Elevation (m), 43.55, 43.57
+Inlet Control Depth(m), 0.06, 0.20
+Outlet Control Depth(m), 0.20, 0.22
+HW / D, 0.24, 0.26
+Flow Type, 1-S1t, 1-S1t
+Length Full (m), 0.00, 0.00
+Length Free (m) , 20.00, 20.00
+
+Table: 3
+Culvert: 0
+BrokenBack: 0
+Dialog: Tapered Inlet Table - FC04.1_C__e008d91bbf8a Barrel
+Total Discharge (cms), 0.02, 0.20
+Culvert Discharge (cms), 0.02, 0.20
+Headwater Elevation (m), 43.55, 43.57
+Inlet Control Depth(m), 0.06, 0.20
+Outlet Control Depth(m), 0.20, 0.22
+HW / D, 0.24, 0.26
+Flow Type, 1-S1t, 1-S1t
+Crest Control Elev(m), 0.00, 0.00
+Face Control Elev(m), 0.00, 0.00
+Throat Control Elev(m), 0.00, 0.00
+Tailwater Elevation (m), 43.55, 43.55
+
+EndCrossing
