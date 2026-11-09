@@ -245,19 +245,29 @@ class _FlowSearch:
         return best_pair
 
     def next_guess(self) -> float | None:
-        """Return the next flow to evaluate when no bracket exists yet."""
+        """Expand outside the tolerance band before bisecting an inverse bracket."""
         if len(self.samples) >= self.max_runs:
             return None
-        lows: list[_FlowSample] = [s for s in self.samples if math.isfinite(s.headwater) and self._delta(s) < 0]
-        highs: list[_FlowSample] = [s for s in self.samples if math.isfinite(s.headwater) and self._delta(s) > 0]
+        # The inverse accepts only a rising bracket whose endpoint headwaters
+        # are outside the tolerance band. A near-target sign change alone is
+        # not enough to justify bisection or an exact-match decision.
+        valid_samples: list[_FlowSample] = [s for s in self.samples if math.isfinite(s.headwater)]
+        lows: list[_FlowSample] = [s for s in valid_samples if self._delta(s) < -self.tolerance]
+        highs: list[_FlowSample] = [s for s in valid_samples if self._delta(s) > self.tolerance]
         if lows and highs:
             return (max(lows, key=lambda s: s.flow).flow + min(highs, key=lambda s: s.flow).flow) / 2
         if lows:
-            base: float = max(s.flow for s in self.samples)
+            base: float = max(s.flow for s in valid_samples)
             return max(base + MINIMUM_SEED_FLOW, base * EXPANSION_FACTOR)
         if highs:
-            base = min(s.flow for s in self.samples)
+            base = min(s.flow for s in valid_samples)
             return max(MINIMUM_SEED_FLOW, base / EXPANSION_FACTOR)
+        if valid_samples:
+            # Every finite reading is inside the acceptance band. Look for a
+            # resolvable outside endpoint; flat/rounded readings fail closed
+            # in exact_match(), and the trial budget still bounds expansion.
+            base = max(s.flow for s in valid_samples)
+            return max(base + MINIMUM_SEED_FLOW, base * EXPANSION_FACTOR)
         return self._baseline_flow()
 
     def closest_sample(self) -> _FlowSample | None:

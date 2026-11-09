@@ -52,6 +52,53 @@ def test_resolvable_case_selects_closest_sample_instead_of_first() -> None:
     assert match.flow == 1.0
 
 
+def test_next_guess_expands_upper_endpoint_beyond_tolerance_band() -> None:
+    search = search_with_samples(10.005, [(0.05, 9.97), (1.0, 9.99), (2.0, 10.01)])
+    assert search.bracket() is None
+    # Q=2 is above the target but still inside the 0.01 m acceptance band.
+    # Bisecting to 1.5 would not establish the required upper endpoint.
+    assert search.next_guess() == pytest.approx(4.0)
+    search.record(4.0, Hy8ResultRow(flow=4.0, headwater_elevation=10.05))
+    match = search.exact_match()
+    assert match is not None
+    assert match.flow == pytest.approx(2.0)
+
+
+def test_next_guess_expands_lower_endpoint_beyond_tolerance_band() -> None:
+    search = search_with_samples(10.005, [(1.0, 10.0), (2.0, 10.04)])
+    assert search.bracket() is None
+    # Q=1 is below the target but still inside the acceptance band.
+    assert search.next_guess() == pytest.approx(0.5)
+    search.record(0.5, Hy8ResultRow(flow=0.5, headwater_elevation=9.97))
+    match = search.exact_match()
+    assert match is not None
+    assert match.flow == pytest.approx(1.0)
+
+
+def test_public_search_expands_before_bisecting_near_target_signs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    evaluated: list[float] = []
+
+    def fake_run(**kwargs: object) -> Hy8Results:
+        project = kwargs["project"]
+        assert isinstance(project, hydraulics.Hy8Project)
+        flows = project.crossings[0].flow.sequence()
+        evaluated.extend(flows)
+        heads = [round(9.97 + 0.02 * flow, 2) for flow in flows]
+        return Hy8Results({"flow": flows, "headwater": heads})
+
+    monkeypatch.setattr(hydraulics, "_write_and_run", fake_run)
+    executable = tmp_path / "unused.exe"
+    executable.touch()
+    crossing = CulvertCrossing(name="Synthetic", culverts=[CulvertBarrel()])
+    result = crossing.q_from_hw(10.005, q_hint=1.0, hy8=executable, workspace=tmp_path)
+    assert result.computed_flow == pytest.approx(2.0)
+    assert 4.0 in evaluated
+    assert len(evaluated) == len(set(evaluated))
+    assert len(evaluated) <= hydraulics.FLOW_SEARCH_MAX_RUNS
+
+
 def test_non_monotonic_series_is_not_interpolated() -> None:
     search = search_with_samples(10.0, [(0.5, 9.5), (1.0, 10.0), (2.0, 9.9), (3.0, 11.0)])
     with pytest.raises(FlowSearchError, match="non-monotonic"):

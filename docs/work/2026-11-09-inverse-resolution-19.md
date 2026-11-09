@@ -135,3 +135,31 @@ temporary dummy executable file to constructor validation; execution remains
 mocked and the native test remains separate. No production code, native evidence,
 wheel source identity, or CI workflow changes are involved. Final-head hosted
 results are recorded in PR #20's description.
+
+## 2026-11-09 final review follow-up — outside-tolerance expansion
+
+An exact-final-head Codex P2 at `3fac9ad` found that `next_guess()`
+used **raw residual signs** to choose bisection, even though `bracket()`
+requires both reported headwater endpoints to lie strictly outside the
+existing 0.01 m tolerance band. A valid rounded, increasing curve could
+therefore be prematurely rejected as ambiguous after a near-target
+interpolation trial, instead of expanding the missing high/low endpoint.
+
+`next_guess()` now uses the same outside-band endpoint conditions as
+`bracket()`: expand the high or low discharge range while either required
+endpoint is missing, and bisect only after both exist. If every finite
+sample is inside the tolerance band, bounded high-side expansion attempts
+to establish a resolvable endpoint; flat/rounded readings still fail
+closed. No search budget, report source, engineering tolerance, public
+signature or hydraulic coefficient is changed.
+
+Added direct regressions for missing high/low endpoints and a public
+mocked rounded curve with target HW=10.005 m and
+`HW(Q)=round(9.97+0.02 Q, 2)`. The public case requires evaluating
+Q=4 to establish the upper outside-band endpoint, then accepting
+the independently sampled Q=2 near-target candidate. This is a
+mocked monotone numerical contract, **not** a new Windows HY-8
+executable result. Previous published/source/installed-wheel EG11
+resolution evidence remains intact and does not establish source
+TUFLOW parity. Revalidate focused and hosted tests and request a fresh
+exact-head Codex review before merge or release.
