@@ -178,18 +178,55 @@ class _FlowSearch:
         return sample.headwater - self.target_headwater
 
     def exact_match(self) -> _FlowSample | None:
-        """Return a previously recorded sample whose headwater matches the target."""
-        for sample in self.samples:
-            if math.isnan(sample.headwater):
-                continue
-            if abs(self._delta(sample=sample)) <= self.tolerance:
-                return sample
+        """Accept a tolerance match only with resolved, increasing surrounding samples.
+
+        A rounded headwater shared by distinct trial flows cannot identify an
+        inverse discharge. Do not silently choose the first (often minimum) seed.
+        This preserves the headwater tolerance; it does not promise a Q tolerance.
+        """
+        ordered = sorted(
+            (sample for sample in self.samples if math.isfinite(sample.headwater)),
+            key=lambda sample: sample.flow,
+        )
+        for low, high in pairwise(ordered):
+            if high.headwater < low.headwater:
+                message = "Sampled headwaters are non-monotonic; inverse interpolation is unsafe."
+                raise FlowSearchError(
+                    message,
+                    best_sample=self.closest_sample(),
+                    target_headwater=self.target_headwater,
+                )
+            if high.flow > low.flow and high.headwater == low.headwater and abs(self._delta(low)) <= self.tolerance:
+                message = (
+                    "Insufficient headwater report resolution: distinct trial flows "
+                    f"{low.flow:.8g} and {high.flow:.8g} share HW {low.headwater:.8g} near the target."
+                )
+                raise FlowSearchError(
+                    message,
+                    best_sample=self.closest_sample(),
+                    target_headwater=self.target_headwater,
+                )
+        bracket = self.bracket()
+        if bracket is None:
+            return None
+        low, high = bracket
+        candidates = [
+            sample
+            for sample in ordered
+            if low.flow < sample.flow < high.flow and abs(self._delta(sample)) <= self.tolerance
+        ]
+        if candidates:
+            return min(candidates, key=lambda sample: abs(self._delta(sample)))
         return None
 
     def bracket(self) -> tuple[_FlowSample, _FlowSample] | None:
         """Return the low/high samples that straddle the target headwater."""
         ordered: list[_FlowSample] = sorted(
-            (sample for sample in self.samples if not math.isnan(sample.headwater)),
+            (
+                sample
+                for sample in self.samples
+                if math.isfinite(sample.headwater) and abs(self._delta(sample)) > self.tolerance
+            ),
             key=lambda sample: sample.flow,
         )
         best_pair: tuple[_FlowSample, _FlowSample] | None = None
@@ -197,9 +234,7 @@ class _FlowSearch:
         for low, high in pairwise(ordered):
             low_delta: float = self._delta(sample=low)
             high_delta: float = self._delta(sample=high)
-            if abs(low_delta) <= self.tolerance or abs(high_delta) <= self.tolerance:
-                continue
-            if low_delta == 0 or high_delta == 0 or low_delta * high_delta > 0:
+            if not low_delta < 0 < high_delta:
                 continue
             span: float = high.flow - low.flow
             if span <= 0:
@@ -213,15 +248,15 @@ class _FlowSearch:
         """Return the next flow to evaluate when no bracket exists yet."""
         if len(self.samples) >= self.max_runs:
             return None
-        lows: list[_FlowSample] = [s for s in self.samples if not math.isnan(s.headwater) and self._delta(s) <= 0]
-        highs: list[_FlowSample] = [s for s in self.samples if not math.isnan(s.headwater) and self._delta(s) >= 0]
+        lows: list[_FlowSample] = [s for s in self.samples if math.isfinite(s.headwater) and self._delta(s) < 0]
+        highs: list[_FlowSample] = [s for s in self.samples if math.isfinite(s.headwater) and self._delta(s) > 0]
         if lows and highs:
             return (max(lows, key=lambda s: s.flow).flow + min(highs, key=lambda s: s.flow).flow) / 2
         if lows:
-            base: float = max(lows, key=lambda s: s.flow).flow
+            base: float = max(s.flow for s in self.samples)
             return max(base + MINIMUM_SEED_FLOW, base * EXPANSION_FACTOR)
         if highs:
-            base = min(highs, key=lambda s: s.flow).flow
+            base = min(s.flow for s in self.samples)
             return max(MINIMUM_SEED_FLOW, base / EXPANSION_FACTOR)
         return self._baseline_flow()
 
@@ -513,14 +548,21 @@ def crossing_q_from_hw(
             nonlocal final_row, final_flow
             if sample is None:
                 return False
-            if abs(sample.headwater - headwater_si) <= search.tolerance:
-                final_row = sample.row
-                final_flow = sample.flow
+            match = search.exact_match()
+            if match is not None:
+                final_row = match.row
+                final_flow = match.flow
                 return True
             return False
 
         def run_flow_batch(flows: list[float], *, label: str) -> list[_FlowSample]:
             nonlocal run_count
+            flows = list(
+                dict.fromkeys(
+                    flow for flow in flows if all(abs(flow - sample.flow) > 1e-8 for sample in search.samples)
+                )
+            )
+            flows = flows[: max(0, search.max_runs - len(search.samples))]
             if not flows:
                 return []
             run_count += 1
@@ -608,6 +650,8 @@ def crossing_q_from_hw(
                 else:
                     guess = low.flow + ((headwater_si - low.headwater) / slope) * (high.flow - low.flow)
                 samples: list[_FlowSample] = run_flow_batch(flows=[guess], label="Interpolation")
+                if not samples:
+                    break
                 if samples:
                     matched = False
                     for sample in samples:
@@ -632,10 +676,11 @@ def crossing_q_from_hw(
                 break
         if final_row is None or final_flow is None:
             closest = search.closest_sample()
-            message = "Unable to bracket the requested headwater."
+            message = "Unable to resolve a discharge inside an increasing headwater bracket within the search budget."
             if closest:
                 message += f" Closest sample flow {closest.flow:.4f} => HW {closest.headwater:.4f} (target {hw:.4f})."
-            raise FlowSearchError(message, best_sample=closest, target_headwater=hw)
+            # The enclosing handler preserves requested units for all failure paths.
+            raise FlowSearchError(message, best_sample=closest, target_headwater=hw)  # noqa: TRY301
         logger.info(
             "Crossing {name}: HW {headwater:.4f} achieved at flow {flow:.4f}",
             name=crossing.name,
@@ -650,6 +695,10 @@ def crossing_q_from_hw(
             row=final_row,
             workspace=workspace_path if keep_files else None,
         )
+    except FlowSearchError as error:
+        # Public requested values follow the input project's unit convention.
+        error.target_headwater = hw
+        raise
     finally:
         _cleanup_workspace(path=workspace_path, should_cleanup=should_cleanup and not keep_files and workspace is None)
 

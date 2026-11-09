@@ -20,5 +20,6 @@ nav:
   - Automatic Release Policy: AUTO_PYPI_RELEASES.md
   - Roadway Overtopping Validation History: work/2026-10-05-roadway-overtopping-validation-support.md
   - Release Automation History: work/2026-10-16-pypi-release-automation.md
+  - Low-flow Inverse Resolution: work/2026-11-09-inverse-resolution-19.md
   - Development: CONTRIBUTING.md
   - Agent Notes: agents.md

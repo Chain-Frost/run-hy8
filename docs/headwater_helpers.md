@@ -69,6 +69,25 @@ helper samples seed flows, finds values that bracket the target headwater,
 subdivides the bracket, and interpolates a final candidate. It raises
 `FlowSearchError` when it cannot converge:
 
+Acceptance requires sampled flows on both sides of the candidate, with
+headwaters below and above the target's existing **0.01 m** tolerance band.
+A seed inside that band alone is insufficient. Distinct trial flows with the
+same reported headwater inside the band raise `FlowSearchError` for insufficient
+report resolution; sampled decreases in headwater also fail closed rather than
+being interpolated. Searches evaluate at most 20 distinct trial flows, including
+seeds and subdivisions. A target at the minimum seed may therefore fail for
+lack of a lower bracket even if that seed's headwater matches.
+
+These are conservative acceptance checks on the sampled RST curve, not a
+guarantee of unique discharge or a specified discharge error. The tolerance is
+in SI metres even for English-unit projects. Rounded RST output remains the
+headwater source; finer PLT plot ordinates are not silently substituted.
+Use `keep_files=True` and a fresh `workspace` to retain raw reports when a
+search fails. `best_sample` is diagnostic evidence, **not** a successful inverse.
+
+The [bounded low-flow investigation](work/2026-11-09-inverse-resolution-19.md)
+records the native evidence and limitations.
+
 ```python
 from run_hy8.hydraulics import FlowSearchError
 

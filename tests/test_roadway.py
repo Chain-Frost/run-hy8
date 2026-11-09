@@ -261,7 +261,8 @@ def test_inverse_policy_checks_intermediate_batch(
     project = build_case("constant-free")
     target = project if project_level else project.crossings[0]
     run = getattr(target, method)
-    value = 10.05 if method == "q_from_hw" else 0.05 / 1.2
+    # Keep the selected dry solution above the search floor so it can be bracketed.
+    value = 10.15 if method == "q_from_hw" else 0.15 / 1.2
     kwargs = {"hy8": FakeExecutable(), "workspace": tmp_path, "roadway_overtopping": policy}
     if policy is RoadwayOvertoppingPolicy.ERROR:
         with pytest.raises(RoadwayOvertoppingError):

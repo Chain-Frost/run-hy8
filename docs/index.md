@@ -25,6 +25,7 @@ For installation, usage examples, release information, and limitations, see the
 - [Contributing](CONTRIBUTING.md) and [agent guidance](agents.md)
 - [Roadway overtopping validation history](work/2026-10-05-roadway-overtopping-validation-support.md)
 - [Release automation history](work/2026-10-16-pypi-release-automation.md)
+- [Low-flow inverse resolution investigation](work/2026-11-09-inverse-resolution-19.md)
 
 Historical work records describe the work at the time; refer to the feature
 documentation and publishing policy for the current supported behaviour.
