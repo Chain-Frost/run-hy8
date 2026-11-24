@@ -3,6 +3,11 @@
 These utilities are edited frequently by automated agents in the Codex CLI. Keep these conventions in mind so strict
 type checking and future automation continue to work smoothly.
 
+- Support Python 3.11 through 3.14; prefer Python 3.14 for local development.
+  Ordinary PR CI runs Python 3.11 only. Main-push CI runs Python 3.11 and 3.14,
+  and both must succeed before automated publication. Python 3.12 and 3.13 remain
+  supported but are not routine CI lanes.
+
 - **Type hints everywhere.** `pyright` runs in `strict` mode. Prefer explicit local annotations, and introduce helper
   `TypedDict`s or `Literal` keys when parsing loosely typed inputs. Run `pyright src/run_hy8` before sending changes.
 - **Use `typing.cast` after validation checks.** When a `dict`/`list` comes from JSON or another untyped source, first
