@@ -15,10 +15,12 @@ field unless the caller explicitly overrides it.
 
 from __future__ import annotations
 
+from typing import TypeAlias
+
 from .type_helpers import CulvertMaterial, CulvertShape
 
-type Hy8ShapeMaterialName = tuple[str, str]
-type ManningPair = tuple[float, float]
+Hy8ShapeMaterialName: TypeAlias = tuple[str, str]
+ManningPair: TypeAlias = tuple[float, float]
 
 
 HY8_V8_OBSERVED_MANNING_N: dict[Hy8ShapeMaterialName, ManningPair] = {

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from enum import Enum, IntEnum
-from typing import Any, Self
+from typing import Any, Self, TypeVar
+
+_COERCE_ENUM_TENUM = TypeVar("_COERCE_ENUM_TENUM", bound=Enum)
 
 
-def coerce_enum[TEnum: Enum](enum_cls: type[TEnum], value: Any, *, default: TEnum) -> TEnum:
+def coerce_enum(enum_cls: type[_COERCE_ENUM_TENUM], value: Any, *, default: _COERCE_ENUM_TENUM) -> _COERCE_ENUM_TENUM:
     """Return enum member from the provided value, accepting names/values."""
     if value is None:
         return default
