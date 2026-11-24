@@ -1,6 +1,8 @@
 # Development and Contribution Guidelines
 
-This project targets Windows and Python 3.13/3.14. The coding conventions in
+This project targets Windows and supports Python 3.11–3.14. Ordinary PRs run Python 3.11; main-push CI runs Python 3.11 and 3.14 before release. Python 3.12 and 3.13 remain supported but are not routine CI lanes.
+
+The coding conventions in
 [`agents.md`](agents.md) apply to human and automated contributors.
 
 ## Development setup
