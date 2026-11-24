@@ -15,21 +15,26 @@ concurrency:
 
 jobs:
   python313-compat:
-    name: Python 3.13 compatibility
+    name: Python ${{ matrix.python-version }} compatibility
     runs-on: windows-latest
     timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up Python 3.13
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Verify source compiles on Python 3.13
+      - name: Verify source compiles on Python ${{ matrix.python-version }}
         shell: pwsh
         run: |
           python -m compileall -q src/run_hy8 tests scripts
@@ -41,13 +46,13 @@ jobs:
           python -m pip install -e . pytest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Verify Python 3.13 import
+      - name: Verify Python ${{ matrix.python-version }} import
         shell: pwsh
         run: |
-          python -c "import run_hy8; from run_hy8.reader import load_project_from_hy8; print('run_hy8 Python 3.13 import OK')"
+          python -c "import run_hy8; from run_hy8.reader import load_project_from_hy8; print('run_hy8 Python ${{ matrix.python-version }} import OK')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Run Python 3.13 regression tests
+      - name: Run Python ${{ matrix.python-version }} regression tests
         shell: pwsh
         run: |
           python -m pytest tests -m "not requires_hy8 and not legacy_parity" --durations=10

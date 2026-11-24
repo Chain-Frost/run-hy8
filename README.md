@@ -3,7 +3,7 @@
 run hy8 and parse outputs via python
 
 Utilities for assembling HY-8 project files and running the HY-8 executable from Python. The focus is on a
-pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.13 and 3.14 as the supported runtimes.
+pythonic, extensible object model that can be imported into other scripts, with Windows/Python 3.11, 3.12, 3.13 and 3.14 as the supported runtimes.
 
 ## Highlights
 
@@ -363,3 +363,5 @@ A separate `hy8runner` implementation lives under `tests/hy8runner` so we can us
 It is not published or installed; the supported entry points are the automated regression test
 (`tests/test_legacy_regression.py`) and the comparison workflow in `scripts/sample_crossing_compare.py`, both of which
 import it via `from .hy8runner.hy8_runner import Hy8Runner`.
+
+Python compatibility evidence: [24 November 2026 record](docs/work/2026-11-24-python311-compatibility.md).

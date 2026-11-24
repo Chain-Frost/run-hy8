@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import cast
+from typing import TypeAlias, cast
 
 from .type_helpers import CulvertMaterial, CulvertShape, InletType
 
@@ -100,7 +100,7 @@ class ConcreteBoxInlet(StrEnum):
     BEVEL_1_TO_1_45_DEG_WINGWALL = "bevel-1-to-1-45-deg-wingwall"
 
 
-type SupportedInletConfiguration = (
+SupportedInletConfiguration: TypeAlias = (
     CircularConcreteInlet
     | CircularCorrugatedSteelInlet
     | CircularHdpeInlet
@@ -136,7 +136,7 @@ def _spec(
     )
 
 
-type InletConfigurationKey = tuple[type[StrEnum], str]
+InletConfigurationKey: TypeAlias = tuple[type[StrEnum], str]
 
 
 def _inlet_key(configuration: SupportedInletConfiguration) -> InletConfigurationKey:
